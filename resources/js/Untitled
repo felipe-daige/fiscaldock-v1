@@ -1,0 +1,32 @@
+accept
+*/*
+accept-encoding
+gzip, deflate, br, zstd
+accept-language
+pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7
+cache-control
+no-cache
+connection
+keep-alive
+cookie
+XSRF-TOKEN=eyJpdiI6InRUQm8wenFDS25VTGI0M0FpUm5BaVE9PSIsInZhbHVlIjoicTBkd1R1WFFlNzFaR3pwKzRoN1hjSXBESnNnTllUc05yci85NUx2eTJGc2FKSnBvRE1xb2tNWXRlSEVXUlZuVVppdER2ZVpzWVhJRDBCSytpUytCaitReFc3eEtiQkYyOXQ5MTFJZUlJcVZZdll0c2pvLzFmRi9EMVR1YzBOdTgiLCJtYWMiOiIwZDVjMzMwMjdiZDFjZWQ5M2JkNjJhODBkODcwMmJhNDJmOGQ0NzY5NWU5NTlhZTcyMTM5N2RhYzgyNzRiNGM5IiwidGFnIjoiIn0%3D; laravel-session=eyJpdiI6Im42SFlMb0NmbVFvb1pOdFNsRzJ5MWc9PSIsInZhbHVlIjoid2RuWmEwYVlnd1Bha2dTaW83eXRYY1h3QXRaZnZOMlJUUTJlend5anVBY2l4N3dqVm16YkhFUEwzMlpkV1psTGJzdjZpa0dCRkxrYXNBRlRJS0VXNW9Ya205RGdnRWZEczZGaExCQ0xhRkQ3aXorOG92VHJGeGQ0WjBubWMvMGciLCJtYWMiOiJkMTNiZTg1ZmNlZmFhNWUwMzc0MWYxMmVkNTRlYjBmMmVmYTM0OTRiODU4NDA5NWRlZjIxYTRjNmNlZTRhYTQ5IiwidGFnIjoiIn0%3D
+host
+localhost:8080
+pragma
+no-cache
+referer
+http://localhost:8080/app/solucoes/raf
+sec-ch-ua
+"Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"
+sec-ch-ua-mobile
+?0
+sec-ch-ua-platform
+"macOS"
+sec-fetch-dest
+script
+sec-fetch-mode
+no-cors
+sec-fetch-site
+same-origin
+user-agent
+Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36

@@ -1,0 +1,66 @@
+*.log
+.DS_Store
+.env
+.env.backup
+.env.production
+.env.development
+.env.local
+docker-compose.yml
+docker-compose.override.yml
+Dockerfile.dev
+docker-stack-resolved.yml
+opcache-dev.ini
+.phpactor.json
+.phpunit.result.cache
+/.fleet
+/.idea
+/.nova
+/.phpunit.cache
+/.vscode
+/.zed
+/auth.json
+/node_modules
+/node-v*-linux-*
+/node-v*-linux-*.tar.*
+/public/build
+/public/hot
+/public/storage
+/storage/*.key
+/storage/pail
+/vendor
+Homestead.json
+Homestead.yaml
+Thumbs.db
+
+# Arquivos sensiveis / internos
+/.claude/
+.claude/
+**/.claude/
+.codex
+.codex/
+**/.codex/
+AGENTS.md
+agents.md
+CLAUDE.md
+CHANGELOG.md
+/docs/
+
+# Segredos e configs sensiveis
+*.pem
+*.p12
+*.key
+*.crt
+*.pfx
+
+# Arquivos de runtime/deploy
+docker-stack.yml
+docker-stack-resolved.yml
+
+# Cache de configuracao
+/bootstrap/cache/*.php
+
+# Logs adicionais
+/storage/logs/*.log
+npm-debug.log*
+yarn-error.log
+.superpowers/
