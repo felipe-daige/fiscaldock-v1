@@ -116,6 +116,53 @@ class ConsultaResultado extends Model
     }
 
     /**
+     * Resolve o regime tributário legível a partir do payload ou do CRT cadastrado.
+     */
+    public function getRegimeTributarioLabel(): ?string
+    {
+        $crtResultado = $this->parseCrt($this->getDado('crt'));
+
+        if ($crtResultado !== null) {
+            return $this->formatCrt($crtResultado);
+        }
+
+        $crtParticipante = $this->parseCrt($this->participante?->crt);
+
+        if ($crtParticipante !== null) {
+            return $this->formatCrt($crtParticipante);
+        }
+
+        if ($this->isTruthyFlag($this->getDado('mei'))) {
+            return 'MEI';
+        }
+
+        if ($this->isTruthyFlag($this->getDado('simples_nacional'))) {
+            return 'Simples Nacional';
+        }
+
+        return null;
+    }
+
+    /**
+     * Retorna o payload enriquecido para geração de parecer fiscal.
+     *
+     * @return array<string, mixed>
+     */
+    public function getParecerFiscalPayload(): array
+    {
+        $payload = is_array($this->resultado_dados) ? $this->resultado_dados : [];
+
+        $regime = $this->getRegimeTributarioLabel();
+        $regimePayload = trim((string) ($payload['regime_tributario'] ?? ''));
+
+        if ($regimePayload === '' && $regime !== null) {
+            $payload['regime_tributario'] = $regime;
+        }
+
+        return $payload;
+    }
+
+    /**
      * Retorna a situação cadastral.
      */
     public function getSituacaoCadastral(): ?string
@@ -177,5 +224,38 @@ class ConsultaResultado extends Model
     public function getCndt(): ?array
     {
         return $this->getDado('cndt');
+    }
+
+    private function parseCrt(mixed $value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $crt = (int) $value;
+
+        return in_array($crt, [1, 2, 3], true) ? $crt : null;
+    }
+
+    private function formatCrt(int $crt): string
+    {
+        return match ($crt) {
+            1 => 'Simples Nacional',
+            2 => 'Simples Excesso',
+            3 => 'Lucro Presumido/Real',
+        };
+    }
+
+    private function isTruthyFlag(mixed $value): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        if (! is_scalar($value) || $value === '') {
+            return false;
+        }
+
+        return in_array(strtolower(trim((string) $value)), ['1', 'true', 'sim', 'yes'], true);
     }
 }

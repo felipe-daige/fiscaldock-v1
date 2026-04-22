@@ -1100,13 +1100,14 @@ class DataReceiverController extends Controller
 
 
     /**
-     * Endpoint unificado de progresso, conclusão e erro de consulta em lote.
+     * Endpoint unificado de progresso, etapas concluídas e finalização de consulta em lote.
      *
      * POST /api/consultas/progresso
      *
      * Status possíveis:
-     * - progresso: atualiza cache SSE com progresso parcial
-     * - concluido: persiste resultado no DB + atualiza cache SSE
+     * - processando: atualiza cache SSE com progresso parcial
+     * - concluido: marca a etapa atual como concluída no cache SSE
+     * - finalizado: persiste resultado no DB + atualiza cache SSE
      * - erro: persiste erro no DB + refund (parcial ou total) + atualiza cache SSE
      */
     public function receiveConsultasProgresso(Request $request)
@@ -1131,13 +1132,13 @@ class DataReceiverController extends Controller
             $validated = $request->validate([
                 'user_id'          => 'required|integer|exists:users,id',
                 'tab_id'           => 'required|string|max:36',
-                'status'           => 'required|in:processando,concluido,erro',
+                'status'           => 'required|in:processando,concluido,finalizado,erro',
                 'progresso'        => 'required_if:status,processando|integer|min:0|max:100',
                 'mensagem'         => 'nullable|string|max:255',
-                'etapa'            => 'nullable|integer|min:1',
+                'etapa'            => 'nullable|integer|min:0',
                 'total_etapas'     => 'nullable|integer|min:1',
                 'etapa_label'      => 'nullable|string|max:50',
-                'consulta_lote_id' => 'required_if:status,concluido|required_if:status,erro|nullable|integer|exists:consulta_lotes,id',
+                'consulta_lote_id' => 'required_if:status,finalizado|required_if:status,erro|nullable|integer|exists:consulta_lotes,id',
                 'resultado_resumo' => 'nullable|array',
                 'error_code'       => 'required_if:status,erro|nullable|string|max:50',
                 'error_message'    => 'required_if:status,erro|nullable|string|max:500',
@@ -1145,9 +1146,17 @@ class DataReceiverController extends Controller
                 'refund_amount'    => 'nullable|integer|min:1',
             ]);
 
+            $cacheKey = "progresso:{$validated['user_id']}:{$validated['tab_id']}";
+            $status = $validated['status'];
+            $existingCache = Cache::get($cacheKey);
+            $existingCache = is_array($existingCache) ? $existingCache : [];
+            $etapaAtual = isset($validated['etapa']) ? (int) $validated['etapa'] : null;
+            $totalEtapas = isset($validated['total_etapas']) ? (int) $validated['total_etapas'] : null;
+
             if (
-                ! empty($validated['etapa']) && ! empty($validated['total_etapas'])
-                && $validated['etapa'] > $validated['total_etapas']
+                $etapaAtual !== null && $totalEtapas !== null
+                && $etapaAtual > 0
+                && $etapaAtual > $totalEtapas
             ) {
                 return response()->json([
                     'success' => false,
@@ -1156,19 +1165,26 @@ class DataReceiverController extends Controller
                 ], Response::HTTP_UNPROCESSABLE_ENTITY);
             }
 
-            $cacheKey = "progresso:{$validated['user_id']}:{$validated['tab_id']}";
-            $status = $validated['status'];
+            $consultaLoteId = $validated['consulta_lote_id'] ?? $existingCache['consulta_lote_id'] ?? null;
+            $ultimaEtapaConcluida = $this->resolveConsultaUltimaEtapaConcluida(
+                $existingCache,
+                $status,
+                $etapaAtual,
+                $totalEtapas
+            );
 
             // ── Cenário A: processando (só cache) ──
             if ($status === 'processando') {
                 $cacheData = [
                     'user_id'      => $validated['user_id'],
                     'tab_id'       => $validated['tab_id'],
+                    'consulta_lote_id' => $consultaLoteId,
                     'progresso'    => $validated['progresso'],
                     'mensagem'     => $validated['mensagem'] ?? null,
-                    'etapa'        => $validated['etapa'] ?? null,
-                    'total_etapas' => $validated['total_etapas'] ?? null,
+                    'etapa'        => $etapaAtual,
+                    'total_etapas' => $totalEtapas,
                     'etapa_label'  => $validated['etapa_label'] ?? null,
+                    'ultima_etapa_concluida' => $ultimaEtapaConcluida,
                     'status'       => 'processando',
                     'updated_at'   => now()->toIso8601String(),
                 ];
@@ -1189,7 +1205,35 @@ class DataReceiverController extends Controller
                 ], Response::HTTP_OK);
             }
 
-            // ── Cenários B e C: concluido / erro (DB + cache) ──
+            if ($status === 'concluido') {
+                Cache::put($cacheKey, [
+                    'user_id'          => $validated['user_id'],
+                    'tab_id'           => $validated['tab_id'],
+                    'consulta_lote_id' => $consultaLoteId,
+                    'progresso'        => 100,
+                    'mensagem'         => $validated['mensagem'] ?? 'Etapa concluída.',
+                    'etapa'            => $etapaAtual,
+                    'total_etapas'     => $totalEtapas,
+                    'etapa_label'      => $validated['etapa_label'] ?? null,
+                    'ultima_etapa_concluida' => $ultimaEtapaConcluida,
+                    'status'           => 'concluido',
+                    'updated_at'       => now()->toIso8601String(),
+                ], 600);
+
+                Log::info('Etapa da consulta marcada como concluída', [
+                    'cache_key' => $cacheKey,
+                    'user_id' => $validated['user_id'],
+                    'tab_id' => $validated['tab_id'],
+                    'etapa' => $etapaAtual,
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Etapa concluída.',
+                ], Response::HTTP_OK);
+            }
+
+            // ── Cenários C e D: finalizado / erro (DB + cache) ──
             $lote = ConsultaLote::where('id', $validated['consulta_lote_id'])
                 ->where('user_id', $validated['user_id'])
                 ->first();
@@ -1206,9 +1250,9 @@ class DataReceiverController extends Controller
                 ], Response::HTTP_NOT_FOUND);
             }
 
-            if ($status === 'concluido') {
+            if ($status === 'finalizado') {
                 $updateData = [
-                    'status'        => 'concluido',
+                    'status'        => ConsultaLote::STATUS_FINALIZADO,
                     'processado_em' => now(),
                 ];
 
@@ -1218,28 +1262,29 @@ class DataReceiverController extends Controller
 
                 $lote->update($updateData);
 
-                $totalEtapas = $validated['total_etapas'] ?? $validated['etapa'] ?? null;
+                $etapaFinal = $etapaAtual ?? $totalEtapas;
 
                 Cache::put($cacheKey, [
                     'user_id'          => $validated['user_id'],
                     'tab_id'           => $validated['tab_id'],
                     'consulta_lote_id' => $lote->id,
                     'progresso'        => 100,
-                    'mensagem'         => $validated['mensagem'] ?? 'Consulta concluída.',
-                    'etapa'            => $totalEtapas,
+                    'mensagem'         => $validated['mensagem'] ?? 'Consulta finalizada.',
+                    'etapa'            => $etapaFinal,
                     'total_etapas'     => $totalEtapas,
                     'etapa_label'      => $validated['etapa_label'] ?? null,
-                    'status'           => 'concluido',
+                    'ultima_etapa_concluida' => $ultimaEtapaConcluida,
+                    'status'           => ConsultaLote::STATUS_FINALIZADO,
                     'updated_at'       => now()->toIso8601String(),
                 ], 600);
 
-                Log::info('ConsultaLote concluído', [
+                Log::info('ConsultaLote finalizado', [
                     'consulta_lote_id' => $lote->id,
                 ]);
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Consulta concluída.',
+                    'message' => 'Consulta finalizada.',
                 ], Response::HTTP_OK);
             }
 
@@ -1262,9 +1307,10 @@ class DataReceiverController extends Controller
                 'consulta_lote_id' => $lote->id,
                 'progresso'        => $validated['progresso'] ?? 0,
                 'mensagem'         => $validated['error_message'] ?? 'Erro no processamento.',
-                'etapa'            => $validated['etapa'] ?? null,
-                'total_etapas'     => $validated['total_etapas'] ?? null,
+                'etapa'            => $etapaAtual,
+                'total_etapas'     => $totalEtapas,
                 'etapa_label'      => $validated['etapa_label'] ?? null,
+                'ultima_etapa_concluida' => $ultimaEtapaConcluida,
                 'status'           => 'erro',
                 'error_code'       => $validated['error_code'] ?? 'UNKNOWN_ERROR',
                 'error_message'    => $validated['error_message'] ?? 'Erro desconhecido',
@@ -1309,6 +1355,139 @@ class DataReceiverController extends Controller
         }
     }
 
+    private function resolveConsultaUltimaEtapaConcluida(
+        array $existingCache,
+        string $status,
+        ?int $etapaAtual,
+        ?int $totalEtapas
+    ): ?int {
+        $ultimaEtapaConcluida = $this->inferConsultaUltimaEtapaConcluida($existingCache);
+
+        if ($status === 'processando') {
+            $ultimaEtapaConcluida = $this->mergeConsultaUltimaEtapaConcluida(
+                $ultimaEtapaConcluida,
+                $this->resolveConsultaEtapaAnterior($etapaAtual, $totalEtapas),
+                $totalEtapas
+            );
+        }
+
+        if ($status === 'concluido' && $etapaAtual !== null) {
+            $ultimaEtapaConcluida = $this->mergeConsultaUltimaEtapaConcluida(
+                $ultimaEtapaConcluida,
+                $etapaAtual,
+                $totalEtapas
+            );
+        }
+
+        if ($status === ConsultaLote::STATUS_FINALIZADO) {
+            $ultimaEtapaConcluida = $this->mergeConsultaUltimaEtapaConcluida(
+                $ultimaEtapaConcluida,
+                $etapaAtual ?? $totalEtapas,
+                $totalEtapas
+            );
+        }
+
+        if ($status === 'erro') {
+            $ultimaEtapaConcluida = $this->mergeConsultaUltimaEtapaConcluida(
+                $ultimaEtapaConcluida,
+                $this->resolveConsultaEtapaAnterior($etapaAtual, $totalEtapas),
+                $totalEtapas
+            );
+        }
+
+        return $this->normalizeConsultaEtapa($ultimaEtapaConcluida, $totalEtapas);
+    }
+
+    private function inferConsultaUltimaEtapaConcluida(array $cacheData): ?int
+    {
+        $ultimaEtapaConcluida = isset($cacheData['ultima_etapa_concluida'])
+            ? (int) $cacheData['ultima_etapa_concluida']
+            : null;
+
+        if ($ultimaEtapaConcluida !== null) {
+            return $this->normalizeConsultaEtapa($ultimaEtapaConcluida, null);
+        }
+
+        $status = $cacheData['status'] ?? null;
+        $etapa = isset($cacheData['etapa']) ? (int) $cacheData['etapa'] : null;
+        $totalEtapas = isset($cacheData['total_etapas']) ? (int) $cacheData['total_etapas'] : null;
+
+        if ($status === 'concluido' && $etapa !== null) {
+            return $this->normalizeConsultaEtapa($etapa, $totalEtapas);
+        }
+
+        if (in_array($status, ['processando', 'erro'], true)) {
+            return $this->resolveConsultaEtapaAnterior($etapa, $totalEtapas);
+        }
+
+        if ($status === ConsultaLote::STATUS_FINALIZADO) {
+            return $this->normalizeConsultaEtapa($etapa ?? $totalEtapas, $totalEtapas);
+        }
+
+        return null;
+    }
+
+    private function resolveConsultaEtapaAnterior(?int $etapaAtual, ?int $totalEtapas): ?int
+    {
+        if ($etapaAtual === null) {
+            return null;
+        }
+
+        if ($etapaAtual === 0) {
+            return $this->normalizeConsultaEtapa($totalEtapas, $totalEtapas);
+        }
+
+        if ($etapaAtual <= 1) {
+            return null;
+        }
+
+        return $etapaAtual - 1;
+    }
+
+    private function mergeConsultaUltimaEtapaConcluida(
+        ?int $atual,
+        ?int $candidata,
+        ?int $totalEtapas
+    ): ?int {
+        $atual = $this->normalizeConsultaEtapa($atual, $totalEtapas);
+        $candidata = $this->normalizeConsultaEtapa($candidata, $totalEtapas);
+
+        if ($candidata === null) {
+            return $atual;
+        }
+
+        if ($atual === null) {
+            return $candidata;
+        }
+
+        return $this->consultaEtapaSequencePosition($candidata, $totalEtapas)
+            >= $this->consultaEtapaSequencePosition($atual, $totalEtapas)
+            ? $candidata
+            : $atual;
+    }
+
+    private function normalizeConsultaEtapa(?int $etapa, ?int $totalEtapas): ?int
+    {
+        if ($etapa === null || $etapa < 0) {
+            return null;
+        }
+
+        if ($etapa > 0 && $totalEtapas !== null) {
+            return min($etapa, $totalEtapas);
+        }
+
+        return $etapa;
+    }
+
+    private function consultaEtapaSequencePosition(int $etapa, ?int $totalEtapas): int
+    {
+        if ($etapa === 0) {
+            return $totalEtapas !== null ? $totalEtapas + 1 : PHP_INT_MAX;
+        }
+
+        return $etapa;
+    }
+
     /**
      * Estorna créditos de um lote de consulta em caso de erro.
      *
@@ -1343,4 +1522,3 @@ class DataReceiverController extends Controller
     }
 
 }
-

@@ -238,6 +238,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/notas', [ClearanceController::class, 'notas'])->name('notas');
         Route::get('/notas/todos-ids', [ClearanceController::class, 'todosIds'])->name('todos-ids');
         Route::post('/notas/validar', [ClearanceController::class, 'validarNotas'])->name('validar');
+        Route::get('/notas/resultado/{consultaLoteId}', [ClearanceController::class, 'resultadoNotas'])->name('notas.resultado');
         Route::get('/buscar', [ClearanceController::class, 'buscarNfe'])->name('buscar');
         Route::post('/buscar/consultar', [ClearanceController::class, 'consultarNfe'])->name('buscar.consultar');
         Route::get('/buscar/resultado/{consultaLoteId}', [ClearanceController::class, 'resultadoUltimaConsulta'])->name('buscar.resultado');
@@ -286,6 +287,9 @@ Route::middleware('auth')->group(function () {
         // Historico
         Route::get('/historico', [ConsultaController::class, 'historico'])->name('historico');
 
+        // Detalhe do lote
+        Route::get('/lote/{id}', [ConsultaController::class, 'showLote'])->name('lote.show');
+
         // Download de lote
         Route::get('/lote/{id}/baixar', [ConsultaController::class, 'baixarLote'])->name('lote.baixar');
 
@@ -309,6 +313,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/historico', fn (Request $request) => $legacyRedirect($request, '/app/consulta/historico'));
         Route::get('/planos', fn (Request $request) => $legacyRedirect($request, '/app/consulta/planos'));
         Route::get('/avulso', fn (Request $request) => $legacyRedirect($request, '/app/consulta/avulso'));
+        Route::get('/lote/{id}', fn (Request $request, $id) => $legacyRedirect($request, "/app/consulta/lote/{$id}"));
         Route::get('/lote/{id}/baixar', fn (Request $request, $id) => $legacyRedirect($request, "/app/consulta/lote/{$id}/baixar"));
         Route::get('/lote/{id}/status', fn (Request $request, $id) => $legacyRedirect($request, "/app/consulta/lote/{$id}/status"));
         Route::get('/lote/{id}/resultados', fn (Request $request, $id) => $legacyRedirect($request, "/app/consulta/lote/{$id}/resultados"));

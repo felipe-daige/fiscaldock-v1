@@ -11,6 +11,7 @@ use App\Models\XmlImportacao;
 use App\Models\XmlNota;
 use App\Services\CreditService;
 use App\Services\ValidacaoContabilService;
+use Illuminate\Support\Collection;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -424,6 +425,11 @@ class ClearanceController extends Controller
                 'consulta_lote_id' => $lote->id,
                 'tab_id' => $validated['tab_id'],
                 'progress_url' => url('/app/consulta/progresso/stream?tab_id='.$validated['tab_id']),
+                'resultado_url' => route('app.clearance.buscar.resultado', [
+                    'consultaLoteId' => $lote->id,
+                    'tipo_documento' => $tipoDoc,
+                    'chave_acesso' => $chave,
+                ]),
                 'mensagem' => 'Consulta iniciada.',
                 'novo_saldo' => $this->creditService->getBalance($user),
             ]);
@@ -460,15 +466,86 @@ class ClearanceController extends Controller
     /**
      * Retorna a consulta canônica persistida pelo fluxo de clearance avulso.
      *
-     * Chamado pelo frontend depois do SSE sinalizar status=concluido.
+     * Chamado pelo frontend depois do SSE sinalizar status=finalizado.
      */
     public function resultadoUltimaConsulta(Request $request, int $consultaLoteId)
     {
         if (! Auth::check()) {
+            if ($this->isAjaxRequest($request)) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Usuário não autenticado.',
+                ], Response::HTTP_UNAUTHORIZED);
+            }
+
+            return $this->redirectToLogin($request);
+        }
+
+        $userId = Auth::id();
+        $chaveConsultada = preg_replace('/\D/', '', (string) $request->query('chave_acesso', ''));
+        $tipoDocumento = strtoupper((string) $request->query('tipo_documento', 'NFE'));
+
+        $lote = ConsultaLote::where('id', $consultaLoteId)
+            ->where('user_id', $userId)
+            ->first();
+
+        if (! $lote) {
+            if (! $this->isAjaxRequest($request)) {
+                abort(404);
+            }
+
             return response()->json([
                 'success' => false,
-                'error' => 'Usuário não autenticado.',
-            ], Response::HTTP_UNAUTHORIZED);
+                'error' => 'Lote não encontrado.',
+            ], Response::HTTP_NOT_FOUND);
+        }
+
+        $nota = $this->buscarConsultaDfePorLote($userId, $lote->id);
+        $notaAcervo = null;
+
+        if (! $nota && strlen($chaveConsultada) === 44) {
+            $notaAcervo = $this->buscarNotaAcervoPorChave($userId, $chaveConsultada);
+        }
+
+        $notaResultado = $nota
+            ? $this->formatarResultadoConsultaDfe($nota, $userId)
+            : ($notaAcervo ? $this->formatarResultadoXmlAcervo($notaAcervo) : null);
+
+        if (! $this->isAjaxRequest($request)) {
+            return $this->render($request, 'buscar-resultado', [
+                'lote' => $lote,
+                'statusMeta' => $this->statusMetaLote($lote->status),
+                'notaResultado' => $notaResultado,
+                'tipoDocumento' => $tipoDocumento,
+                'chaveConsultada' => strlen($chaveConsultada) === 44
+                    ? $chaveConsultada
+                    : ($notaResultado['nfe_id'] ?? null),
+                'aguardaPersistencia' => $lote->isFinalizado() && ! $notaResultado,
+            ]);
+        }
+
+        if (! $notaResultado) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Consulta ainda não persistida nas tabelas canônicas do clearance.',
+                'status_lote' => ConsultaLote::normalizeStatus($lote->status),
+            ], Response::HTTP_NOT_FOUND);
+        }
+
+        return response()->json([
+            'success' => true,
+            'nota' => $notaResultado,
+        ]);
+    }
+
+    public function resultadoNotas(Request $request, int $consultaLoteId)
+    {
+        if (! Auth::check()) {
+            if ($this->isAjaxRequest($request)) {
+                return response()->json(['success' => false, 'error' => 'Usuário não autenticado.'], Response::HTTP_UNAUTHORIZED);
+            }
+
+            return $this->redirectToLogin($request);
         }
 
         $userId = Auth::id();
@@ -478,40 +555,32 @@ class ClearanceController extends Controller
             ->first();
 
         if (! $lote) {
-            return response()->json([
-                'success' => false,
-                'error' => 'Lote não encontrado.',
-            ], Response::HTTP_NOT_FOUND);
+            if ($this->isAjaxRequest($request)) {
+                return response()->json(['success' => false, 'error' => 'Lote não encontrado.'], Response::HTTP_NOT_FOUND);
+            }
+
+            abort(404);
         }
 
-        $nota = $this->buscarConsultaDfePorLote($userId, $lote->id);
+        $resultados = $this->listarConsultasDfePorLote($userId, $lote->id);
+        $resumo = $this->resumirResultadosClearance($resultados);
 
-        if (! $nota) {
+        if ($this->isAjaxRequest($request)) {
             return response()->json([
-                'success' => false,
-                'error' => 'Consulta ainda não persistida nas tabelas canônicas do clearance.',
-                'status_lote' => $lote->status,
-            ], Response::HTTP_NOT_FOUND);
+                'success' => true,
+                'status_lote' => ConsultaLote::normalizeStatus($lote->status),
+                'total_resultados' => $resultados->count(),
+                'resumo' => $resumo,
+            ]);
         }
 
-        return response()->json([
-            'success' => true,
-            'nota' => [
-                'id' => $nota->id,
-                'consulta_lote_id' => $nota->consulta_lote_id,
-                'tipo_documento' => $nota->tipo_documento,
-                'nfe_id' => $nota->chave_acesso,
-                'numero_nota' => $nota->numero,
-                'serie' => $nota->serie,
-                'valor_total' => $nota->valor_total,
-                'data_emissao' => $this->formatarDataConsulta($nota->data_emissao),
-                'emit' => $nota->emit_nome ?: $nota->emit_cnpj,
-                'dest' => $nota->dest_nome ?: $nota->tomador_nome ?: $nota->dest_cnpj ?: $nota->tomador_cnpj,
-                'cliente_nome' => $nota->cliente_nome,
-                'situacao' => $nota->status,
-                'consultado_em' => $this->formatarDataConsulta($nota->consultado_em),
-                'detalhe_url' => null,
-            ],
+        return $this->render($request, 'notas-resultado', [
+            'lote' => $lote,
+            'statusMeta' => $this->statusMetaLote($lote->status),
+            'resultados' => $resultados,
+            'resumo' => $resumo,
+            'tipoValidacao' => strtolower((string) $request->query('tipo_validacao', '')),
+            'aguardaPersistencia' => $lote->isFinalizado() && $resultados->isEmpty(),
         ]);
     }
 
@@ -970,6 +1039,10 @@ class ClearanceController extends Controller
                 'consulta_lote_id' => $lote->id,
                 'tab_id' => $tabId,
                 'progress_url' => $tabId ? url('/app/consulta/progresso/stream?tab_id='.$tabId) : null,
+                'resultado_url' => route('app.clearance.notas.resultado', [
+                    'consultaLoteId' => $lote->id,
+                    'tipo_validacao' => $tipo,
+                ]),
                 'novo_saldo' => $this->creditService->getBalance($user),
             ]));
         } catch (\Throwable $e) {
@@ -1326,6 +1399,93 @@ class ClearanceController extends Controller
             ->first();
     }
 
+    private function listarConsultasDfePorLote(int $userId, int $consultaLoteId): Collection
+    {
+        $nfe = DB::table('nfe_consultas as consulta')
+            ->leftJoin('clientes as cliente', 'cliente.id', '=', 'consulta.cliente_id')
+            ->selectRaw("
+                consulta.id,
+                consulta.consulta_lote_id,
+                consulta.chave_acesso,
+                UPPER(COALESCE(consulta.tipo_documento, 'NFE')) as tipo_documento,
+                COALESCE(consulta.modelo, '55') as modelo,
+                consulta.numero,
+                consulta.serie,
+                consulta.status,
+                consulta.valor_total,
+                consulta.data_emissao,
+                consulta.emit_nome,
+                consulta.emit_cnpj,
+                consulta.dest_nome,
+                consulta.dest_cnpj,
+                NULL::varchar as tomador_nome,
+                NULL::varchar as tomador_cnpj,
+                cliente.razao_social as cliente_nome,
+                consulta.consultado_em,
+                consulta.created_at
+            ")
+            ->where('consulta.user_id', $userId)
+            ->where('consulta.consulta_lote_id', $consultaLoteId);
+
+        $cte = DB::table('cte_consultas as consulta')
+            ->leftJoin('clientes as cliente', 'cliente.id', '=', 'consulta.cliente_id')
+            ->selectRaw("
+                consulta.id,
+                consulta.consulta_lote_id,
+                consulta.chave_acesso,
+                UPPER(COALESCE(consulta.tipo_documento, 'CTE')) as tipo_documento,
+                COALESCE(consulta.modelo, '57') as modelo,
+                consulta.numero,
+                consulta.serie,
+                consulta.status,
+                consulta.valor_prestacao as valor_total,
+                consulta.data_emissao,
+                consulta.emit_nome,
+                consulta.emit_cnpj,
+                consulta.dest_nome,
+                consulta.dest_cnpj,
+                consulta.tomador_nome,
+                consulta.tomador_cnpj,
+                cliente.razao_social as cliente_nome,
+                consulta.consultado_em,
+                consulta.created_at
+            ")
+            ->where('consulta.user_id', $userId)
+            ->where('consulta.consulta_lote_id', $consultaLoteId);
+
+        $resultados = DB::query()
+            ->fromSub($nfe->unionAll($cte), 'consultas')
+            ->orderByRaw('COALESCE(consultado_em, created_at) DESC')
+            ->orderByDesc('id')
+            ->get();
+
+        $xmlByChave = XmlNota::query()
+            ->where('user_id', $userId)
+            ->whereIn('nfe_id', $resultados->pluck('chave_acesso')->filter()->unique()->values())
+            ->pluck('id', 'nfe_id');
+
+        return $resultados->map(function ($resultado) use ($userId, $xmlByChave) {
+            $status = strtoupper((string) ($resultado->status ?? 'INDETERMINADO'));
+            $resultado->status_label = $status;
+            $resultado->status_hex = $this->statusHexConsultaDfe($status);
+            $resultado->valor_total_label = $resultado->valor_total !== null
+                ? 'R$ '.number_format((float) $resultado->valor_total, 2, ',', '.')
+                : '—';
+            $resultado->data_emissao_label = $this->formatarDataCurta($resultado->data_emissao);
+            $resultado->consultado_em_label = $this->formatarDataConsulta($resultado->consultado_em ?: $resultado->created_at);
+            $resultado->participante_label = $resultado->dest_nome
+                ?: $resultado->tomador_nome
+                ?: $resultado->dest_cnpj
+                ?: $resultado->tomador_cnpj
+                ?: 'Não informado';
+            $resultado->detalhe_url = isset($xmlByChave[$resultado->chave_acesso])
+                ? route('app.clearance.nota', ['id' => $xmlByChave[$resultado->chave_acesso]])
+                : $this->resolverDetalheNotaUrl($userId, $resultado->chave_acesso);
+
+            return $resultado;
+        });
+    }
+
     private function consultaDfeHistoricoQuery(int $userId): Builder
     {
         $nfe = DB::table('nfe_consultas as consulta')
@@ -1381,6 +1541,133 @@ class ClearanceController extends Controller
             ->whereNotNull('consulta.consulta_lote_id');
 
         return DB::query()->fromSub($nfe->unionAll($cte), 'consultas');
+    }
+
+    private function buscarNotaAcervoPorChave(int $userId, string $chaveAcesso): ?XmlNota
+    {
+        return XmlNota::query()
+            ->where('user_id', $userId)
+            ->where('nfe_id', $chaveAcesso)
+            ->first();
+    }
+
+    private function formatarResultadoConsultaDfe(object $nota, int $userId): array
+    {
+        return [
+            'id' => $nota->id,
+            'consulta_lote_id' => $nota->consulta_lote_id,
+            'tipo_documento' => strtoupper((string) ($nota->tipo_documento ?? 'NFE')),
+            'nfe_id' => $nota->chave_acesso,
+            'numero_nota' => $nota->numero,
+            'serie' => $nota->serie,
+            'valor_total' => $nota->valor_total,
+            'valor_total_label' => $nota->valor_total !== null
+                ? 'R$ '.number_format((float) $nota->valor_total, 2, ',', '.')
+                : '—',
+            'data_emissao' => $this->formatarDataCurta($nota->data_emissao),
+            'emit' => $nota->emit_nome ?: $nota->emit_cnpj,
+            'dest' => $nota->dest_nome ?: $nota->tomador_nome ?: $nota->dest_cnpj ?: $nota->tomador_cnpj,
+            'cliente_nome' => $nota->cliente_nome,
+            'situacao' => strtoupper((string) ($nota->status ?? 'INDETERMINADO')),
+            'situacao_hex' => $this->statusHexConsultaDfe($nota->status ?? null),
+            'consultado_em' => $this->formatarDataConsulta($nota->consultado_em),
+            'detalhe_url' => $this->resolverDetalheNotaUrl($userId, $nota->chave_acesso),
+        ];
+    }
+
+    private function formatarResultadoXmlAcervo(XmlNota $nota): array
+    {
+        $situacao = strtoupper((string) data_get($nota->validacao, 'situacao', 'SALVA_NO_ACERVO'));
+
+        return [
+            'id' => $nota->id,
+            'consulta_lote_id' => null,
+            'tipo_documento' => strtoupper((string) ($nota->tipo_documento ?: 'NFE')),
+            'nfe_id' => $nota->nfe_id,
+            'numero_nota' => $nota->numero_nota,
+            'serie' => $nota->serie,
+            'valor_total' => $nota->valor_total,
+            'valor_total_label' => $nota->valor_total !== null
+                ? 'R$ '.number_format((float) $nota->valor_total, 2, ',', '.')
+                : '—',
+            'data_emissao' => optional($nota->data_emissao)->format('d/m/Y H:i'),
+            'emit' => $nota->emit_razao_social ?: $nota->emit_cnpj,
+            'dest' => $nota->dest_razao_social ?: $nota->dest_cnpj,
+            'cliente_nome' => $nota->cliente?->razao_social,
+            'situacao' => $situacao,
+            'situacao_hex' => $this->statusHexConsultaDfe($situacao),
+            'consultado_em' => $this->formatarDataConsulta($nota->updated_at ?: $nota->created_at),
+            'detalhe_url' => route('app.clearance.nota', ['id' => $nota->id]),
+        ];
+    }
+
+    private function resolverDetalheNotaUrl(int $userId, ?string $chaveAcesso): ?string
+    {
+        $chave = trim((string) $chaveAcesso);
+
+        if ($chave === '') {
+            return null;
+        }
+
+        $xmlNotaId = XmlNota::query()
+            ->where('user_id', $userId)
+            ->where('nfe_id', $chave)
+            ->value('id');
+
+        if ($xmlNotaId) {
+            return route('app.clearance.nota', ['id' => $xmlNotaId]);
+        }
+
+        return '/app/notas-fiscais?chave='.urlencode($chave);
+    }
+
+    private function resumirResultadosClearance(Collection $resultados): array
+    {
+        return [
+            'total' => $resultados->count(),
+            'autorizadas' => $resultados->filter(fn ($item) => in_array($item->status_label ?? '', ['AUTORIZADA', 'NEGATIVA'], true))->count(),
+            'alertas' => $resultados->filter(fn ($item) => in_array($item->status_label ?? '', ['CANCELADA', 'DENEGADA', 'INUTILIZADA'], true))->count(),
+            'indeterminadas' => $resultados->filter(fn ($item) => in_array($item->status_label ?? '', ['INDETERMINADO', 'NAO_ENCONTRADA'], true))->count(),
+            'erros' => $resultados->filter(function ($item) {
+                $status = strtoupper((string) ($item->status_label ?? ''));
+
+                return str_starts_with($status, 'ERRO');
+            })->count(),
+        ];
+    }
+
+    private function statusMetaLote(?string $status): array
+    {
+        return match (ConsultaLote::normalizeStatus($status)) {
+            ConsultaLote::STATUS_PROCESSANDO => ['label' => 'Processando', 'hex' => '#d97706'],
+            ConsultaLote::STATUS_FINALIZADO => ['label' => 'Finalizado', 'hex' => '#047857'],
+            ConsultaLote::STATUS_ERRO => ['label' => 'Erro', 'hex' => '#dc2626'],
+            default => ['label' => 'Pendente', 'hex' => '#9ca3af'],
+        };
+    }
+
+    private function statusHexConsultaDfe(?string $status): string
+    {
+        return match (strtoupper((string) $status)) {
+            'AUTORIZADA', 'NEGATIVA' => '#047857',
+            'CANCELADA', 'DENEGADA', 'INUTILIZADA' => '#dc2626',
+            'INDETERMINADO', 'NAO_ENCONTRADA' => '#d97706',
+            'ERRO_PARAMETRO', 'ERRO_PROVEDOR' => '#6b7280',
+            default => '#374151',
+        };
+    }
+
+    private function formatarDataCurta($valor): ?string
+    {
+        if (empty($valor)) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($valor)->format('d/m/Y H:i');
+        } catch (\Throwable) {
+            return is_string($valor) ? $valor : null;
+        }
     }
 
     private function formatarDataConsulta($valor): ?string

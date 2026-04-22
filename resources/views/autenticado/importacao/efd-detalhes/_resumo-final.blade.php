@@ -197,13 +197,13 @@
  @if($participantes->onFirstPage())
  <span class="px-3 py-1.5 rounded border border-gray-300 text-gray-300 text-xs cursor-not-allowed">Anterior</span>
  @else
- <a href="{{ $participantes->previousPageUrl() }}" data-link class="px-3 py-1.5 rounded border border-gray-300 text-gray-700 text-xs font-medium hover:bg-gray-50 transition">Anterior</a>
+ <a href="{{ $participantes->previousPageUrl() }}" data-link data-async-pagination class="px-3 py-1.5 rounded border border-gray-300 text-gray-700 text-xs font-medium hover:bg-gray-50 transition">Anterior</a>
  @endif
 
  <span class="px-3 py-1.5 text-xs text-gray-500">{{ $participantes->currentPage() }} / {{ $participantes->lastPage() }}</span>
 
  @if($participantes->hasMorePages())
- <a href="{{ $participantes->nextPageUrl() }}" data-link class="px-3 py-1.5 rounded border border-gray-300 text-gray-700 text-xs font-medium hover:bg-gray-50 transition">Proxima</a>
+ <a href="{{ $participantes->nextPageUrl() }}" data-link data-async-pagination class="px-3 py-1.5 rounded border border-gray-300 text-gray-700 text-xs font-medium hover:bg-gray-50 transition">Proxima</a>
  @else
  <span class="px-3 py-1.5 rounded border border-gray-300 text-gray-300 text-xs cursor-not-allowed">Proxima</span>
  @endif

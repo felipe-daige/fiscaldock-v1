@@ -253,7 +253,12 @@ function initClearanceBuscar() {
             }
 
             if (status === 'concluido') {
-                setProgresso(100, 'Concluído, carregando resultado...');
+                setProgresso(100, etapa);
+                return;
+            }
+
+            if (status === 'finalizado') {
+                setProgresso(100, 'Finalizado, carregando resultado...');
                 fecharSseEexpirar();
                 buscarResultado(consultaLoteId);
                 inFlight = false;
@@ -383,6 +388,12 @@ function initClearanceBuscar() {
             }
 
             if (typeof data.novo_saldo === 'number') atualizarSaldo(data.novo_saldo);
+            if (data.resultado_url) {
+                setProgresso(20, 'Consulta iniciada, abrindo tela de resultado...');
+                window.location.assign(data.resultado_url);
+                return;
+            }
+
             setProgresso(15, 'Consulta iniciada, aguardando provedor...');
             abrirSse(data.tab_id || tabId, data.consulta_lote_id);
 

@@ -1,9 +1,9 @@
 {{-- Barra de navegação ancorada (sticky) --}}
 @if($importacao->status === 'concluido')
-<nav class="sticky top-0 z-20 bg-white/95 backdrop-blur border border-gray-300 rounded mb-6 px-4 py-2 flex items-center justify-between gap-4" id="efd-sticky-nav">
+<nav class="sticky top-0 z-20 bg-white/95 backdrop-blur border border-gray-300 rounded mb-4 px-4 py-2 flex items-center justify-between gap-4" id="efd-sticky-nav">
  <div class="flex items-center gap-1 overflow-x-auto" style="scrollbar-width: thin;">
  <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide mr-2 flex-shrink-0">Ir para:</span>
- <a href="#info-section" class="efd-nav-link px-3 py-1.5 text-xs font-medium text-gray-600 border border-transparent rounded hover:bg-gray-100 transition whitespace-nowrap">Info</a>
+ <a href="#info-section" class="efd-nav-link px-3 py-1.5 text-xs font-medium text-gray-600 border border-transparent rounded hover:bg-gray-100 transition whitespace-nowrap">Resumo</a>
  <a href="#participantes-section" class="efd-nav-link px-3 py-1.5 text-xs font-medium text-gray-600 border border-transparent rounded hover:bg-gray-100 transition whitespace-nowrap">Participantes</a>
  @if(!empty($resumoFinal))
  <a href="#resumo-final-section" class="efd-nav-link px-3 py-1.5 text-xs font-medium text-gray-600 border border-transparent rounded hover:bg-gray-100 transition whitespace-nowrap">Notas</a>

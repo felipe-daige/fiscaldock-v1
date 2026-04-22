@@ -85,7 +85,7 @@
         <div class="mb-4 sm:mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
                 <h1 class="text-lg sm:text-xl font-bold text-gray-900 uppercase tracking-wide">Buscar Notas</h1>
-                <p class="text-xs text-gray-500 mt-1">Consulta avulsa por chave de acesso. Resultado inline e histórico das últimas consultas.</p>
+                <p class="text-xs text-gray-500 mt-1">Consulta avulsa por chave de acesso. A busca abre uma tela de resultado com andamento e retorno final.</p>
             </div>
             <a href="/app/clearance/notas" data-link class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 rounded text-sm font-medium self-start">
                 Verificar notas da base
@@ -121,7 +121,7 @@
                         <div class="relative pl-10">
                             <span class="absolute left-0 top-0 w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center" style="background-color: #2563eb;">3</span>
                             <p class="text-sm font-semibold text-gray-900">Resultado</p>
-                            <p class="text-xs text-gray-600 mt-0.5">Você recebe o retorno inline com situação, dados principais do DF-e e o registro entra no histórico recente do clearance.</p>
+                            <p class="text-xs text-gray-600 mt-0.5">A consulta abre uma tela própria de resultado, acompanha o processamento e exibe a situação final do DF-e.</p>
                         </div>
                     </div>
                 </div>
@@ -197,10 +197,10 @@
                         <div class="border border-gray-300 rounded p-3">
                             <div class="flex items-center justify-between mb-1">
                                 <p class="text-sm font-semibold text-gray-900">Retorno</p>
-                                <span class="inline-block px-2 py-0.5 rounded text-white text-[10px] font-semibold" style="background-color: #6b7280;">Inline</span>
+                                <span class="inline-block px-2 py-0.5 rounded text-white text-[10px] font-semibold" style="background-color: #6b7280;">Página dedicada</span>
                             </div>
                             <p class="text-lg font-bold text-gray-900">1 <span class="text-xs font-medium text-gray-500">resultado por chave</span></p>
-                            <p class="text-[11px] text-gray-500 mt-1">A tela mostra situação e dados principais assim que o provedor conclui a consulta.</p>
+                            <p class="text-[11px] text-gray-500 mt-1">A página de resultado carrega o andamento da consulta e recarrega quando o provedor concluir.</p>
                         </div>
                     </div>
                     <p class="text-[11px] text-gray-500 mt-3">A cobrança acontece no início da consulta. <strong>Falhas do provedor estornam os créditos</strong> automaticamente.</p>
@@ -441,7 +441,7 @@
                         <div class="px-4 py-2.5 border-t border-gray-200 bg-gray-50/60">
                             <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Escopo da busca</p>
                             <div class="space-y-1 text-[11px] text-gray-600">
-                                <p>Consulta avulsa com retorno inline e histórico recente do clearance.</p>
+                                <p>Consulta avulsa com tela dedicada de andamento e histórico recente do clearance.</p>
                                 <p>Cliente associado é obrigatório antes do disparo da chave.</p>
                             </div>
                         </div>
@@ -473,6 +473,11 @@
                             $badgeCor = $badgeCoresSituacao[$situacao] ?? '#374151';
                             $tipoDocumento = strtoupper((string) ($consultaHistorico->tipo_documento ?: 'NFE'));
                             $clienteHistorico = $consultaHistorico->cliente_nome ?: 'Sem cliente';
+                            $resultadoHistoricoUrl = route('app.clearance.buscar.resultado', [
+                                'consultaLoteId' => $consultaHistorico->consulta_lote_id,
+                                'tipo_documento' => strtolower((string) ($consultaHistorico->tipo_documento ?: 'NFE')),
+                                'chave_acesso' => $consultaHistorico->chave_acesso,
+                            ]);
                             $chaveAbrev = $consultaHistorico->chave_acesso
                                 ? substr($consultaHistorico->chave_acesso, 0, 6) . '…' . substr($consultaHistorico->chave_acesso, -4)
                                 : '';
@@ -492,6 +497,9 @@
                                     <p class="text-[10px] text-gray-400 font-mono mt-0.5">{{ $chaveAbrev }}</p>
                                 @endif
                                 <p class="text-[10px] text-gray-400 mt-0.5">{{ $consultaHistorico->momento_consulta ?: '' }}</p>
+                                <a href="{{ $resultadoHistoricoUrl }}" data-link class="mt-2 inline-flex text-xs text-gray-600 hover:text-gray-900 hover:underline">
+                                    Abrir resultado
+                                </a>
                             </div>
                         </div>
                     @endforeach

@@ -97,11 +97,19 @@ class EfdImportacao extends Model
     // Acessores
 
     /**
-     * Total de participantes processados (novos + duplicados).
+     * Total de participantes processados, priorizando o contrato atual do n8n.
      */
     public function getTotalProcessadosAttribute(): int
     {
-        return $this->novos + $this->duplicados;
+        if (($this->total_participantes ?? 0) > 0) {
+            return (int) $this->total_participantes;
+        }
+
+        if (is_array($this->participante_ids) && count($this->participante_ids) > 0) {
+            return count($this->participante_ids);
+        }
+
+        return (int) $this->novos + (int) $this->duplicados;
     }
 
     /**
