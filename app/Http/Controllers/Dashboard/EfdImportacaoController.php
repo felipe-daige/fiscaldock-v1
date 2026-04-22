@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Cliente;
 use App\Models\EfdImportacao;
 use App\Models\EfdNota;
-
 use App\Models\Participante;
+use App\Models\XmlImportacao;
 use App\Services\CreditService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -210,13 +210,25 @@ class EfdImportacaoController extends Controller
             ->with('cliente')
             ->orderBy('created_at', 'desc')
             ->get()
-            ->map(fn ($i) => array_merge($i->toArray(), ['_tipo' => 'efd']));
+            ->map(function (EfdImportacao $importacao) {
+                return array_merge($importacao->toArray(), [
+                    '_tipo' => 'efd',
+                    'volume_label' => $importacao->total_processados.' participante(s)',
+                ]);
+            });
 
-        $xmlImportacoes = \App\Models\XmlImportacao::where('user_id', $userId)
+        $xmlImportacoes = XmlImportacao::where('user_id', $userId)
             ->with('cliente')
             ->orderBy('created_at', 'desc')
             ->get()
-            ->map(fn ($i) => array_merge($i->toArray(), ['_tipo' => 'xml']));
+            ->map(function (XmlImportacao $importacao) {
+                $totalXmls = (int) ($importacao->total_xmls ?? 0);
+
+                return array_merge($importacao->toArray(), [
+                    '_tipo' => 'xml',
+                    'volume_label' => $totalXmls.' XML'.($totalXmls !== 1 ? 's' : ''),
+                ]);
+            });
 
         $importacoes = $efdImportacoes->concat($xmlImportacoes)
             ->sortByDesc('created_at')

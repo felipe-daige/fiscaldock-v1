@@ -1,0 +1,151 @@
+<?php
+
+use App\Models\MonitoramentoPlano;
+use App\Models\Participante;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+
+use function Pest\Laravel\actingAs;
+
+uses(RefreshDatabase::class);
+
+beforeEach(function () {
+    config()->set('services.api.token', 'token-cnpj-teste');
+    config()->set('services.webhook.consultas_cnpj_url', 'https://n8n.test/webhook/consultas-cnpj');
+});
+
+it('migrations sobem os planos com o catalogo atual', function () {
+    $gratuito = MonitoramentoPlano::porCodigo('gratuito');
+    $compliance = MonitoramentoPlano::porCodigo('compliance');
+    $dueDiligence = MonitoramentoPlano::porCodigo('due_diligence');
+
+    expect($gratuito)->not->toBeNull();
+    expect($gratuito->etapas)->toHaveCount(3);
+    expect($gratuito->etapas[0])->toMatchArray([
+        'numero' => 1,
+        'chave' => 'inicializacao',
+        'label' => 'Preparando consulta',
+    ]);
+    expect($gratuito->etapas[2])->toMatchArray([
+        'numero' => 0,
+        'chave' => 'finalizacao',
+        'label' => 'Salvando resultados',
+    ]);
+
+    expect($compliance)->not->toBeNull();
+    expect($compliance->custo_creditos)->toBe(18);
+    expect($compliance->is_active)->toBeTrue();
+
+    expect($dueDiligence)->not->toBeNull();
+    expect($dueDiligence->custo_creditos)->toBe(35);
+    expect($dueDiligence->is_active)->toBeTrue();
+
+    expect(MonitoramentoPlano::ativos()->pluck('codigo')->all())
+        ->toContain('gratuito', 'validacao', 'licitacao', 'compliance', 'due_diligence')
+        ->not->toContain('enterprise');
+});
+
+it('resolve definicao canonica quando o banco esta legado', function () {
+    DB::table('monitoramento_planos')
+        ->where('codigo', 'gratuito')
+        ->update([
+            'descricao' => 'Descricao antiga',
+            'consultas_incluidas' => json_encode(['situacao_cadastral'], JSON_UNESCAPED_UNICODE),
+            'etapas' => json_encode([
+                ['numero' => 1, 'chave' => 'cadastrais', 'label' => 'Cadastrais'],
+            ], JSON_UNESCAPED_UNICODE),
+            'custo_creditos' => 99,
+            'is_active' => false,
+            'ordem' => 999,
+        ]);
+
+    DB::table('monitoramento_planos')
+        ->where('codigo', 'compliance')
+        ->update([
+            'custo_creditos' => 9,
+            'is_active' => false,
+        ]);
+
+    $gratuito = MonitoramentoPlano::porCodigo('gratuito');
+    $compliance = MonitoramentoPlano::porCodigo('compliance');
+
+    expect($gratuito)->not->toBeNull();
+    expect($gratuito->descricao)->toBe('Cartão de visita do CNPJ: confirma que a empresa existe, está ativa e tem endereço válido');
+    expect($gratuito->consultas_incluidas)->toBe([
+        'situacao_cadastral',
+        'dados_cadastrais',
+        'endereco',
+    ]);
+    expect($gratuito->etapas[0]['chave'])->toBe('inicializacao');
+    expect($gratuito->etapas[2]['chave'])->toBe('finalizacao');
+    expect($gratuito->custo_creditos)->toBe(0);
+    expect($gratuito->is_active)->toBeTrue();
+    expect($gratuito->ordem)->toBe(1);
+
+    expect($compliance)->not->toBeNull();
+    expect($compliance->custo_creditos)->toBe(18);
+    expect($compliance->is_active)->toBeTrue();
+    expect(MonitoramentoPlano::ativos()->pluck('codigo')->all())->toContain('compliance');
+});
+
+it('executar envia payload canonico mesmo com linha legada no banco', function () {
+    $user = User::factory()->create(['credits' => 0]);
+    $plano = MonitoramentoPlano::porCodigo('gratuito');
+
+    expect($plano)->not->toBeNull();
+
+    DB::table('monitoramento_planos')
+        ->where('id', $plano->id)
+        ->update([
+            'consultas_incluidas' => json_encode(['situacao_cadastral'], JSON_UNESCAPED_UNICODE),
+            'etapas' => json_encode([
+                ['numero' => 1, 'chave' => 'cadastrais', 'label' => 'Cadastrais'],
+            ], JSON_UNESCAPED_UNICODE),
+        ]);
+
+    $participante = Participante::create([
+        'user_id' => $user->id,
+        'documento' => '12345678000199',
+        'razao_social' => 'Fornecedor Catalogo',
+        'uf' => 'SP',
+        'crt' => '3',
+    ]);
+
+    Http::fake([
+        'n8n.test/*' => Http::response(['ok' => true], 200),
+    ]);
+
+    $response = actingAs($user)->postJson('/app/consulta/nova/executar', [
+        'participante_ids' => [$participante->id],
+        'plano_id' => $plano->id,
+        'tab_id' => 'tab-catalogo-1',
+    ]);
+
+    $response->assertOk()
+        ->assertJsonPath('success', true)
+        ->assertJsonPath('etapas.0.chave', 'inicializacao')
+        ->assertJsonPath('etapas.1.chave', 'cadastrais')
+        ->assertJsonPath('etapas.2.chave', 'finalizacao');
+
+    $consultaLoteId = $response->json('consulta_lote_id');
+    expect($consultaLoteId)->not->toBeNull();
+    expect($response->json('redirect_url'))->toBe("/app/consulta/lote/{$consultaLoteId}");
+
+    Http::assertSent(function ($request) {
+        $body = $request->data();
+
+        return $request->url() === 'https://n8n.test/webhook/consultas-cnpj'
+            && $request->hasHeader('X-API-Token', 'token-cnpj-teste')
+            && ($body['plano_codigo'] ?? null) === 'gratuito'
+            && ($body['consultas_incluidas'] ?? null) === [
+                'situacao_cadastral',
+                'dados_cadastrais',
+                'endereco',
+            ]
+            && ($body['total_etapas'] ?? null) === 2
+            && ($body['etapas'][0]['chave'] ?? null) === 'inicializacao'
+            && ($body['etapas'][2]['chave'] ?? null) === 'finalizacao';
+    });
+});

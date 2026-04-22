@@ -1315,7 +1315,7 @@
 
                     updateProgresso(pct, msg);
 
-                    if (status === 'concluido') {
+                    if (status === 'finalizado') {
                         fecharSSE();
                         hideModal('progresso');
 

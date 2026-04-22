@@ -17,6 +17,8 @@ use App\Services\PricingCatalogService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -723,9 +725,8 @@ class ConsultaController extends Controller
                 'creditos_cobrados' => $custoTotal,
             ]);
 
-            $etapas = $plano->etapas ?? [
-                ['numero' => 1, 'chave' => 'cadastrais', 'label' => 'Cadastrais'],
-            ];
+            $etapas = $plano->resolvedEtapas();
+            $totalEtapas = $plano->resolvedTotalEtapas();
 
             // Preparar payload para n8n
             $payload = [
@@ -733,8 +734,9 @@ class ConsultaController extends Controller
                 'consulta_lote_id' => $lote->id,
                 'tab_id' => $validated['tab_id'],
                 'plano_codigo' => $plano->codigo,
-                'consultas_incluidas' => $plano->consultas_incluidas,
+                'consultas_incluidas' => $plano->resolvedConsultasIncluidas(),
                 'etapas' => $etapas,
+                'total_etapas' => $totalEtapas,
                 'participantes' => $participantes->map(function ($p) {
                     return [
                         'id' => $p->id,
@@ -764,6 +766,7 @@ class ConsultaController extends Controller
                 return response()->json([
                     'success' => true,
                     'consulta_lote_id' => $lote->id,
+                    'redirect_url' => route('app.consulta.lote.show', ['id' => $lote->id]),
                     'message' => 'Consulta iniciada com sucesso.',
                     'creditos_cobrados' => $custoTotal,
                     'novo_saldo' => $this->creditService->getBalance($user),
@@ -889,8 +892,8 @@ class ConsultaController extends Controller
                             }
                             flush();
 
-                            if (in_array($data['status'] ?? '', ['concluido', 'erro'])) {
-                                Log::info('SSE Consulta streamProgresso: status final recebido', [
+                            if (in_array($data['status'] ?? '', [ConsultaLote::STATUS_FINALIZADO, ConsultaLote::STATUS_ERRO], true)) {
+                                Log::info('SSE Consulta streamProgresso: status terminal recebido', [
                                     'user_id' => $userId,
                                     'tab_id' => $tabId,
                                     'status' => $data['status'],
@@ -982,7 +985,7 @@ class ConsultaController extends Controller
             abort(404, 'Lote não encontrado.');
         }
 
-        if (! $lote->isConcluido()) {
+        if (! $lote->isFinalizado()) {
             abort(400, 'Lote ainda não foi processado.');
         }
 
@@ -1289,7 +1292,7 @@ class ConsultaController extends Controller
 
         $validated = $request->validate([
             'busca' => 'nullable|string|max:100',
-            'status' => 'nullable|in:pendente,processando,concluido,erro',
+            'status' => 'nullable|in:pendente,processando,finalizado,concluido,erro',
             'plano_id' => 'nullable|integer|exists:monitoramento_planos,id',
             'data_inicio' => 'nullable|date',
             'data_fim' => 'nullable|date',
@@ -1312,7 +1315,11 @@ class ConsultaController extends Controller
         }
 
         if (! empty($validated['status'])) {
-            $baseQuery->where('status', $validated['status']);
+            if (ConsultaLote::isSuccessfulStatus($validated['status'])) {
+                $baseQuery->whereIn('status', ConsultaLote::successfulStatuses());
+            } else {
+                $baseQuery->where('status', $validated['status']);
+            }
         }
 
         if (! empty($validated['plano_id'])) {
@@ -1331,7 +1338,7 @@ class ConsultaController extends Controller
             'total_lotes' => (clone $baseQuery)->count(),
             'total_participantes' => (int) ((clone $baseQuery)->sum('total_participantes') ?? 0),
             'total_creditos' => (int) ((clone $baseQuery)->sum('creditos_cobrados') ?? 0),
-            'concluidos' => (clone $baseQuery)->where('status', ConsultaLote::STATUS_CONCLUIDO)->count(),
+            'finalizados' => (clone $baseQuery)->whereIn('status', ConsultaLote::successfulStatuses())->count(),
             'processando' => (clone $baseQuery)->where('status', ConsultaLote::STATUS_PROCESSANDO)->count(),
             'erro' => (clone $baseQuery)->where('status', ConsultaLote::STATUS_ERRO)->count(),
         ];
@@ -1375,6 +1382,93 @@ class ConsultaController extends Controller
     }
 
     /**
+     * Exibe o detalhe de um lote de consulta.
+     */
+    public function showLote(Request $request, int $id)
+    {
+        $loteView = $this->getViewPrefix().'lote';
+
+        if (! view()->exists($loteView)) {
+            abort(404);
+        }
+
+        if (! Auth::check()) {
+            return $this->redirectToLogin($request);
+        }
+
+        $user = Auth::user();
+
+        $lote = ConsultaLote::with(['plano', 'cliente'])
+            ->where('id', $id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (! $lote) {
+            abort(404);
+        }
+
+        $statusLote = ConsultaLote::normalizeStatus($lote->status);
+        $statusMeta = $this->getConsultaLoteStatusMeta($statusLote);
+        $etapas = $lote->plano?->resolvedEtapas() ?? [];
+        $contadores = $lote->getContadoresResultados();
+        $perPageResultados = 20;
+        $temResultadosNoLote = false;
+
+        $resultados = new LengthAwarePaginator(
+            collect(),
+            0,
+            $perPageResultados,
+            LengthAwarePaginator::resolveCurrentPage('page_resultados'),
+            [
+                'path' => $request->url(),
+                'pageName' => 'page_resultados',
+            ]
+        );
+        $aguardaPersistencia = $statusLote === ConsultaLote::STATUS_FINALIZADO && $contadores['total'] === 0;
+        $resumo = [
+            'total_lote' => (int) $lote->total_participantes,
+            'total_resultados' => (int) $contadores['total'],
+            'sucesso' => (int) $contadores['sucesso'],
+            'erro' => (int) $contadores['erro'],
+            'com_parecer' => 0,
+        ];
+
+        if ($statusLote === ConsultaLote::STATUS_FINALIZADO && ! $aguardaPersistencia) {
+            $resultadosDetalhe = $this->buildConsultaLoteResultadosDetalhe($lote);
+            $temResultadosNoLote = $resultadosDetalhe->isNotEmpty();
+            $resumo['com_parecer'] = $resultadosDetalhe
+                ->filter(fn (array $resultado) => ($resultado['parecer_count'] ?? 0) > 0)
+                ->count();
+
+            if ($temResultadosNoLote) {
+                $resultados = $this->paginateConsultaLoteResultados($resultadosDetalhe, $perPageResultados, $request);
+            }
+        }
+
+        $data = [
+            'lote' => $lote,
+            'statusLote' => $statusLote,
+            'statusMeta' => $statusMeta,
+            'etapas' => $etapas,
+            'resumo' => $resumo,
+            'resultados' => $resultados,
+            'temResultadosNoLote' => $temResultadosNoLote,
+            'aguardaPersistencia' => $aguardaPersistencia,
+            'credits' => $this->creditService->getBalance($user),
+        ];
+
+        if ($this->isAjaxRequest($request)) {
+            $renderedView = view($loteView, $data)->render();
+
+            return response($renderedView)->header('Content-Type', 'text/html');
+        }
+
+        return view(self::AUTH_LAYOUT_VIEW, array_merge([
+            'initialView' => $loteView,
+        ], $data));
+    }
+
+    /**
      * Retorna status atual do lote (polling fallback para SSE).
      */
     public function statusLote(Request $request, int $id): JsonResponse
@@ -1386,14 +1480,66 @@ class ConsultaController extends Controller
         }
 
         $totalResultados = $lote->resultados()->count();
-        $progresso = $lote->total_participantes > 0
-            ? (int) round($totalResultados / $lote->total_participantes * 100)
-            : 0;
+        $cacheData = null;
+
+        if (! empty($lote->tab_id)) {
+            $cacheKey = "progresso:{$lote->user_id}:{$lote->tab_id}";
+            $cached = Cache::get($cacheKey);
+
+            if (is_array($cached)) {
+                $cacheStatus = $cached['status'] ?? null;
+                $loteStatus = $lote->status;
+
+                $loteAberto = in_array($loteStatus, [ConsultaLote::STATUS_PROCESSANDO, ConsultaLote::STATUS_PENDENTE], true);
+                $cacheIntermediario = in_array($cacheStatus, [ConsultaLote::STATUS_PROCESSANDO, ConsultaLote::STATUS_PENDENTE, ConsultaLote::STATUS_CONCLUIDO], true);
+                $cacheTerminalCompativel = $cacheStatus === ConsultaLote::STATUS_ERRO
+                    ? $loteStatus === ConsultaLote::STATUS_ERRO
+                    : $cacheStatus === ConsultaLote::STATUS_FINALIZADO && $lote->isFinalizado();
+
+                $shouldUseCache = ($cacheIntermediario && $loteAberto) || $cacheTerminalCompativel;
+
+                if ($shouldUseCache) {
+                    $cacheData = $cached;
+                }
+            }
+        }
+
+        if ($cacheData) {
+            $ultimaEtapaConcluida = $cacheData['ultima_etapa_concluida']
+                ?? $this->inferUltimaEtapaConcluidaFromStatusSnapshot($cacheData);
+
+            return response()->json([
+                'success' => true,
+                'status' => $cacheData['status'] ?? $lote->status,
+                'progresso' => (int) ($cacheData['progresso'] ?? 0),
+                'mensagem' => $cacheData['mensagem'] ?? null,
+                'etapa' => $cacheData['etapa'] ?? null,
+                'total_etapas' => $cacheData['total_etapas'] ?? null,
+                'etapa_label' => $cacheData['etapa_label'] ?? null,
+                'ultima_etapa_concluida' => $ultimaEtapaConcluida,
+                'consulta_lote_id' => $cacheData['consulta_lote_id'] ?? $lote->id,
+                'updated_at' => $cacheData['updated_at'] ?? null,
+                'total_participantes' => $lote->total_participantes,
+                'total_resultados' => $totalResultados,
+            ]);
+        }
+
+        $status = ConsultaLote::normalizeStatus($lote->status);
+        $mensagem = in_array($status, [ConsultaLote::STATUS_PENDENTE, ConsultaLote::STATUS_PROCESSANDO], true)
+            ? 'Aguardando atualização do provedor...'
+            : null;
+        $progresso = ConsultaLote::isSuccessfulStatus($lote->status) ? 100 : 0;
 
         return response()->json([
             'success' => true,
-            'status' => $lote->status,
+            'status' => $status,
             'progresso' => $progresso,
+            'mensagem' => $mensagem,
+            'etapa' => null,
+            'total_etapas' => null,
+            'etapa_label' => null,
+            'ultima_etapa_concluida' => null,
+            'consulta_lote_id' => $lote->id,
             'total_participantes' => $lote->total_participantes,
             'total_resultados' => $totalResultados,
         ]);
@@ -1413,7 +1559,7 @@ class ConsultaController extends Controller
         }
 
         $resultados = $lote->resultados()
-            ->with('participante:id,cnpj,razao_social,uf')
+            ->with('participante:id,documento,razao_social,uf,crt')
             ->get();
 
         $parecerService = app(ParecerFiscalService::class);
@@ -1424,13 +1570,16 @@ class ConsultaController extends Controller
             'total' => $resultados->count(),
             'resultados' => $resultados->map(fn ($r) => [
                 'participante' => [
+                    'id' => $r->participante?->id,
                     'cnpj'         => $r->participante?->documento,
+                    'documento_formatado' => $r->participante?->cnpj_formatado ?: $r->participante?->documento,
                     'razao_social' => $r->participante?->razao_social,
                     'uf'           => $r->participante?->uf,
                 ],
                 'status'             => $r->status,
                 'error_message'      => $r->error_message,
                 'situacao_cadastral' => $r->getDado('situacao_cadastral'),
+                'regime_tributario'  => $r->getRegimeTributarioLabel(),
                 'simples_nacional'   => $r->getDado('simples_nacional'),
                 'mei'                => $r->getDado('mei'),
                 'cnd_federal'        => $r->getDado('cnd_federal'),
@@ -1438,7 +1587,7 @@ class ConsultaController extends Controller
                 'cndt'               => $r->getDado('cndt'),
                 'cnd_estadual'       => $r->getDado('cnd_estadual'),
                 'parecer'            => $r->isSucesso()
-                    ? $parecerService->gerar($r->resultado_dados ?? [])
+                    ? $parecerService->gerar($r->getParecerFiscalPayload())
                     : [],
             ]),
         ]);
@@ -1450,6 +1599,180 @@ class ConsultaController extends Controller
     private function isAjaxRequest(Request $request): bool
     {
         return $request->ajax() || $request->header('X-Requested-With') === 'XMLHttpRequest';
+    }
+
+    private function getConsultaLoteStatusMeta(?string $status): array
+    {
+        return match (ConsultaLote::normalizeStatus($status)) {
+            ConsultaLote::STATUS_FINALIZADO => ['label' => 'Finalizado', 'hex' => '#047857'],
+            ConsultaLote::STATUS_PROCESSANDO => ['label' => 'Processando', 'hex' => '#d97706'],
+            ConsultaLote::STATUS_ERRO => ['label' => 'Erro', 'hex' => '#dc2626'],
+            default => ['label' => 'Pendente', 'hex' => '#9ca3af'],
+        };
+    }
+
+    private function buildConsultaLoteResultadosDetalhe(ConsultaLote $lote): Collection
+    {
+        $parecerService = app(ParecerFiscalService::class);
+
+        return $lote->resultados()
+            ->with('participante:id,documento,razao_social,uf,crt')
+            ->orderByDesc('consultado_em')
+            ->orderBy('id')
+            ->get()
+            ->map(function (ConsultaResultado $resultado) use ($parecerService) {
+                $parecer = $resultado->isSucesso()
+                    ? $parecerService->gerar($resultado->getParecerFiscalPayload())
+                    : [];
+
+                $statusMeta = match ($resultado->status) {
+                    ConsultaResultado::STATUS_SUCESSO => ['label' => 'Sucesso', 'hex' => '#047857'],
+                    ConsultaResultado::STATUS_TIMEOUT => ['label' => 'Timeout', 'hex' => '#d97706'],
+                    ConsultaResultado::STATUS_ERRO => ['label' => 'Erro', 'hex' => '#dc2626'],
+                    default => ['label' => 'Pendente', 'hex' => '#9ca3af'],
+                };
+                $situacaoCadastral = trim((string) $resultado->getDado('situacao_cadastral'));
+                $regimeTributario = $resultado->getRegimeTributarioLabel();
+                $cndFederal = $this->normalizeConsultaLoteRegularidadeBadge($resultado->getDado('cnd_federal'));
+                $fgts = $this->normalizeConsultaLoteRegularidadeBadge($resultado->getDado('crf_fgts'));
+                $cndt = $this->normalizeConsultaLoteRegularidadeBadge($resultado->getDado('cndt'));
+                $parecerTitulos = collect($parecer)
+                    ->map(fn (array $item) => trim((string) ($item['titulo'] ?? ($item['chave'] ?? 'Parecer'))))
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->all();
+
+                return [
+                    'participante_id' => $resultado->participante?->id,
+                    'cnpj' => $resultado->participante?->documento,
+                    'documento_formatado' => $resultado->participante?->cnpj_formatado ?: $resultado->participante?->documento,
+                    'razao_social' => $resultado->participante?->razao_social,
+                    'uf' => $resultado->participante?->uf,
+                    'status' => $resultado->status,
+                    'status_label' => $statusMeta['label'],
+                    'status_hex' => $statusMeta['hex'],
+                    'error_message' => $resultado->error_message,
+                    'consultado_em_label' => $resultado->consultado_em?->format('d/m/Y H:i') ?: '—',
+                    'situacao_cadastral' => $situacaoCadastral !== '' ? $situacaoCadastral : '—',
+                    'regime_tributario' => $regimeTributario ?: '—',
+                    'cnd_federal_badge' => $cndFederal,
+                    'fgts_badge' => $fgts,
+                    'cndt_badge' => $cndt,
+                    'parecer' => $parecer,
+                    'parecer_count' => count($parecer),
+                ];
+            });
+    }
+
+    private function normalizeConsultaLoteRegularidadeBadge(mixed $valor): array
+    {
+        if ($valor === null || $valor === '') {
+            return ['label' => '—', 'hex' => '#9ca3af'];
+        }
+
+        if (is_array($valor)) {
+            $texto = trim((string) ($valor['situacao'] ?? $valor['status'] ?? $valor['regularidade'] ?? ''));
+        } elseif (is_bool($valor)) {
+            $texto = $valor ? 'sim' : 'nao';
+        } else {
+            $texto = trim((string) $valor);
+        }
+
+        $textoNormalizado = mb_strtolower($texto);
+
+        if ($textoNormalizado === '') {
+            return ['label' => '—', 'hex' => '#9ca3af'];
+        }
+
+        if (str_contains($textoNormalizado, 'regular') && ! str_contains($textoNormalizado, 'irregular')) {
+            return ['label' => 'Regular', 'hex' => '#047857'];
+        }
+
+        if (in_array($textoNormalizado, ['true', 'sim'], true)) {
+            return ['label' => 'Sim', 'hex' => '#047857'];
+        }
+
+        if (
+            str_contains($textoNormalizado, 'irregular')
+            || str_contains($textoNormalizado, 'devedor')
+            || str_contains($textoNormalizado, 'negativa')
+            || in_array($textoNormalizado, ['false', 'nao', 'não'], true)
+        ) {
+            return ['label' => 'Irregular', 'hex' => '#dc2626'];
+        }
+
+        return ['label' => mb_strtoupper($texto), 'hex' => '#374151'];
+    }
+
+    private function paginateConsultaLoteResultados(Collection $resultados, int $perPage, Request $request): LengthAwarePaginator
+    {
+        $total = $resultados->count();
+        $lastPage = max((int) ceil(max($total, 1) / $perPage), 1);
+        $currentPage = min(max(LengthAwarePaginator::resolveCurrentPage('page_resultados'), 1), $lastPage);
+        $paginator = new LengthAwarePaginator(
+            $resultados->forPage($currentPage, $perPage)->values(),
+            $total,
+            $perPage,
+            $currentPage,
+            [
+                'path' => $request->url(),
+                'pageName' => 'page_resultados',
+            ]
+        );
+
+        return $paginator->appends($request->except('page_resultados'));
+    }
+
+    private function inferUltimaEtapaConcluidaFromStatusSnapshot(array $snapshot): ?int
+    {
+        $status = $snapshot['status'] ?? null;
+        $etapa = isset($snapshot['etapa']) ? (int) $snapshot['etapa'] : null;
+        $totalEtapas = isset($snapshot['total_etapas']) ? (int) $snapshot['total_etapas'] : null;
+
+        if ($status === ConsultaLote::STATUS_CONCLUIDO && $etapa !== null) {
+            return $this->normalizeConsultaSnapshotEtapa($etapa, $totalEtapas);
+        }
+
+        if (in_array($status, [ConsultaLote::STATUS_PROCESSANDO, ConsultaLote::STATUS_ERRO], true)) {
+            return $this->resolveConsultaSnapshotEtapaAnterior($etapa, $totalEtapas);
+        }
+
+        if ($status === ConsultaLote::STATUS_FINALIZADO) {
+            return $this->normalizeConsultaSnapshotEtapa($etapa ?? $totalEtapas, $totalEtapas);
+        }
+
+        return null;
+    }
+
+    private function resolveConsultaSnapshotEtapaAnterior(?int $etapa, ?int $totalEtapas): ?int
+    {
+        if ($etapa === null) {
+            return null;
+        }
+
+        if ($etapa === 0) {
+            return $this->normalizeConsultaSnapshotEtapa($totalEtapas, $totalEtapas);
+        }
+
+        if ($etapa <= 1) {
+            return null;
+        }
+
+        return $etapa - 1;
+    }
+
+    private function normalizeConsultaSnapshotEtapa(?int $etapa, ?int $totalEtapas): ?int
+    {
+        if ($etapa === null || $etapa < 0) {
+            return null;
+        }
+
+        if ($etapa > 0 && $totalEtapas !== null) {
+            return min($etapa, $totalEtapas);
+        }
+
+        return $etapa;
     }
 
     /**

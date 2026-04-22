@@ -47,7 +47,7 @@ class DashboardDataService
         // Créditos
         $creditos = $this->creditService->getBalance($user);
         $creditosConsultas = (int) ConsultaLote::where('user_id', $userId)
-            ->where('status', 'concluido')
+            ->whereIn('status', ConsultaLote::successfulStatuses())
             ->whereBetween('created_at', [$mesInicio, $mesFim])
             ->sum('creditos_cobrados');
         $creditosImportacoes = (int) EfdImportacao::where('user_id', $userId)

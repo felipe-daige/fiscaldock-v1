@@ -11,28 +11,28 @@
  $notasTotal = $resumoFinal['totais']['notas'] ?? $importacao->notas_extraidas ?? 0;
  $notasValor = $resumoFinal['totais']['valor'] ?? null;
 @endphp
-<div class="bg-white rounded border border-gray-300 mb-6 overflow-hidden">
+<div class="bg-white rounded border border-gray-300 mb-4 overflow-hidden" id="indicadores-section">
  <div class="bg-gray-50 px-4 py-2 border-b border-gray-200">
- <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Indicadores</span>
+ <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Resultado Consolidado</span>
  </div>
- <div class="grid grid-cols-2 lg:grid-cols-4 divide-x divide-gray-200">
- <div class="p-4">
- <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Participantes</p>
+ <div class="grid grid-cols-2 lg:grid-cols-4 divide-x divide-y lg:divide-y-0 divide-gray-200">
+ <div class="px-4 py-3">
+ <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Participantes</p>
  <p class="text-lg font-bold text-gray-900">{{ number_format($totalPart) }}</p>
  <p class="text-[11px] text-gray-500">{{ number_format($kpiPartNovos) }} novos · {{ number_format($kpiPartDupl) }} duplicados</p>
  </div>
- <div class="p-4">
- <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Documentos</p>
+ <div class="px-4 py-3">
+ <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Documentos</p>
  <p class="text-lg font-bold text-gray-900">{{ number_format($totalDocs) }}</p>
  <p class="text-[11px] text-gray-500">{{ number_format($importacao->total_cnpjs_unicos ?? 0) }} CNPJs · {{ number_format($importacao->total_cpfs_unicos ?? 0) }} CPFs</p>
  </div>
- <div class="p-4">
- <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Notas Fiscais</p>
+ <div class="px-4 py-3">
+ <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Notas Fiscais</p>
  <p class="text-lg font-bold text-gray-900">{{ number_format($notasTotal) }}</p>
  <p class="text-[11px] text-gray-500">@if($notasValor)R$ {{ number_format($notasValor, 2, ',', '.') }}@else—@endif</p>
  </div>
- <div class="p-4">
- <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Performance</p>
+ <div class="px-4 py-3">
+ <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Performance</p>
  <p class="text-lg font-bold text-gray-900">{{ $importacao->tempo_processamento ?? '0s' }}</p>
  <p class="text-[11px] text-gray-500">{{ $importacao->creditos_cobrados ?? 0 }} créditos cobrados</p>
  </div>

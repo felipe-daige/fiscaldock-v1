@@ -95,6 +95,7 @@
                                     $filename = $imp['filename'] ?? $imp['arquivo'] ?? ('Importação #' . $id);
                                     $clienteNome = $imp['cliente']['razao_social'] ?? 'Sem cliente';
                                     $clienteId = $imp['cliente']['id'] ?? null;
+                                    $volume = $imp['volume_label'] ?? '—';
 
                                     $tempoProc = '—';
                                     if (!empty($imp['iniciado_em']) && !empty($imp['concluido_em'])) {
@@ -120,7 +121,6 @@
                                             ? ['label' => 'EFD', 'hex' => '#0f766e']
                                             : ['label' => 'EFD', 'hex' => '#4338ca'];
                                         $origemDetalhe = ($imp['tipo_efd'] ?? '') === 'EFD PIS/COFINS' ? 'PIS/COFINS' : 'Fiscal';
-                                        $volume = (($imp['novos'] ?? 0) + ($imp['duplicados'] ?? 0)) . ' participante(s)';
                                     } else {
                                         $href = '/app/importacao/xml/' . $id;
                                         $origemBadge = match($imp['tipo_documento'] ?? '') {
@@ -129,8 +129,6 @@
                                             'cte' => ['label' => 'CT-e', 'hex' => '#d97706'],
                                             default => ['label' => 'XML', 'hex' => '#374151'],
                                         };
-                                        $total = $imp['total_xmls'] ?? 0;
-                                        $volume = $total . ' XML' . ($total !== 1 ? 's' : '');
                                     }
 
                                     $statusBadge = match($imp['status'] ?? '') {
@@ -183,6 +181,7 @@
                             $filename = $imp['filename'] ?? $imp['arquivo'] ?? ('Importação #' . $id);
                             $clienteNome = $imp['cliente']['razao_social'] ?? 'Sem cliente';
                             $clienteId = $imp['cliente']['id'] ?? null;
+                            $volume = $imp['volume_label'] ?? '—';
 
                             $tempoProc = '—';
                             if (!empty($imp['iniciado_em']) && !empty($imp['concluido_em'])) {
@@ -208,7 +207,6 @@
                                     ? ['label' => 'EFD', 'hex' => '#0f766e']
                                     : ['label' => 'EFD', 'hex' => '#4338ca'];
                                 $origemDetalhe = ($imp['tipo_efd'] ?? '') === 'EFD PIS/COFINS' ? 'PIS/COFINS' : 'Fiscal';
-                                $volume = (($imp['novos'] ?? 0) + ($imp['duplicados'] ?? 0)) . ' participante(s)';
                             } else {
                                 $href = '/app/importacao/xml/' . $id;
                                 $origemBadge = match($imp['tipo_documento'] ?? '') {
@@ -217,8 +215,6 @@
                                     'cte' => ['label' => 'CT-e', 'hex' => '#d97706'],
                                     default => ['label' => 'XML', 'hex' => '#374151'],
                                 };
-                                $total = $imp['total_xmls'] ?? 0;
-                                $volume = $total . ' XML' . ($total !== 1 ? 's' : '');
                             }
 
                             $statusBadge = match($imp['status'] ?? '') {

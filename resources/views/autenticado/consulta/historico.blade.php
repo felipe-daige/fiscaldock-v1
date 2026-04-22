@@ -46,8 +46,8 @@
                     <p class="text-[11px] text-gray-500 mt-1">consumidos</p>
                 </div>
                 <div class="p-4">
-                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Concluídas</p>
-                    <p class="text-lg font-bold text-gray-900">{{ number_format($kpis['concluidos'] ?? 0, 0, ',', '.') }}</p>
+                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Finalizadas</p>
+                    <p class="text-lg font-bold text-gray-900">{{ number_format($kpis['finalizados'] ?? 0, 0, ',', '.') }}</p>
                     <p class="text-[11px] text-gray-500 mt-1">com relatório</p>
                 </div>
                 <div class="p-4">
@@ -86,7 +86,7 @@
                             <option value="">Todos os status</option>
                             <option value="pendente" {{ $statusFiltro === 'pendente' ? 'selected' : '' }}>Pendente</option>
                             <option value="processando" {{ $statusFiltro === 'processando' ? 'selected' : '' }}>Processando</option>
-                            <option value="concluido" {{ $statusFiltro === 'concluido' ? 'selected' : '' }}>Concluído</option>
+                            <option value="finalizado" {{ in_array($statusFiltro, ['finalizado', 'concluido'], true) ? 'selected' : '' }}>Finalizado</option>
                             <option value="erro" {{ $statusFiltro === 'erro' ? 'selected' : '' }}>Erro</option>
                         </select>
                         <select name="plano_id" class="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-700 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
@@ -131,7 +131,7 @@
                 <div class="bg-gray-50 px-4 py-2 border-b border-gray-200">
                     <div class="flex items-center justify-between gap-3">
                         <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Consultas Recentes</span>
-                        <span class="text-[10px] font-semibold text-gray-400 bg-gray-200 px-2 py-0.5 rounded">CSV + PDF</span>
+                        <span class="text-[10px] font-semibold text-gray-400 bg-gray-200 px-2 py-0.5 rounded">Abrir + Exportação</span>
                     </div>
                 </div>
 
@@ -150,8 +150,8 @@
                         <tbody class="divide-y divide-gray-100">
                             @foreach($lotes as $lote)
                                 @php
-                                    $statusMeta = match($lote->status) {
-                                        'concluido' => ['label' => 'Concluído', 'hex' => '#047857'],
+                                    $statusMeta = match(\App\Models\ConsultaLote::normalizeStatus($lote->status)) {
+                                        'finalizado' => ['label' => 'Finalizado', 'hex' => '#047857'],
                                         'processando' => ['label' => 'Processando', 'hex' => '#d97706'],
                                         'erro' => ['label' => 'Erro', 'hex' => '#dc2626'],
                                         default => ['label' => 'Pendente', 'hex' => '#9ca3af'],
@@ -181,18 +181,15 @@
                                         @endif
                                     </td>
                                     <td class="px-3 py-3 text-right">
-                                        @if($lote->isConcluido())
-                                            <div class="flex items-center justify-end gap-3">
+                                        <div class="flex items-center justify-end gap-3">
+                                            <a href="/app/consulta/lote/{{ $lote->id }}" data-link class="text-xs text-gray-900 hover:text-gray-600 hover:underline">Abrir</a>
+                                            @if($lote->isFinalizado())
                                                 <a href="/app/consulta/lote/{{ $lote->id }}/baixar?formato=csv" class="text-xs text-gray-900 hover:text-gray-600 hover:underline">CSV</a>
                                                 @if($lote->hasResultados())
                                                     <a href="/app/consulta/lote/{{ $lote->id }}/baixar?formato=pdf" class="text-xs text-gray-900 hover:text-gray-600 hover:underline">PDF</a>
                                                 @endif
-                                            </div>
-                                        @elseif($lote->isErro())
-                                            <span class="text-xs text-gray-500" title="{{ $lote->error_message }}">Falha no processamento</span>
-                                        @else
-                                            <span class="text-xs text-gray-400">Aguardando</span>
-                                        @endif
+                                            @endif
+                                        </div>
                                     </td>
                                 </tr>
                             @endforeach
@@ -203,8 +200,8 @@
                 <div class="divide-y divide-gray-100 md:hidden">
                     @foreach($lotes as $lote)
                         @php
-                            $statusMeta = match($lote->status) {
-                                'concluido' => ['label' => 'Concluído', 'hex' => '#047857'],
+                            $statusMeta = match(\App\Models\ConsultaLote::normalizeStatus($lote->status)) {
+                                'finalizado' => ['label' => 'Finalizado', 'hex' => '#047857'],
                                 'processando' => ['label' => 'Processando', 'hex' => '#d97706'],
                                 'erro' => ['label' => 'Erro', 'hex' => '#dc2626'],
                                 default => ['label' => 'Pendente', 'hex' => '#9ca3af'],
@@ -234,13 +231,12 @@
                                 <div>
                                     <p class="text-[10px] text-gray-400 uppercase">Ações</p>
                                     <div class="flex items-center gap-3">
-                                        @if($lote->isConcluido())
+                                        <a href="/app/consulta/lote/{{ $lote->id }}" data-link class="text-xs text-gray-600 hover:text-gray-900 hover:underline">Abrir</a>
+                                        @if($lote->isFinalizado())
                                             <a href="/app/consulta/lote/{{ $lote->id }}/baixar?formato=csv" class="text-xs text-gray-600 hover:text-gray-900 hover:underline">CSV</a>
                                             @if($lote->hasResultados())
                                                 <a href="/app/consulta/lote/{{ $lote->id }}/baixar?formato=pdf" class="text-xs text-gray-600 hover:text-gray-900 hover:underline">PDF</a>
                                             @endif
-                                        @else
-                                            <span class="text-xs text-gray-400">Indisponível</span>
                                         @endif
                                     </div>
                                 </div>

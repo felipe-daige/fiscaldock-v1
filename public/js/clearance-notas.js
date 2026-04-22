@@ -76,8 +76,14 @@ function abrirSseProgresso(tabId) {
             mostrarProgresso(progresso, etapa);
             return;
         }
+
         if (status === 'concluido') {
-            mostrarProgresso(100, 'Clearance concluído, atualizando…');
+            mostrarProgresso(100, etapa);
+            return;
+        }
+
+        if (status === 'finalizado') {
+            mostrarProgresso(100, 'Clearance finalizado, atualizando…');
             fecharSse();
             limparSelecaoStorage();
             window.location.reload();
@@ -355,6 +361,12 @@ async function executarClearance() {
         if (resp.ok) {
             fecharModal(modalConfirm);
             if (data.webhook_disparado) {
+                if (data.resultado_url) {
+                    limparSelecaoStorage();
+                    window.location.assign(data.resultado_url);
+                    return;
+                }
+
                 mostrarProgresso(5, 'Clearance despachado, aguardando provedor...');
                 abrirSseProgresso(data.tab_id || tabId);
             } else {

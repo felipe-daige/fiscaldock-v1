@@ -753,7 +753,7 @@ class ParticipanteController extends Controller
             'ultimaConsulta' => $ultimaConsulta,
             'lotesDoParticipante' => $lotesDoParticipante,
             'parecerFiscal' => $ultimaConsulta
-                ? app(ParecerFiscalService::class)->gerar($ultimaConsulta->resultado_dados ?? [])
+                ? app(ParecerFiscalService::class)->gerar($ultimaConsulta->getParecerFiscalPayload())
                 : [],
         ];
 

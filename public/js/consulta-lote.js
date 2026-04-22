@@ -76,6 +76,7 @@
         consultaLoteId: null,
         etapas: [],
         etapaAtual: null,
+        ultimaEtapaConcluida: null,
         eventSource: null,
         credits: window.consultaData?.credits || 0,
         isExecuting: false,
@@ -961,9 +962,6 @@
             elements.btnGerarRelatorio.style.cursor = 'not-allowed';
         }
 
-        // Mostrar progresso inline
-        mostrarProgressoInline();
-
         try {
             const response = await fetch(window.consultaData.routes.executar, {
                 method: 'POST',
@@ -1002,26 +1000,35 @@
                 console.error('Consulta Lote erro:', errorMsg, data);
                 state.isExecuting = false;
                 if (elements.btnGerarRelatorio) elements.btnGerarRelatorio.disabled = false;
+                updateResumo();
                 onConsultaErro(errorMsg);
                 return;
             }
 
-            // Sucesso
-            state.consultaLoteId = data.consulta_lote_id;
             state.credits = data.novo_saldo;
-            state.etapas = Array.isArray(data.etapas) ? data.etapas : [];
-            state.etapaAtual = null;
             if (elements.resumoSaldo) elements.resumoSaldo.textContent = `${data.novo_saldo} créditos`;
 
-            renderEtapasStrip(state.etapas);
+            const redirectUrl = data.redirect_url || ('/app/consulta/lote/' + data.consulta_lote_id);
+            if (redirectUrl) {
+                if (typeof window.navigateTo === 'function') {
+                    await window.navigateTo(redirectUrl);
+                } else {
+                    window.location.href = redirectUrl;
+                }
 
-            // Iniciar SSE para progresso
-            iniciarSSE();
+                return;
+            }
+
+            state.isExecuting = false;
+            if (elements.btnGerarRelatorio) elements.btnGerarRelatorio.disabled = false;
+            updateResumo();
+            onConsultaErro('Não foi possível abrir o detalhe do lote.');
 
         } catch (error) {
             console.error('Consulta Lote excecao:', error);
             state.isExecuting = false;
             if (elements.btnGerarRelatorio) elements.btnGerarRelatorio.disabled = false;
+            updateResumo();
             onConsultaErro(error.message || 'Erro de conexao. Tente novamente.');
         }
     }
@@ -1076,19 +1083,25 @@
                 }
 
                 // Sempre processar estados terminais (sem throttle)
-                if (data.status === 'concluido') {
+                if (data.status === 'finalizado') {
+                    inferirUltimaEtapaConcluida(data);
                     updateProgresso(data.progresso, data.mensagem);
                     state.eventSource.close();
                     state.eventSource = null;
                     pararPolling();
-                    onConsultaConcluida();
+                    onConsultaFinalizada();
+                    return;
+                }
+                if (data.status === 'concluido') {
+                    atualizarStripEtapas(data);
+                    updateProgresso(100, data.etapa_label || data.mensagem || 'Etapa concluída');
                     return;
                 }
                 if (data.status === 'erro') {
                     state.eventSource.close();
                     state.eventSource = null;
                     pararPolling();
-                    if (data.etapa) marcarEtapaStatus(data.etapa, 'erro');
+                    atualizarStripEtapas(data);
                     onConsultaErro(data.error_message || 'Erro desconhecido');
                     return;
                 }
@@ -1105,7 +1118,7 @@
                 if (now - lastUpdate < throttleMs) return;
                 lastUpdate = now;
 
-                if (data.etapa) atualizarEtapasProcessando(data.etapa);
+                atualizarStripEtapas(data);
                 updateProgresso(data.progresso, data.mensagem);
             };
 
@@ -1134,16 +1147,19 @@
                     .then(function(r) { return r.json(); })
                     .then(function(data) {
                         if (!data.success) return;
-                        if (data.status === 'concluido') {
+                        if (data.status === 'finalizado') {
+                            inferirUltimaEtapaConcluida(data);
                             pararPolling();
                             if (state.eventSource) { state.eventSource.close(); state.eventSource = null; }
-                            onConsultaConcluida();
+                            onConsultaFinalizada();
                         } else if (data.status === 'erro') {
                             pararPolling();
                             if (state.eventSource) { state.eventSource.close(); state.eventSource = null; }
                             onConsultaErro('Erro no processamento.');
                         } else {
-                            updateProgresso(data.progresso, null);
+                            var progressoAtual = data.status === 'concluido' ? 100 : data.progresso;
+                            atualizarStripEtapas(data);
+                            updateProgresso(progressoAtual, data.etapa_label || data.mensagem || null);
                         }
                     })
                     .catch(function() {}); // silenciar erros de rede
@@ -1159,8 +1175,9 @@
      * Atualiza indicadores de progresso.
      */
     function updateProgresso(percentual, mensagem) {
-        if (elements.progressoBarra) elements.progressoBarra.style.width = `${percentual}%`;
-        if (elements.progressoPercentual) elements.progressoPercentual.textContent = `${percentual}%`;
+        var valor = normalizarPercentual(percentual);
+        if (elements.progressoBarra) elements.progressoBarra.style.width = `${valor}%`;
+        if (elements.progressoPercentual) elements.progressoPercentual.textContent = `${valor}%`;
         if (elements.progressoMensagem && mensagem) elements.progressoMensagem.textContent = mensagem;
     }
 
@@ -1220,16 +1237,194 @@
         item.dataset.renderedStatus = status;
     }
 
-    function atualizarEtapasProcessando(etapaAtual) {
-        const card = document.getElementById('etapas-consulta-card');
-        if (!card || card.classList.contains('hidden')) return;
-        state.etapaAtual = etapaAtual;
+    function normalizarPercentual(percentual) {
+        var valor = parseInt(percentual, 10);
+        if (isNaN(valor)) return 0;
+        return Math.max(0, Math.min(100, valor));
+    }
+
+    function normalizarEtapa(valor) {
+        var etapa = parseInt(valor, 10);
+        if (isNaN(etapa) || etapa < 0) return null;
+        return etapa;
+    }
+
+    function getSequenciaEtapas() {
+        var sequencia = [];
+
+        if (Array.isArray(state.etapas) && state.etapas.length) {
+            state.etapas.forEach(function(etapa) {
+                var numero = normalizarEtapa(etapa && etapa.numero);
+                if (numero !== null) {
+                    sequencia.push(numero);
+                }
+            });
+
+            if (sequencia.length) {
+                return sequencia;
+            }
+        }
+
+        var card = document.getElementById('etapas-consulta-card');
+        if (!card) return sequencia;
 
         card.querySelectorAll('.etapa-item').forEach(function(item) {
-            const numero = parseInt(item.dataset.etapa, 10);
-            if (numero < etapaAtual) renderEtapa(item, 'concluido');
-            else if (numero === etapaAtual) renderEtapa(item, 'processando');
-            else renderEtapa(item, 'pendente');
+            var numero = normalizarEtapa(item.dataset.etapa);
+            if (numero !== null) {
+                sequencia.push(numero);
+            }
+        });
+
+        return sequencia;
+    }
+
+    function getEtapaPosicaoNaSequencia(etapa, sequencia) {
+        var numero = normalizarEtapa(etapa);
+        if (numero === null) return null;
+
+        var lista = Array.isArray(sequencia) ? sequencia : getSequenciaEtapas();
+        var posicao = lista.indexOf(numero);
+
+        if (posicao !== -1) {
+            return posicao;
+        }
+
+        if (lista.length && numero > 0) {
+            var positivos = lista.filter(function(item) { return item > 0; });
+            if (positivos.length) {
+                var ultimaEtapaPositiva = positivos[positivos.length - 1];
+                if (numero > ultimaEtapaPositiva) {
+                    return lista.indexOf(ultimaEtapaPositiva);
+                }
+            }
+        }
+
+        return numero === 0 ? 999999 : numero;
+    }
+
+    function getEtapaAnteriorNaSequencia(etapa, sequencia) {
+        var numero = normalizarEtapa(etapa);
+        if (numero === null) return null;
+
+        var lista = Array.isArray(sequencia) ? sequencia : getSequenciaEtapas();
+        var posicao = lista.indexOf(numero);
+
+        if (posicao > 0) {
+            return lista[posicao - 1];
+        }
+
+        if (numero > 1) {
+            return numero - 1;
+        }
+
+        return null;
+    }
+
+    function compararEtapasPorSequencia(a, b, sequencia) {
+        var posicaoA = getEtapaPosicaoNaSequencia(a, sequencia);
+        var posicaoB = getEtapaPosicaoNaSequencia(b, sequencia);
+
+        if (posicaoA === null && posicaoB === null) return 0;
+        if (posicaoA === null) return -1;
+        if (posicaoB === null) return 1;
+
+        return posicaoA - posicaoB;
+    }
+
+    function atualizarUltimaEtapaConcluida(valor) {
+        var etapa = normalizarEtapa(valor);
+        var sequencia = getSequenciaEtapas();
+        if (etapa === null) return state.ultimaEtapaConcluida;
+
+        if (
+            state.ultimaEtapaConcluida === null
+            || compararEtapasPorSequencia(etapa, state.ultimaEtapaConcluida, sequencia) > 0
+        ) {
+            state.ultimaEtapaConcluida = etapa;
+        }
+
+        return state.ultimaEtapaConcluida;
+    }
+
+    function inferirUltimaEtapaConcluida(data) {
+        var etapaExplicita = normalizarEtapa(data.ultima_etapa_concluida);
+        var sequencia = getSequenciaEtapas();
+        if (etapaExplicita !== null) {
+            return atualizarUltimaEtapaConcluida(etapaExplicita);
+        }
+
+        var etapaAtual = normalizarEtapa(data.etapa);
+        var totalEtapas = normalizarEtapa(data.total_etapas);
+
+        if (data.status === 'concluido' && etapaAtual !== null) {
+            return atualizarUltimaEtapaConcluida(etapaAtual);
+        }
+
+        if (data.status === 'finalizado') {
+            var etapaFinal = etapaAtual !== null ? etapaAtual : totalEtapas;
+            if (etapaFinal === null) etapaFinal = etapaAtual;
+            if (etapaFinal !== null) {
+                return atualizarUltimaEtapaConcluida(etapaFinal);
+            }
+            return state.ultimaEtapaConcluida;
+        }
+
+        if ((data.status === 'processando' || data.status === 'erro') && etapaAtual !== null) {
+            var etapaAnterior = etapaAtual === 0
+                ? (totalEtapas !== null ? totalEtapas : getEtapaAnteriorNaSequencia(etapaAtual, sequencia))
+                : getEtapaAnteriorNaSequencia(etapaAtual, sequencia);
+
+            if (etapaAnterior !== null) {
+                return atualizarUltimaEtapaConcluida(etapaAnterior);
+            }
+        }
+
+        return state.ultimaEtapaConcluida;
+    }
+
+    function atualizarStripEtapas(data) {
+        const card = document.getElementById('etapas-consulta-card');
+        if (!card || card.classList.contains('hidden')) return;
+
+        var etapaAtual = normalizarEtapa(data.etapa);
+        if (etapaAtual === null) etapaAtual = state.etapaAtual;
+
+        var ultimaEtapaConcluida = inferirUltimaEtapaConcluida(data);
+        var etapaReferencia = etapaAtual !== null ? etapaAtual : ultimaEtapaConcluida;
+
+        if (etapaReferencia === null) return;
+
+        var progressoAtual = data.status === 'concluido' ? 100 : data.progresso;
+
+        atualizarEtapasProcessando(etapaReferencia, progressoAtual, ultimaEtapaConcluida);
+
+        if (data.status === 'erro' && etapaAtual !== null) {
+            marcarEtapaStatus(etapaAtual, 'erro');
+        }
+    }
+
+    function atualizarEtapasProcessando(etapaAtual, progressoAtual, ultimaEtapaConcluida) {
+        const card = document.getElementById('etapas-consulta-card');
+        if (!card || card.classList.contains('hidden')) return;
+        var etapaAtualNumero = normalizarEtapa(etapaAtual);
+        var ultimaEtapaNumero = normalizarEtapa(ultimaEtapaConcluida);
+        var sequencia = getSequenciaEtapas();
+        var etapaAtualPosicao = getEtapaPosicaoNaSequencia(etapaAtualNumero, sequencia);
+        var ultimaEtapaPosicao = getEtapaPosicaoNaSequencia(ultimaEtapaNumero, sequencia);
+        state.etapaAtual = etapaAtualNumero;
+        var percentualAtual = normalizarPercentual(progressoAtual);
+
+        card.querySelectorAll('.etapa-item').forEach(function(item) {
+            var numero = normalizarEtapa(item.dataset.etapa);
+            var posicao = getEtapaPosicaoNaSequencia(numero, sequencia);
+
+            if (ultimaEtapaPosicao !== null && posicao !== null && posicao <= ultimaEtapaPosicao) {
+                renderEtapa(item, 'concluido');
+            } else if (etapaAtualPosicao !== null && posicao === etapaAtualPosicao) {
+                renderEtapa(item, percentualAtual >= 100 ? 'concluido' : 'processando');
+            } else {
+                renderEtapa(item, 'pendente');
+            }
         });
     }
 
@@ -1272,7 +1467,7 @@
 
         card.className = 'bg-white border rounded-lg p-4 shadow-sm';
 
-        if (status === 'concluido') {
+        if (status === 'finalizado') {
             icon.className = 'w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0';
             icon.innerHTML = '<svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>';
             card.classList.add('border-green-200');
@@ -1300,10 +1495,10 @@
     /**
      * Handler de consulta concluida.
      */
-    function onConsultaConcluida() {
-        updateProgresso(100, 'Concluído');
+    function onConsultaFinalizada() {
+        updateProgresso(100, 'Finalizado');
         marcarTodasEtapasConcluidas();
-        atualizarIconeConsulta('concluido');
+        atualizarIconeConsulta('finalizado');
 
         // Mostrar seção de resultado inline
         if (elements.resultadoConsulta) {
@@ -1401,6 +1596,14 @@
         return '<span class="text-gray-700 text-xs">' + dado + '</span>';
     }
 
+    function formatRegimeTributario(regime) {
+        if (regime === null || regime === undefined || regime === '') {
+            return '<span class="text-gray-400">-</span>';
+        }
+
+        return '<span class="text-gray-700 text-xs whitespace-nowrap">' + escapeHtml(String(regime)) + '</span>';
+    }
+
     function formatCnpj(cnpj) {
         if (!cnpj) return '-';
         var d = String(cnpj).replace(/\D/g, '');
@@ -1455,8 +1658,7 @@
                 + '<td class="px-3 py-2 text-xs text-gray-700">' + (r.participante ? '<a href="/app/participante/' + r.participante.id + '" class="text-blue-700 hover:text-blue-900 hover:underline" title="Ver perfil">' + (r.participante.razao_social || '-') + '</a>' : '-') + '</td>'
                 + '<td class="px-3 py-2 text-xs text-gray-500 text-center">' + ((r.participante && r.participante.uf) || '-') + '</td>'
                 + '<td class="px-3 py-2 text-xs text-center">' + (r.situacao_cadastral ? '<span class="text-xs text-gray-700">' + r.situacao_cadastral + '</span>' : '<span class="text-gray-400">-</span>') + '</td>'
-                + '<td class="px-3 py-2 text-xs text-center">' + formatRegularidade(r.simples_nacional) + '</td>'
-                + '<td class="px-3 py-2 text-xs text-center">' + formatRegularidade(r.mei) + '</td>'
+                + '<td class="px-3 py-2 text-xs text-center">' + formatRegimeTributario(r.regime_tributario) + '</td>'
                 + '<td class="px-3 py-2 text-xs text-center">' + formatRegularidade(r.cnd_federal) + '</td>'
                 + '<td class="px-3 py-2 text-xs text-center">' + formatRegularidade(r.crf_fgts) + '</td>'
                 + '<td class="px-3 py-2 text-xs text-center">' + formatRegularidade(r.cndt) + '</td>'
@@ -1485,8 +1687,7 @@
             + '<th class="px-3 py-2 text-xs font-semibold text-gray-600">Razão Social</th>'
             + '<th class="px-3 py-2 text-xs font-semibold text-gray-600 text-center">UF</th>'
             + '<th class="px-3 py-2 text-xs font-semibold text-gray-600 text-center">Sit. Cadastral</th>'
-            + '<th class="px-3 py-2 text-xs font-semibold text-gray-600 text-center">Simples</th>'
-            + '<th class="px-3 py-2 text-xs font-semibold text-gray-600 text-center">MEI</th>'
+            + '<th class="px-3 py-2 text-xs font-semibold text-gray-600 text-center whitespace-nowrap">Regime Tributário</th>'
             + '<th class="px-3 py-2 text-xs font-semibold text-gray-600 text-center">CND Federal</th>'
             + '<th class="px-3 py-2 text-xs font-semibold text-gray-600 text-center">FGTS</th>'
             + '<th class="px-3 py-2 text-xs font-semibold text-gray-600 text-center">CNDT</th>'
@@ -1572,6 +1773,7 @@
         }
         state.etapas = [];
         state.etapaAtual = null;
+        state.ultimaEtapaConcluida = null;
         state.consultaLoteId = null;
 
         // Trocar seções (usar fallback direto ao DOM)
@@ -3346,5 +3548,6 @@
         state.consultaLoteId = null;
         state.etapas = [];
         state.etapaAtual = null;
+        state.ultimaEtapaConcluida = null;
     };
 })();

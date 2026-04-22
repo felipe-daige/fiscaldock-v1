@@ -18,6 +18,8 @@ class ConsultaLote extends Model
 
     public const STATUS_PROCESSANDO = 'processando';
 
+    public const STATUS_FINALIZADO = 'finalizado';
+
     public const STATUS_CONCLUIDO = 'concluido';
 
     public const STATUS_ERRO = 'erro';
@@ -118,7 +120,15 @@ class ConsultaLote extends Model
      */
     public function isConcluido(): bool
     {
-        return $this->status === self::STATUS_CONCLUIDO;
+        return $this->isFinalizado();
+    }
+
+    /**
+     * Verifica se o lote foi finalizado com sucesso.
+     */
+    public function isFinalizado(): bool
+    {
+        return self::isSuccessfulStatus($this->status);
     }
 
     /**
@@ -130,14 +140,58 @@ class ConsultaLote extends Model
     }
 
     /**
+     * Status de sucesso aceitos para compatibilidade.
+     */
+    public static function successfulStatuses(): array
+    {
+        return [
+            self::STATUS_FINALIZADO,
+            self::STATUS_CONCLUIDO,
+        ];
+    }
+
+    /**
+     * Verifica se o valor representa um status terminal de sucesso.
+     */
+    public static function isSuccessfulStatus(?string $status): bool
+    {
+        return in_array($status, self::successfulStatuses(), true);
+    }
+
+    /**
+     * Normaliza o status legado para a semântica atual.
+     */
+    public static function normalizeStatus(?string $status): string
+    {
+        if (self::isSuccessfulStatus($status)) {
+            return self::STATUS_FINALIZADO;
+        }
+
+        return $status ?: self::STATUS_PENDENTE;
+    }
+
+    /**
+     * Retorna label legível para o status.
+     */
+    public static function statusLabel(?string $status): string
+    {
+        return match (self::normalizeStatus($status)) {
+            self::STATUS_PROCESSANDO => 'Processando',
+            self::STATUS_FINALIZADO => 'Finalizado',
+            self::STATUS_ERRO => 'Erro',
+            default => 'Pendente',
+        };
+    }
+
+    /**
      * Retorna a badge de status formatada.
      */
     public function getStatusBadgeAttribute(): array
     {
-        return match ($this->status) {
+        return match (self::normalizeStatus($this->status)) {
             self::STATUS_PENDENTE => ['label' => 'Pendente', 'class' => 'bg-gray-100 text-gray-800'],
             self::STATUS_PROCESSANDO => ['label' => 'Processando', 'class' => 'bg-blue-100 text-blue-800'],
-            self::STATUS_CONCLUIDO => ['label' => 'Concluído', 'class' => 'bg-green-100 text-green-800'],
+            self::STATUS_FINALIZADO => ['label' => 'Finalizado', 'class' => 'bg-green-100 text-green-800'],
             self::STATUS_ERRO => ['label' => 'Erro', 'class' => 'bg-red-100 text-red-800'],
             default => ['label' => $this->status, 'class' => 'bg-gray-100 text-gray-800'],
         };

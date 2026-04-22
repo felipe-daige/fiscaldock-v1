@@ -6,6 +6,8 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 
+use function Pest\Laravel\actingAs;
+
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
@@ -23,6 +25,7 @@ function progressoPlano(): MonitoramentoPlano
             'etapas' => [
                 ['numero' => 1, 'chave' => 'cadastrais', 'label' => 'Cadastrais'],
                 ['numero' => 2, 'chave' => 'certidoes_federais', 'label' => 'Certidões Federais'],
+                ['numero' => 0, 'chave' => 'finalizacao', 'label' => 'Salvando resultados'],
             ],
             'custo_creditos' => 3,
             'is_gratuito' => false,
@@ -47,11 +50,13 @@ function progressoLote(User $u, string $tabId): ConsultaLote
 it('aceita payload processando com etapa e popula cache', function () {
     $u = User::factory()->create();
     $tabId = 'tab-processando-1';
+    $lote = progressoLote($u, $tabId);
 
     $response = $this->withHeaders(['X-API-Token' => 'test-api-token'])
         ->postJson('/api/consultas/progresso', [
             'user_id' => $u->id,
             'tab_id' => $tabId,
+            'consulta_lote_id' => $lote->id,
             'status' => 'processando',
             'progresso' => 40,
             'etapa' => 1,
@@ -70,6 +75,76 @@ it('aceita payload processando com etapa e popula cache', function () {
     expect($cache['etapa'])->toBe(1);
     expect($cache['total_etapas'])->toBe(2);
     expect($cache['etapa_label'])->toBe('Cadastrais');
+    expect($cache['consulta_lote_id'])->toBe($lote->id);
+    expect($cache['ultima_etapa_concluida'])->toBeNull();
+});
+
+it('status do lote prioriza etapa concluida em cache quando o lote ainda está processando', function () {
+    $u = User::factory()->create();
+    $tabId = 'tab-status-cache';
+    $lote = progressoLote($u, $tabId);
+
+    Cache::put("progresso:{$u->id}:{$tabId}", [
+        'user_id' => $u->id,
+        'tab_id' => $tabId,
+        'consulta_lote_id' => $lote->id,
+        'status' => 'concluido',
+        'progresso' => 100,
+        'mensagem' => 'Dados cadastrais concluídos.',
+        'etapa' => 2,
+        'total_etapas' => 3,
+        'etapa_label' => 'Dados cadastrais',
+        'updated_at' => now()->toIso8601String(),
+    ], 600);
+
+    actingAs($u)
+        ->getJson("/app/consulta/lote/{$lote->id}/status")
+        ->assertOk()
+        ->assertJson([
+            'success' => true,
+            'status' => 'concluido',
+            'progresso' => 100,
+            'mensagem' => 'Dados cadastrais concluídos.',
+            'etapa' => 2,
+            'total_etapas' => 3,
+            'etapa_label' => 'Dados cadastrais',
+            'ultima_etapa_concluida' => 2,
+            'consulta_lote_id' => $lote->id,
+        ]);
+});
+
+it('status do lote infere a etapa 0 como finalizacao e preserva as etapas positivas concluídas', function () {
+    $u = User::factory()->create();
+    $tabId = 'tab-status-finalizacao';
+    $lote = progressoLote($u, $tabId);
+
+    Cache::put("progresso:{$u->id}:{$tabId}", [
+        'user_id' => $u->id,
+        'tab_id' => $tabId,
+        'consulta_lote_id' => $lote->id,
+        'status' => 'processando',
+        'progresso' => 85,
+        'mensagem' => 'Salvando resultados...',
+        'etapa' => 0,
+        'total_etapas' => 2,
+        'etapa_label' => 'Salvando resultados',
+        'updated_at' => now()->toIso8601String(),
+    ], 600);
+
+    actingAs($u)
+        ->getJson("/app/consulta/lote/{$lote->id}/status")
+        ->assertOk()
+        ->assertJson([
+            'success' => true,
+            'status' => 'processando',
+            'progresso' => 85,
+            'mensagem' => 'Salvando resultados...',
+            'etapa' => 0,
+            'total_etapas' => 2,
+            'etapa_label' => 'Salvando resultados',
+            'ultima_etapa_concluida' => 2,
+            'consulta_lote_id' => $lote->id,
+        ]);
 });
 
 it('rejeita payload com etapa maior que total_etapas', function () {
@@ -89,7 +164,7 @@ it('rejeita payload com etapa maior que total_etapas', function () {
     $response->assertJsonPath('errors.etapa.0', 'O número da etapa não pode ser maior que total_etapas.');
 });
 
-it('em concluido, força etapa=total_etapas e progresso=100 no cache', function () {
+it('em concluido da etapa 1, marca a etapa como concluida sem finalizar o lote', function () {
     $u = User::factory()->create();
     $tabId = 'tab-concluido';
     $lote = progressoLote($u, $tabId);
@@ -100,8 +175,9 @@ it('em concluido, força etapa=total_etapas e progresso=100 no cache', function 
             'tab_id' => $tabId,
             'status' => 'concluido',
             'consulta_lote_id' => $lote->id,
+            'etapa' => 1,
             'total_etapas' => 2,
-            'etapa_label' => 'Certidões Federais',
+            'etapa_label' => 'Preparando consulta',
         ]);
 
     $response->assertOk();
@@ -111,12 +187,134 @@ it('em concluido, força etapa=total_etapas e progresso=100 no cache', function 
     expect($cache)->not->toBeNull();
     expect($cache['status'])->toBe('concluido');
     expect($cache['progresso'])->toBe(100);
-    expect($cache['etapa'])->toBe(2);
+    expect($cache['etapa'])->toBe(1);
     expect($cache['total_etapas'])->toBe(2);
-    expect($cache['etapa_label'])->toBe('Certidões Federais');
+    expect($cache['etapa_label'])->toBe('Preparando consulta');
+    expect($cache['ultima_etapa_concluida'])->toBe(1);
 
     $lote->refresh();
-    expect($lote->status)->toBe(ConsultaLote::STATUS_CONCLUIDO);
+    expect($lote->status)->toBe(ConsultaLote::STATUS_PROCESSANDO);
+    expect($lote->processado_em)->toBeNull();
+});
+
+it('em processando na etapa 0, preserva as etapas positivas como concluídas', function () {
+    $u = User::factory()->create();
+    $tabId = 'tab-processando-finalizacao';
+    $lote = progressoLote($u, $tabId);
+
+    $response = $this->withHeaders(['X-API-Token' => 'test-api-token'])
+        ->postJson('/api/consultas/progresso', [
+            'user_id' => $u->id,
+            'tab_id' => $tabId,
+            'consulta_lote_id' => $lote->id,
+            'status' => 'processando',
+            'progresso' => 90,
+            'etapa' => 0,
+            'total_etapas' => 2,
+            'etapa_label' => 'Salvando resultados',
+            'mensagem' => 'Salvando resultados...',
+        ]);
+
+    $response->assertOk();
+    $response->assertJson(['success' => true, 'progresso' => 90]);
+
+    $cache = Cache::get("progresso:{$u->id}:{$tabId}");
+    expect($cache)->not->toBeNull();
+    expect($cache['status'])->toBe('processando');
+    expect($cache['progresso'])->toBe(90);
+    expect($cache['etapa'])->toBe(0);
+    expect($cache['total_etapas'])->toBe(2);
+    expect($cache['etapa_label'])->toBe('Salvando resultados');
+    expect($cache['ultima_etapa_concluida'])->toBe(2);
+});
+
+it('preserva a etapa 1 concluida quando o provedor avanca rapido para a etapa 2', function () {
+    $u = User::factory()->create();
+    $tabId = 'tab-etapa-sticky';
+    $lote = progressoLote($u, $tabId);
+
+    $this->withHeaders(['X-API-Token' => 'test-api-token'])
+        ->postJson('/api/consultas/progresso', [
+            'user_id' => $u->id,
+            'tab_id' => $tabId,
+            'status' => 'concluido',
+            'consulta_lote_id' => $lote->id,
+            'etapa' => 1,
+            'total_etapas' => 2,
+            'etapa_label' => 'Preparando consulta',
+        ])
+        ->assertOk();
+
+    $response = $this->withHeaders(['X-API-Token' => 'test-api-token'])
+        ->postJson('/api/consultas/progresso', [
+            'user_id' => $u->id,
+            'tab_id' => $tabId,
+            'status' => 'processando',
+            'consulta_lote_id' => $lote->id,
+            'progresso' => 15,
+            'etapa' => 2,
+            'total_etapas' => 2,
+            'etapa_label' => 'Dados cadastrais',
+            'mensagem' => 'Consultando dados cadastrais...',
+        ]);
+
+    $response->assertOk();
+
+    $cache = Cache::get("progresso:{$u->id}:{$tabId}");
+    expect($cache)->not->toBeNull();
+    expect($cache['status'])->toBe('processando');
+    expect($cache['etapa'])->toBe(2);
+    expect($cache['ultima_etapa_concluida'])->toBe(1);
+
+    actingAs($u)
+        ->getJson("/app/consulta/lote/{$lote->id}/status")
+        ->assertOk()
+        ->assertJson([
+            'success' => true,
+            'status' => 'processando',
+            'etapa' => 2,
+            'total_etapas' => 2,
+            'etapa_label' => 'Dados cadastrais',
+            'ultima_etapa_concluida' => 1,
+            'consulta_lote_id' => $lote->id,
+        ]);
+});
+
+it('em finalizado na etapa 0, persiste o encerramento do lote e marca a finalizacao no cache', function () {
+    $u = User::factory()->create();
+    $tabId = 'tab-finalizado';
+    $lote = progressoLote($u, $tabId);
+
+    $response = $this->withHeaders(['X-API-Token' => 'test-api-token'])
+        ->postJson('/api/consultas/progresso', [
+            'user_id' => $u->id,
+            'tab_id' => $tabId,
+            'status' => 'finalizado',
+            'consulta_lote_id' => $lote->id,
+            'etapa' => 0,
+            'total_etapas' => 2,
+            'etapa_label' => 'Salvando resultados',
+            'resultado_resumo' => [
+                'participantes' => 1,
+            ],
+        ]);
+
+    $response->assertOk();
+    $response->assertJson(['success' => true]);
+
+    $cache = Cache::get("progresso:{$u->id}:{$tabId}");
+    expect($cache)->not->toBeNull();
+    expect($cache['status'])->toBe(ConsultaLote::STATUS_FINALIZADO);
+    expect($cache['progresso'])->toBe(100);
+    expect($cache['etapa'])->toBe(0);
+    expect($cache['total_etapas'])->toBe(2);
+    expect($cache['etapa_label'])->toBe('Salvando resultados');
+    expect($cache['ultima_etapa_concluida'])->toBe(0);
+
+    $lote->refresh();
+    expect($lote->status)->toBe(ConsultaLote::STATUS_FINALIZADO);
+    expect($lote->resultado_resumo)->toBe(['participantes' => 1]);
+    expect($lote->processado_em)->not->toBeNull();
 });
 
 it('em erro, preserva etapa corrente para marcar em vermelho no frontend', function () {
@@ -144,9 +342,45 @@ it('em erro, preserva etapa corrente para marcar em vermelho no frontend', funct
     expect($cache['status'])->toBe('erro');
     expect($cache['etapa'])->toBe(2);
     expect($cache['total_etapas'])->toBe(2);
+    expect($cache['ultima_etapa_concluida'])->toBe(1);
     expect($cache['error_code'])->toBe('FONTE_INDISPONIVEL');
 
     $lote->refresh();
     expect($lote->status)->toBe(ConsultaLote::STATUS_ERRO);
     expect($lote->error_code)->toBe('FONTE_INDISPONIVEL');
+});
+
+it('em erro na etapa 0, preserva as etapas positivas concluídas e mantém a finalizacao como etapa corrente', function () {
+    $u = User::factory()->create();
+    $tabId = 'tab-erro-finalizacao';
+    $lote = progressoLote($u, $tabId);
+
+    $response = $this->withHeaders(['X-API-Token' => 'test-api-token'])
+        ->postJson('/api/consultas/progresso', [
+            'user_id' => $u->id,
+            'tab_id' => $tabId,
+            'status' => 'erro',
+            'consulta_lote_id' => $lote->id,
+            'etapa' => 0,
+            'total_etapas' => 2,
+            'etapa_label' => 'Salvando resultados',
+            'error_code' => 'ERRO_PERSISTENCIA',
+            'error_message' => 'Falha ao salvar resultados.',
+        ]);
+
+    $response->assertOk();
+    $response->assertJson(['success' => true]);
+
+    $cache = Cache::get("progresso:{$u->id}:{$tabId}");
+    expect($cache)->not->toBeNull();
+    expect($cache['status'])->toBe('erro');
+    expect($cache['etapa'])->toBe(0);
+    expect($cache['total_etapas'])->toBe(2);
+    expect($cache['etapa_label'])->toBe('Salvando resultados');
+    expect($cache['ultima_etapa_concluida'])->toBe(2);
+    expect($cache['error_code'])->toBe('ERRO_PERSISTENCIA');
+
+    $lote->refresh();
+    expect($lote->status)->toBe(ConsultaLote::STATUS_ERRO);
+    expect($lote->error_code)->toBe('ERRO_PERSISTENCIA');
 });

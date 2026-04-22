@@ -812,7 +812,7 @@ class DashboardController extends Controller
 
         // KPI 2: Creditos usados no mes
         $creditosUsadosMes = ConsultaLote::where('user_id', $user->id)
-            ->where('status', 'concluido')
+            ->whereIn('status', ConsultaLote::successfulStatuses())
             ->whereBetween('created_at', [$mesInicio, $mesFim])
             ->sum('creditos_cobrados');
 
@@ -823,10 +823,10 @@ class DashboardController extends Controller
 
         // KPI 4: Media creditos/consulta
         $totalConsultas = ConsultaLote::where('user_id', $user->id)
-            ->where('status', 'concluido')
+            ->whereIn('status', ConsultaLote::successfulStatuses())
             ->count();
         $totalCreditosHistorico = ConsultaLote::where('user_id', $user->id)
-            ->where('status', 'concluido')
+            ->whereIn('status', ConsultaLote::successfulStatuses())
             ->sum('creditos_cobrados');
         $mediaCreditos = $totalConsultas > 0 ? round($totalCreditosHistorico / $totalConsultas, 1) : 0;
 
@@ -842,7 +842,7 @@ class DashboardController extends Controller
         for ($i = 5; $i >= 0; $i--) {
             $mes = $now->copy()->subMonths($i);
             $consumo = ConsultaLote::where('user_id', $user->id)
-                ->where('status', 'concluido')
+                ->whereIn('status', ConsultaLote::successfulStatuses())
                 ->whereYear('created_at', $mes->year)
                 ->whereMonth('created_at', $mes->month)
                 ->sum('creditos_cobrados');

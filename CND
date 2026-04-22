@@ -1,0 +1,2 @@
+resources/views/autenticado/consulta/lote.blade.php:221:                                    <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50 whitespace-nowrap">CND Federal</th>
+resources/views/autenticado/consulta/lote.blade.php:320:                                        <p class="text-[10px] text-gray-400 uppercase whitespace-nowrap">CND Federal</p>

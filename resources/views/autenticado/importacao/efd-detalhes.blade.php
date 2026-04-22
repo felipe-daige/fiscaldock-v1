@@ -11,12 +11,79 @@
         || $importacao->tipo_efd === 'efd-contrib'
         ? 'background-color: #0f766e'
         : 'background-color: #4338ca';
+
+    $emProcessamento = in_array($importacao->status, ['processando', 'pendente'], true);
+    $concluido = $importacao->status === 'concluido';
+
+    $tipoEfdJs = (str_contains(strtolower($importacao->tipo_efd ?? ''), 'pis') || $importacao->tipo_efd === 'efd-contrib')
+        ? 'contrib'
+        : 'fiscal';
+    $tabIdQuery = request()->query('tab_id', '');
 @endphp
 
 <div class="bg-gray-100 min-h-screen" id="efd-detalhes-container">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         @include('autenticado.importacao.efd-detalhes._header')
-        @include('autenticado.importacao.efd-detalhes._sticky-nav')
+        @include('autenticado.importacao.efd-detalhes._info-card')
+
+        @if($emProcessamento)
+            <div id="efd-progresso-root"
+                 class="mb-4"
+                 data-tab-id="{{ $tabIdQuery }}"
+                 data-tipo="{{ $tipoEfdJs }}"
+                 data-importacao-id="{{ $importacao->id }}">
+
+                <div id="efd-progresso-card" class="bg-white rounded border border-gray-300 overflow-hidden mb-4">
+                    <div class="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
+                        <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Andamento da Importação</span>
+                        <span id="efd-progresso-percent" class="text-[10px] text-gray-500 font-mono">0%</span>
+                    </div>
+                    <div class="p-4">
+                        <div class="w-full h-1.5 rounded-full overflow-hidden" style="background-color: #e5e7eb">
+                            <div id="efd-progresso-bar" class="h-full" style="background-color: #1f2937; width: 0%; transition: width 350ms ease-out"></div>
+                        </div>
+                        <p id="efd-progresso-etapa" class="text-xs text-gray-600 mt-3">Preparando importação...</p>
+                        <p id="efd-progresso-meta" class="text-[11px] text-gray-500 mt-1 hidden"></p>
+                        <div id="efd-progresso-steps" class="mt-3 flex flex-wrap gap-2">
+                            @php
+                                $etapas = $tipoEfdJs === 'fiscal'
+                                    ? [
+                                        ['key' => 'participantes', 'label' => 'Participantes'],
+                                        ['key' => 'notas_mercadorias', 'label' => 'NF-e Mercadorias'],
+                                        ['key' => 'notas_transportes', 'label' => 'CT-e'],
+                                        ['key' => 'catalogo', 'label' => 'Catálogo'],
+                                        ['key' => 'apuracao_icms', 'label' => 'Apuração ICMS'],
+                                    ]
+                                    : [
+                                        ['key' => 'participantes', 'label' => 'Participantes'],
+                                        ['key' => 'notas_servicos', 'label' => 'Notas Serviço'],
+                                        ['key' => 'notas_mercadorias', 'label' => 'NF-e Mercadorias'],
+                                        ['key' => 'catalogo', 'label' => 'Catálogo'],
+                                        ['key' => 'apuracao_pis_cofins', 'label' => 'Apuração PIS/COFINS'],
+                                        ['key' => 'retencoes_fonte', 'label' => 'Retenções'],
+                                    ];
+                            @endphp
+
+                            @foreach($etapas as $etapa)
+                                <div class="etapa-item inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-100 text-xs font-medium text-gray-400" data-etapa="{{ $etapa['key'] }}">
+                                    <span class="etapa-icon flex items-center justify-center w-3.5 h-3.5">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
+                                        </svg>
+                                    </span>
+                                    <span>{{ $etapa['label'] }}</span>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded border border-gray-300 p-6 text-center">
+                <p class="text-sm text-gray-500">Os dados da importação aparecerão aqui assim que o processamento terminar.</p>
+                <p class="text-xs text-gray-400 mt-1">Você pode fechar esta aba e voltar depois pelo histórico.</p>
+            </div>
+        @endif
 
         @if($importacao->status === 'erro')
             <div class="bg-white rounded border border-gray-300 p-4 border-l-4 border-l-red-500 mb-6">
@@ -25,23 +92,30 @@
             </div>
         @endif
 
-        @include('autenticado.importacao.efd-detalhes._info-card')
-        @include('autenticado.importacao.efd-detalhes._indicadores')
-        @include('autenticado.importacao.efd-detalhes._resumo-tributario')
-        @include('autenticado.importacao.efd-detalhes._cliente')
-        @include('autenticado.importacao.efd-detalhes._participantes')
-        @include('autenticado.importacao.efd-detalhes._resumo-final')
-        @include('autenticado.importacao.efd-detalhes._catalogo')
-        @include('autenticado.importacao.efd-detalhes._apuracao-icms')
-        @include('autenticado.importacao.efd-detalhes._retencoes')
-        @include('autenticado.importacao.efd-detalhes._apuracao-pis-cofins')
+        @if($concluido)
+            @include('autenticado.importacao.efd-detalhes._sticky-nav')
+            @include('autenticado.importacao.efd-detalhes._indicadores')
+            @include('autenticado.importacao.efd-detalhes._resumo-tributario')
+            @include('autenticado.importacao.efd-detalhes._cliente')
+            @include('autenticado.importacao.efd-detalhes._participantes')
+            @include('autenticado.importacao.efd-detalhes._resumo-final')
+            @include('autenticado.importacao.efd-detalhes._catalogo')
+            @include('autenticado.importacao.efd-detalhes._apuracao-icms')
+            @include('autenticado.importacao.efd-detalhes._retencoes')
+            @include('autenticado.importacao.efd-detalhes._apuracao-pis-cofins')
 
-        @if(!empty($resumoFinal['analise_fiscal']) || !empty($resumoFinal['alertas']))
-            @include('autenticado.importacao.efd-detalhes._analise-fiscal')
+            @if(!empty($resumoFinal['analise_fiscal']) || !empty($resumoFinal['alertas']))
+                @include('autenticado.importacao.efd-detalhes._analise-fiscal')
+            @endif
         @endif
     </div>
 </div>
 
+@if($emProcessamento)
+<script src="/js/efd-importacao-progresso.js?v={{ filemtime(public_path('js/efd-importacao-progresso.js')) }}"></script>
+@endif
+
+@if($concluido)
 <script>
 function _efdFormatBRL(valor) {
     return 'R$ ' + Number(valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -256,8 +330,8 @@ window.initImportacao = function() {
         section._efdAsyncBound = true;
 
         section.addEventListener('click', function(e) {
-            var a = e.target.closest('a[data-link]');
-            if (a && section.contains(a) && (a.textContent.trim() === 'Anterior' || a.textContent.trim() === 'Próxima')) {
+            var a = e.target.closest('a[data-async-pagination]');
+            if (a && section.contains(a)) {
                 e.preventDefault();
                 e.stopPropagation();
                 window.asyncLoadEFD(a.href, targetSections);
@@ -354,3 +428,4 @@ window.initImportacao = function() {
 
 window.initImportacao();
 </script>
+@endif

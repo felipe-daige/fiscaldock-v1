@@ -889,7 +889,7 @@
                         @foreach($lotesDoParticipante as $lote)
                         @php
                             $resultado = $lote->resultados->first();
-                            $statusResultado = $resultado?->status ?? ($lote->status === 'concluido' ? 'pendente' : $lote->status);
+                            $statusResultado = $resultado?->status ?? ($lote->isFinalizado() ? 'pendente' : \App\Models\ConsultaLote::normalizeStatus($lote->status));
                             $situacao = $resultado?->getDado('situacao_cadastral');
                             $simples = $resultado?->getDado('simples_nacional');
                             $cndFederal = $resultado?->getDado('cnd_federal');
@@ -901,6 +901,7 @@
                                 'timeout'     => '#dc2626',
                                 'pendente'    => $lote->status === 'processando' ? '#4338ca' : '#6b7280',
                                 'processando' => '#4338ca',
+                                'finalizado'  => '#047857',
                                 'concluido'   => '#047857',
                             ];
                             $resultadoStatusLabel = [
@@ -909,7 +910,8 @@
                                 'timeout'     => 'Timeout',
                                 'pendente'    => $lote->status === 'processando' ? 'Em andamento' : 'Pendente',
                                 'processando' => 'Em andamento',
-                                'concluido'   => 'Concluído',
+                                'finalizado'  => 'Finalizado',
+                                'concluido'   => 'Finalizado',
                             ];
                         @endphp
                         <div class="px-6 py-4 hover:bg-gray-50 transition-colors">

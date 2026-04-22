@@ -10,8 +10,9 @@
  <span class="text-[10px] font-semibold text-gray-400 bg-gray-200 px-2 py-0.5 rounded">{{ $totalCatalogo }}</span>
  </div>
  <div class="flex items-center gap-3">
- <div class="relative">
- <select class="pl-3 pr-8 py-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white" onchange="let u = new URL(window.location.href); u.searchParams.set('per_page_catalogo', this.value); u.searchParams.delete('catalogo_page'); window.asyncLoadEFD(u.toString(), ['catalogo-section']);">
+ <div class="flex items-center gap-2">
+ <label for="per-page-catalogo-efd" class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Por pág.</label>
+ <select id="per-page-catalogo-efd" class="border border-gray-300 rounded text-sm focus:ring-1 focus:ring-gray-400 focus:border-gray-400 px-2 py-1.5 bg-white" onchange="let u = new URL(window.location.href); u.searchParams.set('per_page_catalogo', this.value); u.searchParams.delete('catalogo_page'); window.asyncLoadEFD(u.toString(), ['catalogo-section']);">
  <option value="10" {{ request('per_page_catalogo', 10) == 10 ? 'selected' : '' }}>10 por pág.</option>
  <option value="25" {{ request('per_page_catalogo') == 25 ? 'selected' : '' }}>25 por pág.</option>
  <option value="50" {{ request('per_page_catalogo') == 50 ? 'selected' : '' }}>50 por pág.</option>
@@ -28,9 +29,9 @@
  </div>
 
  <div class="hidden md:block overflow-x-auto">
- <table class="min-w-full divide-y divide-gray-100 text-sm" id="tabela-catalogo">
+ <table class="min-w-full text-sm" id="tabela-catalogo">
  <thead>
- <tr>
+ <tr class="border-b border-gray-300">
  <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Código</th>
  <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Descrição</th>
  <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">NCM</th>
@@ -39,15 +40,15 @@
  <th class="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Aliq. ICMS</th>
  </tr>
  </thead>
- <tbody class="bg-white divide-y divide-gray-100" id="tbody-catalogo">
+ <tbody class="divide-y divide-gray-100" id="tbody-catalogo">
  @foreach($catalogoItens as $item)
- <tr class="hover:bg-gray-50 transition-colors" data-cod="{{ strtolower($item->cod_item ?? '') }}" data-desc="{{ strtolower($item->descr_item ?? '') }}" data-ncm="{{ $item->cod_ncm ?? '' }}">
- <td class="px-4 py-2.5 text-xs font-mono text-gray-900 whitespace-nowrap">{{ $item->cod_item ?? '—' }}</td>
- <td class="px-4 py-2.5 text-sm text-gray-900 max-w-[320px] truncate" title="{{ $item->descr_item ?? '' }}">{{ $item->descr_item ?? '—' }}</td>
- <td class="px-4 py-2.5 text-xs font-mono text-gray-700">{{ $item->cod_ncm ?? '—' }}</td>
- <td class="px-4 py-2.5 text-xs text-gray-600">{{ $item->tipo_item ?? '—' }}</td>
- <td class="px-4 py-2.5 text-xs text-gray-600">{{ $item->unid_inv ?? '—' }}</td>
- <td class="px-4 py-2.5 text-xs text-right font-mono text-gray-700">{{ $item->aliq_icms ? number_format($item->aliq_icms, 2, ',', '.') . '%' : '—' }}</td>
+ <tr class="hover:bg-gray-50/50 transition-colors" data-cod="{{ strtolower($item->cod_item ?? '') }}" data-desc="{{ strtolower($item->descr_item ?? '') }}" data-ncm="{{ $item->cod_ncm ?? '' }}">
+ <td class="px-3 py-3 text-xs font-mono text-gray-900 whitespace-nowrap">{{ $item->cod_item ?? '—' }}</td>
+ <td class="px-3 py-3 text-sm text-gray-900 max-w-[320px] truncate" title="{{ $item->descr_item ?? '' }}">{{ $item->descr_item ?? '—' }}</td>
+ <td class="px-3 py-3 text-xs font-mono text-gray-700">{{ $item->cod_ncm ?? '—' }}</td>
+ <td class="px-3 py-3 text-xs text-gray-700">{{ $item->tipo_item ?? '—' }}</td>
+ <td class="px-3 py-3 text-xs text-gray-700">{{ $item->unid_inv ?? '—' }}</td>
+ <td class="px-3 py-3 text-xs text-right font-mono text-gray-700">{{ $item->aliq_icms ? number_format($item->aliq_icms, 2, ',', '.') . '%' : '—' }}</td>
  </tr>
  @endforeach
  </tbody>
@@ -70,19 +71,19 @@
 
  {{-- Paginacao --}}
  @if($catalogoItens instanceof \Illuminate\Pagination\LengthAwarePaginator && $catalogoItens->hasPages())
- <div class="px-6 py-4 flex items-center justify-between gap-4 text-sm border-t border-gray-100">
- <span class="text-gray-500 text-xs">Mostrando {{ $catalogoItens->firstItem() }}–{{ $catalogoItens->lastItem() }} de {{ $catalogoItens->total() }} itens</span>
- <div class="flex items-center gap-1">
+ <div class="border-t border-gray-300 px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+ <span class="text-[10px] text-gray-500 uppercase tracking-wide">Mostrando {{ $catalogoItens->firstItem() }}–{{ $catalogoItens->lastItem() }} de {{ $catalogoItens->total() }} itens</span>
+ <div class="flex items-center gap-2">
  @if($catalogoItens->onFirstPage())
- <span class="px-3 py-1.5 rounded border border-gray-300 text-gray-300 text-xs cursor-not-allowed">Anterior</span>
+ <span class="px-3 py-1.5 text-[10px] text-gray-400 bg-gray-100 border border-gray-200 rounded">Anterior</span>
  @else
- <a href="{{ $catalogoItens->previousPageUrl() }}" data-link class="px-3 py-1.5 rounded border border-gray-300 text-gray-700 text-xs font-medium hover:bg-gray-50 transition">Anterior</a>
+ <a href="{{ $catalogoItens->previousPageUrl() }}" data-link data-async-pagination class="px-3 py-1.5 text-[10px] text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50">Anterior</a>
  @endif
- <span class="px-3 py-1.5 text-xs text-gray-500">{{ $catalogoItens->currentPage() }} / {{ $catalogoItens->lastPage() }}</span>
+ <span class="text-[10px] text-gray-500 uppercase tracking-wide">{{ $catalogoItens->currentPage() }} / {{ $catalogoItens->lastPage() }}</span>
  @if($catalogoItens->hasMorePages())
- <a href="{{ $catalogoItens->nextPageUrl() }}" data-link class="px-3 py-1.5 rounded border border-gray-300 text-gray-700 text-xs font-medium hover:bg-gray-50 transition">Próxima</a>
+ <a href="{{ $catalogoItens->nextPageUrl() }}" data-link data-async-pagination class="px-3 py-1.5 text-[10px] text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50">Próxima</a>
 @else
- <span class="px-3 py-1.5 rounded border border-gray-300 text-gray-300 text-xs cursor-not-allowed">Próxima</span>
+ <span class="px-3 py-1.5 text-[10px] text-gray-400 bg-gray-100 border border-gray-200 rounded">Próxima</span>
 @endif
  </div>
  </div>

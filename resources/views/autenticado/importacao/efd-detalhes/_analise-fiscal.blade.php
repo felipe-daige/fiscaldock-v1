@@ -120,7 +120,10 @@
  <span class="text-[10px] font-bold text-white px-2 py-0.5 rounded" style="background-color: {{ $cfg['badgeHex'] }}">{{ $group->count() }}</span>
  @endforeach
  </div>
+ <div class="flex items-center gap-2">
+ <span class="text-xs text-gray-500">R$ {{ number_format($icmsVs['declarado_recolher'] ?? 0, 2, ',', '.') }}</span>
  <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+ </div>
  </summary>
  <div class="px-4 pb-4">
  {{-- Alertas vinculados --}}
@@ -179,7 +182,10 @@
  <span class="text-[10px] font-bold text-white px-2 py-0.5 rounded" style="background-color: {{ $cfg['badgeHex'] }}">{{ $group->count() }}</span>
  @endforeach
  </div>
+ <div class="flex items-center gap-2">
+ <span class="text-xs text-gray-500">R$ {{ number_format($conc['total_entradas_valor'] ?? 0, 2, ',', '.') }}</span>
  <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+ </div>
  </summary>
  <div class="px-4 pb-4">
  @foreach($alertasParticipantes as $alerta)

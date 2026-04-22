@@ -9,8 +9,9 @@
  </div>
  @if($participantes->total() > 0)
  <div class="flex items-center gap-3">
- <div class="relative">
- <select class="pl-3 pr-8 py-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white" onchange="let u = new URL(window.location.href); u.searchParams.set('per_page_participantes', this.value); u.searchParams.delete('page'); window.asyncLoadEFD(u.toString(), ['participantes-section', 'resumo-final-section']);">
+ <div class="flex items-center gap-2">
+ <label for="per-page-participantes-efd" class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Por pág.</label>
+ <select id="per-page-participantes-efd" class="border border-gray-300 rounded text-sm focus:ring-1 focus:ring-gray-400 focus:border-gray-400 px-2 py-1.5 bg-white" onchange="let u = new URL(window.location.href); u.searchParams.set('per_page_participantes', this.value); u.searchParams.delete('page'); window.asyncLoadEFD(u.toString(), ['participantes-section', 'resumo-final-section']);">
  <option value="10" {{ request('per_page_participantes', 10) == 10 ? 'selected' : '' }}>10 por pág.</option>
  <option value="25" {{ request('per_page_participantes') == 25 ? 'selected' : '' }}>25 por pág.</option>
  <option value="50" {{ request('per_page_participantes') == 50 ? 'selected' : '' }}>50 por pág.</option>
@@ -35,9 +36,9 @@
  @if($participantes->total() > 0)
  {{-- Desktop: Table --}}
  <div class="hidden md:block overflow-x-auto">
- <table class="min-w-full divide-y divide-gray-100" id="tabela-participantes-efd">
+ <table class="min-w-full" id="tabela-participantes-efd">
  <thead>
- <tr>
+ <tr class="border-b border-gray-300">
  <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">CNPJ/CPF</th>
  <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Razão Social</th>
  <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">UF</th>
@@ -45,19 +46,19 @@
  <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Inscrição Estadual</th>
  </tr>
  </thead>
- <tbody class="bg-white divide-y divide-gray-100" id="tbody-participantes-efd">
+ <tbody class="divide-y divide-gray-100" id="tbody-participantes-efd">
  @foreach($participantes as $part)
  <tr
- class="hover:bg-gray-50 cursor-pointer transition-colors"
+ class="hover:bg-gray-50/50 cursor-pointer transition-colors"
  data-href="/app/participante/{{ $part->id }}"
  data-razao="{{ strtolower($part->razao_social ?: '') }}"
  data-doc="{{ $part->cnpj_formatado ?: $part->cpf ?: '' }}"
  >
- <td class="px-6 py-4 text-sm font-mono text-gray-900 whitespace-nowrap">{{ $part->cnpj_formatado ?: $part->cpf ?: '—' }}</td>
- <td class="px-6 py-4 text-sm text-gray-900 max-w-[280px] truncate" title="{{ $part->razao_social ?: 'Razão social não informada' }}">{{ $part->razao_social ?: '—' }}</td>
- <td class="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">{{ $part->uf ?: '—' }}</td>
- <td class="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">{{ $part->endereco ?: '—' }}</td>
- <td class="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">{{ $part->inscricao_estadual ?: '—' }}</td>
+ <td class="px-3 py-3 text-sm font-mono text-gray-900 whitespace-nowrap">{{ $part->cnpj_formatado ?: $part->cpf ?: '—' }}</td>
+ <td class="px-3 py-3 text-sm text-gray-900 max-w-[280px] truncate" title="{{ $part->razao_social ?: 'Razão social não informada' }}">{{ $part->razao_social ?: '—' }}</td>
+ <td class="px-3 py-3 text-sm text-gray-700 whitespace-nowrap">{{ $part->uf ?: '—' }}</td>
+ <td class="px-3 py-3 text-sm text-gray-700 whitespace-nowrap">{{ $part->endereco ?: '—' }}</td>
+ <td class="px-3 py-3 text-sm text-gray-700 whitespace-nowrap">{{ $part->inscricao_estadual ?: '—' }}</td>
  </tr>
  @endforeach
  </tbody>
@@ -86,23 +87,23 @@
 
  {{-- Paginacao --}}
  @if($participantes->hasPages())
- <div class="px-6 py-4 flex items-center justify-between gap-4 text-sm border-t border-gray-100">
- <span class="text-gray-500 text-xs">
+ <div class="border-t border-gray-300 px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+ <span class="text-[10px] text-gray-500 uppercase tracking-wide">
  Mostrando {{ $participantes->firstItem() }}–{{ $participantes->lastItem() }} de {{ $participantes->total() }} participantes
  </span>
- <div class="flex items-center gap-1">
+ <div class="flex items-center gap-2">
  @if($participantes->onFirstPage())
- <span class="px-3 py-1.5 rounded border border-gray-300 text-gray-300 text-xs cursor-not-allowed">Anterior</span>
+ <span class="px-3 py-1.5 text-[10px] text-gray-400 bg-gray-100 border border-gray-200 rounded">Anterior</span>
  @else
- <a href="{{ $participantes->previousPageUrl() }}" data-link class="px-3 py-1.5 rounded border border-gray-300 text-gray-700 text-xs font-medium hover:bg-gray-50 transition">Anterior</a>
+ <a href="{{ $participantes->previousPageUrl() }}" data-link data-async-pagination class="px-3 py-1.5 text-[10px] text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50">Anterior</a>
  @endif
 
- <span class="px-3 py-1.5 text-xs text-gray-500">{{ $participantes->currentPage() }} / {{ $participantes->lastPage() }}</span>
+ <span class="text-[10px] text-gray-500 uppercase tracking-wide">{{ $participantes->currentPage() }} / {{ $participantes->lastPage() }}</span>
 
  @if($participantes->hasMorePages())
- <a href="{{ $participantes->nextPageUrl() }}" data-link class="px-3 py-1.5 rounded border border-gray-300 text-gray-700 text-xs font-medium hover:bg-gray-50 transition">Próxima</a>
+ <a href="{{ $participantes->nextPageUrl() }}" data-link data-async-pagination class="px-3 py-1.5 text-[10px] text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50">Próxima</a>
 @else
- <span class="px-3 py-1.5 rounded border border-gray-300 text-gray-300 text-xs cursor-not-allowed">Próxima</span>
+ <span class="px-3 py-1.5 text-[10px] text-gray-400 bg-gray-100 border border-gray-200 rounded">Próxima</span>
 @endif
  </div>
  </div>
