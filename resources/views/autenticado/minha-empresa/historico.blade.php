@@ -86,6 +86,9 @@
                                             <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white"
                                                   style="background-color: #d97706">Pendente</span>
                                         @endif
+                                        @if($consulta->getMensagemExibivel())
+                                            <p class="mt-1 text-[11px] text-gray-500 normal-case whitespace-normal max-w-[18rem] mx-auto">{{ $consulta->getMensagemExibivel() }}</p>
+                                        @endif
                                     </td>
                                     <td class="px-3 py-3 whitespace-nowrap text-center">
                                         @if($consulta->isSucesso())

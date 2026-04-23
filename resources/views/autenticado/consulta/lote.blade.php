@@ -5,7 +5,9 @@
     $etapasJson = e(json_encode($etapas ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     $resultados = $resultados ?? new \Illuminate\Pagination\LengthAwarePaginator(collect(), 0, 20, 1);
     $temResultadosNoLote = $temResultadosNoLote ?? false;
-
+    $erroCriticoLote = $lote->publicErrorUi([
+        'url' => request()->getPathInfo(),
+    ]);
 @endphp
 
 <div
@@ -103,10 +105,13 @@
                     <span id="consulta-lote-percent" class="text-[10px] text-gray-500 font-mono">0%</span>
                 </div>
                 <div class="p-4">
+                    <div class="flex items-center justify-between gap-3 mb-2">
+                        <p id="consulta-lote-mensagem" class="text-sm text-gray-700">Iniciando consulta...</p>
+                    </div>
                     <div class="w-full h-1.5 rounded-full overflow-hidden" style="background-color: #e5e7eb">
                         <div id="consulta-lote-bar" class="h-full" style="background-color: #1f2937; width: 6%; transition: width 350ms ease-out"></div>
                     </div>
-                    <p id="consulta-lote-etapa" class="text-xs text-gray-600 mt-3">Iniciando consulta...</p>
+                    <p id="consulta-lote-etapa" class="text-xs text-gray-600 mt-3 hidden"></p>
                     <div id="consulta-lote-steps" class="mt-3 flex flex-wrap gap-2">
                         @foreach(($etapas ?? []) as $etapa)
                             <div class="etapa-item inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-100 text-xs font-medium text-gray-400" data-etapa="{{ $etapa['numero'] ?? '' }}">
@@ -129,13 +134,7 @@
         @endif
 
         @if($statusLote === 'erro')
-            <div class="bg-white rounded border border-gray-300 p-4 border-l-4 border-l-red-500 mb-4">
-                <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Falha no processamento</p>
-                <p class="mt-2 text-sm text-gray-700">{{ $lote->error_message ?: 'O provedor externo retornou erro para esta consulta.' }}</p>
-                @if($lote->error_code)
-                    <p class="text-xs text-gray-500 mt-2">Código: {{ $lote->error_code }}</p>
-                @endif
-            </div>
+            @include('autenticado.partials.system-critical-error', ['errorUi' => $erroCriticoLote])
         @endif
 
         @if($statusLote === 'finalizado' && $aguardaPersistencia)
@@ -168,7 +167,7 @@
                         <p class="text-lg font-bold text-gray-900">{{ number_format((int) ($resumo['erro'] ?? 0), 0, ',', '.') }}</p>
                     </div>
                     <div class="px-4 py-3">
-                        <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Parecer Fiscal</p>
+                        <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Com Sinalização</p>
                         <p class="text-lg font-bold text-gray-900">{{ number_format((int) ($resumo['com_parecer'] ?? 0), 0, ',', '.') }}</p>
                     </div>
                 </div>
@@ -191,12 +190,12 @@
                             <thead>
                                 <tr class="border-b border-gray-300">
                                     <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Participante</th>
-                                    <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Situação</th>
-                                    <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Regime Tributário</th>
-                                    <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">CND Federal</th>
+                                    <th class="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Situação</th>
+                                    <th class="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50 whitespace-nowrap">Regime Tributário</th>
+                                    <th class="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50 whitespace-nowrap">CND Federal</th>
                                     <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">FGTS</th>
                                     <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">CNDT</th>
-                                    <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Parecer</th>
+                                    <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Sinalizações</th>
                                     <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Status</th>
                                     <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Consultado em</th>
                                 </tr>
@@ -224,17 +223,17 @@
                                                 {{ $resultado['documento_formatado'] ?: '—' }}@if(!empty($resultado['uf'])) · {{ $resultado['uf'] }}@endif
                                             </div>
                                         </td>
-                                        <td class="px-3 py-3 text-sm text-gray-700">{{ $resultado['situacao_cadastral'] ?: '—' }}</td>
-                                        <td class="px-3 py-3 text-sm text-gray-700 whitespace-nowrap">{{ $regimeTributario ?: '—' }}</td>
-                                        <td class="px-3 py-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $cndFederal['hex'] }}">{{ $cndFederal['label'] }}</span></td>
+                                        <td class="px-3 py-3 text-sm text-gray-700 text-center">{{ $resultado['situacao_cadastral'] ?: '—' }}</td>
+                                        <td class="px-3 py-3 text-sm text-gray-700 text-center whitespace-nowrap">{{ $regimeTributario ?: '—' }}</td>
+                                        <td class="px-3 py-3 text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $cndFederal['hex'] }}">{{ $cndFederal['label'] }}</span></td>
                                         <td class="px-3 py-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $fgts['hex'] }}">{{ $fgts['label'] }}</span></td>
                                         <td class="px-3 py-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $cndt['hex'] }}">{{ $cndt['label'] }}</span></td>
                                         <td class="px-3 py-3">
                                             @if(!empty($resultado['parecer']))
                                                 <div class="flex flex-wrap gap-1">
                                                     @foreach($resultado['parecer'] as $parecer)
-                                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $parecer['hex'] ?? '#374151' }}" title="{{ $parecer['descricao'] ?? '' }}">
-                                                            {{ $parecer['titulo'] ?? ($parecer['chave'] ?? 'Parecer') }}
+                                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $parecer['hex'] ?? '#374151' }}" title="{{ $parecer['tooltip'] ?? ($parecer['descricao'] ?? '') }}">
+                                                            {{ $parecer['badge_label'] ?? ($parecer['titulo'] ?? ($parecer['chave'] ?? 'Parecer')) }}
                                                         </span>
                                                     @endforeach
                                                 </div>
@@ -246,8 +245,8 @@
                                             <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $resultado['status_hex'] }}">
                                                 {{ $resultado['status_label'] }}
                                             </span>
-                                            @if(!empty($resultado['error_message']))
-                                                <p class="text-[11px] text-gray-500 mt-1">{{ $resultado['error_message'] }}</p>
+                                            @if(!empty($resultado['mensagem_exibivel']))
+                                                <p class="text-[11px] text-gray-500 mt-1">{{ $resultado['mensagem_exibivel'] }}</p>
                                             @endif
                                         </td>
                                         <td class="px-3 py-3 text-sm text-gray-700">{{ $resultado['consultado_em_label'] ?: '—' }}</td>
@@ -274,7 +273,7 @@
                                     <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $resultado['status_hex'] }}">{{ $resultado['status_label'] }}</span>
                                 </div>
                                 <div class="grid grid-cols-2 gap-3 mt-3 text-sm text-gray-700">
-                                    <div>
+                                    <div class="text-center">
                                         <p class="text-[10px] text-gray-400 uppercase">Situação</p>
                                         <p>{{ $resultado['situacao_cadastral'] ?: '—' }}</p>
                                     </div>
@@ -282,13 +281,15 @@
                                         <p class="text-[10px] text-gray-400 uppercase">Consultado em</p>
                                         <p>{{ $resultado['consultado_em_label'] ?: '—' }}</p>
                                     </div>
-                                    <div>
+                                    <div class="text-center">
                                         <p class="text-[10px] text-gray-400 uppercase whitespace-nowrap">Regime Tributário</p>
                                         <p>{{ $regimeTributario ?: '—' }}</p>
                                     </div>
-                                    <div>
+                                    <div class="text-center">
                                         <p class="text-[10px] text-gray-400 uppercase whitespace-nowrap">CND Federal</p>
-                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $cndFederal['hex'] }}">{{ $cndFederal['label'] }}</span>
+                                        <div class="mt-1 flex justify-center">
+                                            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $cndFederal['hex'] }}">{{ $cndFederal['label'] }}</span>
+                                        </div>
                                     </div>
                                     <div>
                                         <p class="text-[10px] text-gray-400 uppercase">FGTS</p>
@@ -302,14 +303,14 @@
                                 @if(!empty($resultado['parecer']))
                                     <div class="flex flex-wrap gap-1 mt-3">
                                         @foreach($resultado['parecer'] as $parecer)
-                                            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $parecer['hex'] ?? '#374151' }}" title="{{ $parecer['descricao'] ?? '' }}">
-                                                {{ $parecer['titulo'] ?? ($parecer['chave'] ?? 'Parecer') }}
+                                            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $parecer['hex'] ?? '#374151' }}" title="{{ $parecer['tooltip'] ?? ($parecer['descricao'] ?? '') }}">
+                                                {{ $parecer['badge_label'] ?? ($parecer['titulo'] ?? ($parecer['chave'] ?? 'Parecer')) }}
                                             </span>
                                         @endforeach
                                     </div>
                                 @endif
-                                @if(!empty($resultado['error_message']))
-                                    <p class="text-xs text-gray-500 mt-3">{{ $resultado['error_message'] }}</p>
+                                @if(!empty($resultado['mensagem_exibivel']))
+                                    <p class="text-xs text-gray-500 mt-3">{{ $resultado['mensagem_exibivel'] }}</p>
                                 @endif
                             </div>
                         @endforeach

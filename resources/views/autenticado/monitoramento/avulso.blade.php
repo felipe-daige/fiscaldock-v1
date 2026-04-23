@@ -492,6 +492,14 @@
                     </div>
                     <h3 class="text-sm font-semibold text-gray-900 mb-1">Erro</h3>
                     <p id="erro-mensagem" class="text-xs text-gray-500 mb-3 break-words">Ocorreu um erro inesperado.</p>
+                    <a href="{{ config('support.whatsapp_url') }}"
+                       id="btn-suporte-erro"
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       class="hidden w-full mb-2 inline-flex items-center justify-center gap-2 py-2 text-white rounded transition text-sm font-medium"
+                       style="background-color: #1f2937;">
+                        {{ config('support.contact_label') }}
+                    </a>
                     <button type="button" id="btn-fechar-erro" class="w-full py-2 bg-gray-800 text-white rounded hover:bg-gray-700 transition text-sm font-medium">
                         Fechar
                     </button>
@@ -1331,7 +1339,24 @@
                         hideModal('progresso');
 
                         const erroMsg = document.getElementById('erro-mensagem');
-                        if (erroMsg) erroMsg.textContent = msg || 'Ocorreu um erro no processamento.';
+                        const suporteBtn = document.getElementById('btn-suporte-erro');
+                        const criticalError = window.SystemCriticalError
+                            ? window.SystemCriticalError.fromPayload(data, {
+                                context: {
+                                    action: 'monitoramento-avulso',
+                                    url: window.location.pathname + window.location.search,
+                                },
+                            })
+                            : null;
+                        if (erroMsg) {
+                            erroMsg.textContent = criticalError && criticalError.message
+                                ? criticalError.message
+                                : (msg || 'Ocorreu um erro no processamento.');
+                        }
+                        if (suporteBtn && criticalError && window.SystemCriticalError) {
+                            window.SystemCriticalError.applyActionLink(suporteBtn, criticalError);
+                            suporteBtn.classList.remove('hidden');
+                        }
 
                         showModal('erro');
                         resetarBotao();
@@ -1351,6 +1376,8 @@
             hideModal('sucesso');
         });
         document.getElementById('btn-fechar-erro')?.addEventListener('click', function() {
+            const suporteBtn = document.getElementById('btn-suporte-erro');
+            if (suporteBtn) suporteBtn.classList.add('hidden');
             hideModal('erro');
         });
 
@@ -1431,7 +1458,25 @@
                     resetarBotao();
 
                     const erroMsg = document.getElementById('erro-mensagem');
-                    if (erroMsg) erroMsg.textContent = err.message || 'Erro ao realizar consulta.';
+                    const suporteBtn = document.getElementById('btn-suporte-erro');
+                    const criticalError = window.SystemCriticalError
+                        ? window.SystemCriticalError.fromPayload({ status: 'erro' }, {
+                            message: err.message || 'Ocorreu uma instabilidade interna ao iniciar a consulta.',
+                            context: {
+                                action: 'monitoramento-avulso',
+                                url: window.location.pathname + window.location.search,
+                            },
+                        })
+                        : null;
+                    if (erroMsg) {
+                        erroMsg.textContent = criticalError && criticalError.message
+                            ? criticalError.message
+                            : (err.message || 'Erro ao realizar consulta.');
+                    }
+                    if (suporteBtn && criticalError && window.SystemCriticalError) {
+                        window.SystemCriticalError.applyActionLink(suporteBtn, criticalError);
+                        suporteBtn.classList.remove('hidden');
+                    }
                     showModal('erro');
                 }
             });

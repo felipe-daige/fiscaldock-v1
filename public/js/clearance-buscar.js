@@ -30,6 +30,7 @@ function initClearanceBuscar() {
     const erroTitulo = document.getElementById('erro-titulo');
     const erroMensagem = document.getElementById('erro-mensagem');
     const erroRefund = document.getElementById('erro-refund');
+    const erroSuporteLink = document.getElementById('erro-suporte-link');
 
     const blocoResultado = document.getElementById('bloco-resultado');
     const resultStatusBadge = document.getElementById('resultado-status-badge');
@@ -106,6 +107,7 @@ function initClearanceBuscar() {
         hide(blocoErro);
         hide(blocoResultado);
         hide(erroRefund);
+        hide(erroSuporteLink);
         if (progressoBar) progressoBar.style.width = '8%';
         if (progressoPercent) progressoPercent.textContent = '0%';
         if (progressoEtapa) progressoEtapa.textContent = 'Iniciando consulta...';
@@ -118,16 +120,37 @@ function initClearanceBuscar() {
         if (etapa && progressoEtapa) progressoEtapa.textContent = etapa;
     }
 
-    function mostrarErro(titulo, mensagem, refund) {
+    function buildSystemError(payload, action, overrides) {
+        if (!window.SystemCriticalError) {
+            return null;
+        }
+
+        return window.SystemCriticalError.fromPayload(payload || {}, {
+            title: overrides && overrides.title,
+            message: overrides && overrides.message,
+            context: {
+                action: action || 'clearance-buscar',
+                url: window.location.pathname + window.location.search,
+            },
+        });
+    }
+
+    function mostrarErro(titulo, mensagem, refund, criticalError) {
         fecharSseEexpirar();
         hide(blocoProgresso);
         hide(blocoResultado);
-        if (erroTitulo) erroTitulo.textContent = titulo || 'Não foi possível consultar';
-        if (erroMensagem) erroMensagem.textContent = mensagem || '-';
+        if (erroTitulo) erroTitulo.textContent = criticalError && criticalError.title ? criticalError.title : (titulo || 'Não foi possível consultar');
+        if (erroMensagem) erroMensagem.textContent = criticalError && criticalError.message ? criticalError.message : (mensagem || '-');
         if (refund) {
             show(erroRefund);
         } else {
             hide(erroRefund);
+        }
+        if (erroSuporteLink && criticalError && window.SystemCriticalError) {
+            window.SystemCriticalError.applyActionLink(erroSuporteLink, criticalError);
+            show(erroSuporteLink);
+        } else {
+            hide(erroSuporteLink);
         }
         show(blocoErro);
         blocoErro && blocoErro.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -228,10 +251,12 @@ function initClearanceBuscar() {
         currentEventSource = es;
 
         currentTimeoutHandle = setTimeout(() => {
+            const criticalError = buildSystemError({ status: 'timeout' }, 'clearance-buscar-timeout');
             mostrarErro(
                 'Tempo esgotado',
                 'A consulta não retornou em 60 segundos. Verifique o histórico mais tarde.',
-                false
+                false,
+                criticalError
             );
         }, 60000);
 
@@ -267,6 +292,7 @@ function initClearanceBuscar() {
             }
 
             if (status === 'erro') {
+                const criticalError = buildSystemError(data, 'clearance-buscar-sse-erro');
                 const refund = data.refund_credits === true || data.refund_aplicado === true;
                 if (refund && data.refund_amount) {
                     atualizarSaldo(Number(data.saldo_atual || 0) + Number(data.refund_amount || 0));
@@ -274,7 +300,8 @@ function initClearanceBuscar() {
                 mostrarErro(
                     'Consulta falhou',
                     data.mensagem || data.error_message || 'O provedor retornou erro.',
-                    refund
+                    refund,
+                    criticalError
                 );
                 inFlight = false;
                 setButtonLoading(false);
@@ -282,10 +309,12 @@ function initClearanceBuscar() {
             }
 
             if (status === 'timeout') {
+                const criticalError = buildSystemError(data, 'clearance-buscar-sse-timeout');
                 mostrarErro(
                     'Tempo esgotado',
                     data.mensagem || 'A consulta excedeu o limite do servidor.',
-                    false
+                    false,
+                    criticalError
                 );
                 inFlight = false;
                 setButtonLoading(false);
@@ -364,10 +393,12 @@ function initClearanceBuscar() {
             }
 
             if (response.status === 502) {
+                const criticalError = buildSystemError(data, 'clearance-buscar-webhook');
                 mostrarErro(
                     'Integração indisponível',
                     data.error || 'O webhook n8n não respondeu. Seus créditos foram estornados.',
-                    true
+                    true,
+                    criticalError
                 );
                 if (typeof data.novo_saldo === 'number') atualizarSaldo(data.novo_saldo);
                 inFlight = false;
@@ -376,10 +407,12 @@ function initClearanceBuscar() {
             }
 
             if (!response.ok) {
+                const criticalError = buildSystemError(data, 'clearance-buscar-interno');
                 mostrarErro(
                     'Erro interno',
                     data.error || ('HTTP ' + response.status),
-                    data.refund_aplicado === true
+                    data.refund_aplicado === true,
+                    criticalError
                 );
                 if (typeof data.novo_saldo === 'number') atualizarSaldo(data.novo_saldo);
                 inFlight = false;

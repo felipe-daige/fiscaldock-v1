@@ -107,6 +107,7 @@ it('renderiza resultado consolidado no detalhe para lote finalizado', function (
         'documento' => '12345678000199',
         'razao_social' => 'Fornecedor Final',
         'uf' => 'SP',
+        'regime_tributario' => 'Lucro Presumido',
         'crt' => '3',
     ]);
 
@@ -123,8 +124,6 @@ it('renderiza resultado consolidado no detalhe para lote finalizado', function (
         'status' => ConsultaResultado::STATUS_SUCESSO,
         'resultado_dados' => [
             'situacao_cadastral' => 'ATIVA',
-            'simples_nacional' => true,
-            'mei' => false,
             'cnd_federal' => ['status' => 'regular'],
             'crf_fgts' => ['status' => 'regular'],
             'cndt' => ['status' => 'regular'],
@@ -136,17 +135,61 @@ it('renderiza resultado consolidado no detalhe para lote finalizado', function (
         ->get("/app/consulta/lote/{$lote->id}")
         ->assertOk()
         ->assertSee('Resultado Consolidado')
+        ->assertSee('Com Sinalização')
         ->assertSee('Fornecedor Final')
         ->assertSee('12.345.678/0001-99')
         ->assertDontSee('12345678000199')
         ->assertSee('Regime Tributário')
-        ->assertSee('Lucro Presumido/Real')
-        ->assertSee('Regime: Lucro Presumido/Real')
+        ->assertSee('<th class="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50 whitespace-nowrap">Regime Tributário</th>', false)
+        ->assertSee('Lucro Presumido')
+        ->assertDontSee('>Regime: Lucro Presumido<', false)
+        ->assertDontSee('Lucro Presumido/Real')
         ->assertSee('Sucesso')
         ->assertSee('CND Federal')
+        ->assertSee('<th class="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50 whitespace-nowrap">CND Federal</th>', false)
         ->assertDontSee('>MEI<', false)
         ->assertSee('Consultado em')
         ->assertDontSee("applyConsultaLoteSort(", false);
+});
+
+it('renderiza parecer resumido com badge curto quando houver sinalizacao acionavel', function () {
+    $user = User::factory()->create();
+    $participante = Participante::create([
+        'user_id' => $user->id,
+        'documento' => '12345678000199',
+        'razao_social' => 'Fornecedor Inativo',
+        'uf' => 'SP',
+        'regime_tributario' => 'Lucro Presumido',
+        'crt' => '3',
+    ]);
+
+    $lote = criarLoteDetalhe($user, [
+        'status' => ConsultaLote::STATUS_FINALIZADO,
+        'processado_em' => now(),
+    ]);
+
+    $lote->participantes()->attach([$participante->id]);
+
+    ConsultaResultado::create([
+        'consulta_lote_id' => $lote->id,
+        'participante_id' => $participante->id,
+        'status' => ConsultaResultado::STATUS_SUCESSO,
+        'resultado_dados' => [
+            'situacao_cadastral' => 'BAIXADA',
+            'motivo_situacao_cadastral' => 'EXTINCAO POR ENCERRAMENTO',
+            'cnd_federal' => ['status' => 'regular'],
+            'crf_fgts' => ['status' => 'regular'],
+            'cndt' => ['status' => 'regular'],
+        ],
+        'consultado_em' => now(),
+    ]);
+
+    actingAs($user)
+        ->get("/app/consulta/lote/{$lote->id}")
+        ->assertOk()
+        ->assertSee('Sinalizações')
+        ->assertSee('>Inativa na RF<', false)
+        ->assertDontSee('>Regime: Lucro Presumido<', false);
 });
 
 it('mantem uma unica pagina quando o lote tiver menos de 20 participantes', function () {
@@ -200,6 +243,122 @@ it('pagina participantes no detalhe finalizado de 20 em 20', function () {
         ->assertDontSee('Fornecedor 20');
 });
 
+it('retorna o regime tributario textual no endpoint de resultados do lote', function () {
+    $user = User::factory()->create();
+    $participante = Participante::create([
+        'user_id' => $user->id,
+        'documento' => '98765432000111',
+        'razao_social' => 'Fornecedor JSON',
+        'uf' => 'SP',
+        'regime_tributario' => 'Lucro Presumido',
+        'crt' => 3,
+    ]);
+
+    $lote = criarLoteDetalhe($user, [
+        'status' => ConsultaLote::STATUS_FINALIZADO,
+        'processado_em' => now(),
+    ]);
+
+    $lote->participantes()->attach([$participante->id]);
+
+    ConsultaResultado::create([
+        'consulta_lote_id' => $lote->id,
+        'participante_id' => $participante->id,
+        'status' => ConsultaResultado::STATUS_SUCESSO,
+        'resultado_dados' => [
+            'situacao_cadastral' => 'ATIVA',
+        ],
+        'consultado_em' => now(),
+    ]);
+
+    actingAs($user)
+        ->getJson("/app/consulta/lote/{$lote->id}/resultados")
+        ->assertOk()
+        ->assertJsonPath('resultados.0.regime_tributario', 'Lucro Presumido');
+});
+
+it('retorna parecer resumido no endpoint de resultados do lote', function () {
+    $user = User::factory()->create();
+    $participante = Participante::create([
+        'user_id' => $user->id,
+        'documento' => '11122233000144',
+        'razao_social' => 'Fornecedor API',
+        'uf' => 'SP',
+        'crt' => 3,
+    ]);
+
+    $lote = criarLoteDetalhe($user, [
+        'status' => ConsultaLote::STATUS_FINALIZADO,
+        'processado_em' => now(),
+    ]);
+
+    $lote->participantes()->attach([$participante->id]);
+
+    ConsultaResultado::create([
+        'consulta_lote_id' => $lote->id,
+        'participante_id' => $participante->id,
+        'status' => ConsultaResultado::STATUS_SUCESSO,
+        'resultado_dados' => [
+            'situacao_cadastral' => 'BAIXADA',
+            'motivo_situacao_cadastral' => 'EXTINCAO POR ENCERRAMENTO',
+            'regime_tributario' => 'Lucro Presumido',
+        ],
+        'consultado_em' => now(),
+    ]);
+
+    actingAs($user)
+        ->getJson("/app/consulta/lote/{$lote->id}/resultados")
+        ->assertOk()
+        ->assertJsonPath('resultados.0.parecer.0.badge_label', 'Inativa na RF')
+        ->assertJsonCount(1, 'resultados.0.parecer');
+});
+
+it('exibe mensagem operacional no detalhe do lote quando o resultado traz mensagem raiz', function () {
+    $user = User::factory()->create();
+    $lote = criarLoteDetalhe($user, [
+        'status' => ConsultaLote::STATUS_FINALIZADO,
+        'processado_em' => now(),
+    ]);
+
+    adicionarResultadoDetalheCustom($lote, $user, 1, [
+        'resultado_dados' => [
+            'situacao_cadastral' => 'ATIVA',
+            'mensagem' => 'Participante conciliado a partir do EFD com sucesso.',
+        ],
+    ], [
+        'documento' => '55667788000199',
+        'razao_social' => 'Fornecedor Mensagem',
+    ]);
+
+    actingAs($user)
+        ->get("/app/consulta/lote/{$lote->id}")
+        ->assertOk()
+        ->assertSee('Participante conciliado a partir do EFD com sucesso.');
+});
+
+it('retorna mensagem exibivel no endpoint do lote com fallback para bloco aninhado', function () {
+    $user = User::factory()->create();
+    $lote = criarLoteDetalhe($user, [
+        'status' => ConsultaLote::STATUS_FINALIZADO,
+        'processado_em' => now(),
+    ]);
+
+    adicionarResultadoDetalheCustom($lote, $user, 1, [
+        'resultado_dados' => [
+            'situacao_cadastral' => 'ATIVA',
+            'cnd_federal' => [
+                'status' => 'INDETERMINADO',
+                'mensagem' => 'Receita sem dados suficientes para emitir a certidao.',
+            ],
+        ],
+    ]);
+
+    actingAs($user)
+        ->getJson("/app/consulta/lote/{$lote->id}/resultados")
+        ->assertOk()
+        ->assertJsonPath('resultados.0.mensagem_exibivel', 'Receita sem dados suficientes para emitir a certidao.');
+});
+
 it('retorna 404 ao tentar abrir lote de outro usuario', function () {
     $owner = User::factory()->create();
     $intruder = User::factory()->create();
@@ -222,4 +381,22 @@ it('historico exibe acao abrir para qualquer lote', function () {
         ->assertOk()
         ->assertSee('/app/consulta/lote/'.$lote->id, false)
         ->assertSee('Abrir');
+});
+
+it('renderiza erro critico sanitizado com contato de suporte no detalhe do lote', function () {
+    $user = User::factory()->create();
+    $lote = criarLoteDetalhe($user, [
+        'status' => ConsultaLote::STATUS_ERRO,
+        'error_code' => 'INFOSIMPLES_PARAMETROS_VAZIOS',
+        'error_message' => 'CND Federal (undefined / undefined): Parâmetros obrigatórios não foram enviados.',
+    ]);
+
+    actingAs($user)
+        ->get("/app/consulta/lote/{$lote->id}")
+        ->assertOk()
+        ->assertSee('Falha no processamento')
+        ->assertSee('Falar com o suporte')
+        ->assertSee('wa.me/5567999844366', false)
+        ->assertDontSee('INFOSIMPLES')
+        ->assertDontSee('Parâmetros obrigatórios');
 });

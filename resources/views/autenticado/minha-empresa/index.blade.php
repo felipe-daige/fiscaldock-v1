@@ -106,6 +106,7 @@
         'data' => $ultimaConsulta?->consultado_em ? $ultimaConsulta->consultado_em->format('d/m/Y H:i') : 'Nenhuma consulta registrada',
         'tipos' => ! empty($consultasRealizadas) ? implode(' | ', $consultasRealizadas) : 'Sem consultas realizadas',
     ];
+    $ultimaConsultaMensagem = $ultimaConsulta?->getMensagemExibivel();
 
     $alertaStyles = [
         'critico' => 'border-l-red-500',
@@ -244,6 +245,9 @@
                             <td class="px-3 py-3 text-sm text-gray-700">
                                 <div>{{ $ultimaConsultaResumo['data'] }}</div>
                                 <div class="text-[11px] text-gray-500 mt-1">{{ $ultimaConsultaResumo['tipos'] }}</div>
+                                @if($ultimaConsultaMensagem)
+                                    <div class="text-[11px] text-gray-500 mt-1">{{ $ultimaConsultaMensagem }}</div>
+                                @endif
                             </td>
                         </tr>
                     </tbody>

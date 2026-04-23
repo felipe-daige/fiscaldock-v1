@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\SystemCriticalError;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -163,5 +164,33 @@ class XmlImportacao extends Model
     public function scopeComErro($query)
     {
         return $query->where('status', 'erro');
+    }
+
+    /**
+     * Retorna o erro pronto para exibição pública.
+     *
+     * @return array<string, string>
+     */
+    public function publicErrorUi(array $context = []): array
+    {
+        if ($this->status !== 'erro' && blank($this->erro_mensagem)) {
+            return [];
+        }
+
+        $defaultContext = [
+            'context' => 'importacao-xml',
+            'reference' => $this->id ? 'Importação #'.$this->id : null,
+        ];
+
+        return app(SystemCriticalError::class)->forAsyncFailure(
+            $this->erro_mensagem,
+            null,
+            array_merge($defaultContext, $context)
+        );
+    }
+
+    public function publicErrorMessage(array $context = []): string
+    {
+        return $this->publicErrorUi($context)['message'] ?? '';
     }
 }

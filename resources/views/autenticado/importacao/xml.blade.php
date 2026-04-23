@@ -340,6 +340,14 @@
                                 </svg>
                                 Tentar Novamente
                             </button>
+                            <a href="{{ config('support.whatsapp_url') }}"
+                               id="btn-suporte-processamento"
+                               target="_blank"
+                               rel="noopener noreferrer"
+                               class="hidden inline-flex items-center gap-2 px-3 py-1.5 rounded text-white text-xs font-medium"
+                               style="background-color: #1f2937;">
+                                {{ config('support.contact_label') }}
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -1312,6 +1320,7 @@
         const progressoStats = document.getElementById('progresso-stats');
         const progressoErro = document.getElementById('progresso-erro');
         const progressoErroMsg = document.getElementById('progresso-erro-msg');
+        const btnSuporteProcessamento = document.getElementById('btn-suporte-processamento');
         const resultadoContainer = document.getElementById('resultado-importacao');
 
         function buildBadgeHtml(label, hexColor, extraClasses) {
@@ -1400,7 +1409,25 @@
             atualizarIconeStatus(status);
 
             if (status === 'erro' && progressoErroMsg) {
-                progressoErroMsg.textContent = payload.error_message || payload.mensagem || 'Erro durante o processamento.';
+                const criticalError = window.SystemCriticalError
+                    ? window.SystemCriticalError.fromPayload(payload, {
+                        context: {
+                            action: 'importacao-xml',
+                            url: window.location.pathname + window.location.search,
+                        },
+                    })
+                    : null;
+
+                progressoErroMsg.textContent = criticalError && criticalError.message
+                    ? criticalError.message
+                    : (payload.error_message || payload.mensagem || 'Erro durante o processamento.');
+
+                if (btnSuporteProcessamento && criticalError && window.SystemCriticalError) {
+                    window.SystemCriticalError.applyActionLink(btnSuporteProcessamento, criticalError);
+                    btnSuporteProcessamento.classList.remove('hidden');
+                }
+            } else if (btnSuporteProcessamento) {
+                btnSuporteProcessamento.classList.add('hidden');
             }
         }
 

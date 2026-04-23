@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\RiskScoreService;
+use App\Support\SystemCriticalError;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -116,10 +117,65 @@ class ConsultaResultado extends Model
     }
 
     /**
+     * Retorna a mensagem operacional mais útil para exibição na interface.
+     */
+    public function getMensagemExibivel(): ?string
+    {
+        if ($this->isErro()) {
+            $publicError = $this->normalizeMensagemExibivel($this->publicErrorMessage());
+
+            if ($publicError !== null) {
+                return $publicError;
+            }
+        }
+
+        $payload = is_array($this->resultado_dados) ? $this->resultado_dados : [];
+        $mensagemRaiz = $this->normalizeMensagemExibivel($payload['mensagem'] ?? null);
+
+        if ($mensagemRaiz !== null) {
+            return $mensagemRaiz;
+        }
+
+        foreach ($this->getMensagemExibivelFallbackBlocks() as $block) {
+            if (! array_key_exists($block, $payload)) {
+                continue;
+            }
+
+            $mensagemBloco = $this->extractMensagemExibivelFromPayload($payload[$block]);
+
+            if ($mensagemBloco !== null) {
+                return $mensagemBloco;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Resolve o regime tributário legível a partir do payload ou do CRT cadastrado.
      */
     public function getRegimeTributarioLabel(): ?string
     {
+        $regimePayload = $this->normalizeRegimeTributario($this->getDado('regime_tributario'));
+
+        if ($regimePayload !== null) {
+            return $regimePayload;
+        }
+
+        if ($this->isTruthyFlag($this->getDado('mei'))) {
+            return 'MEI';
+        }
+
+        if ($this->isTruthyFlag($this->getDado('simples_nacional'))) {
+            return 'Simples Nacional';
+        }
+
+        $regimeParticipante = $this->normalizeRegimeTributario($this->participante?->regime_tributario);
+
+        if ($regimeParticipante !== null) {
+            return $regimeParticipante;
+        }
+
         $crtResultado = $this->parseCrt($this->getDado('crt'));
 
         if ($crtResultado !== null) {
@@ -130,14 +186,6 @@ class ConsultaResultado extends Model
 
         if ($crtParticipante !== null) {
             return $this->formatCrt($crtParticipante);
-        }
-
-        if ($this->isTruthyFlag($this->getDado('mei'))) {
-            return 'MEI';
-        }
-
-        if ($this->isTruthyFlag($this->getDado('simples_nacional'))) {
-            return 'Simples Nacional';
         }
 
         return null;
@@ -226,6 +274,66 @@ class ConsultaResultado extends Model
         return $this->getDado('cndt');
     }
 
+    /**
+     * @return array<int, string>
+     */
+    private function getMensagemExibivelFallbackBlocks(): array
+    {
+        return [
+            'cnd_federal',
+            'cnd_estadual',
+            'crf_fgts',
+            'cndt',
+            'sintegra',
+            'nfe_clearance',
+            'cte_clearance',
+        ];
+    }
+
+    private function extractMensagemExibivelFromPayload(mixed $payload): ?string
+    {
+        if (! is_array($payload)) {
+            return null;
+        }
+
+        $mensagem = $this->normalizeMensagemExibivel($payload['mensagem'] ?? null);
+
+        if ($mensagem !== null) {
+            return $mensagem;
+        }
+
+        if (! empty($payload['errors']) && is_array($payload['errors'])) {
+            foreach ($payload['errors'] as $error) {
+                $mensagemErro = $this->normalizeMensagemExibivel($error);
+
+                if ($mensagemErro !== null) {
+                    return $mensagemErro;
+                }
+            }
+        }
+
+        foreach ($payload as $nestedValue) {
+            $mensagemNested = $this->extractMensagemExibivelFromPayload($nestedValue);
+
+            if ($mensagemNested !== null) {
+                return $mensagemNested;
+            }
+        }
+
+        return null;
+    }
+
+    private function normalizeMensagemExibivel(mixed $value): ?string
+    {
+        if (! is_scalar($value)) {
+            return null;
+        }
+
+        $message = trim((string) $value);
+
+        return $message !== '' ? $message : null;
+    }
+
     private function parseCrt(mixed $value): ?int
     {
         if ($value === null || $value === '') {
@@ -242,7 +350,26 @@ class ConsultaResultado extends Model
         return match ($crt) {
             1 => 'Simples Nacional',
             2 => 'Simples Excesso',
-            3 => 'Lucro Presumido/Real',
+            3 => 'Regime Normal',
+        };
+    }
+
+    private function normalizeRegimeTributario(mixed $value): ?string
+    {
+        if (! is_scalar($value)) {
+            return null;
+        }
+
+        $regime = trim((string) $value);
+
+        if ($regime === '') {
+            return null;
+        }
+
+        return match (mb_strtolower($regime)) {
+            'lucro presumido/real',
+            'lucro presumido / real' => 'Regime Normal',
+            default => $regime,
         };
     }
 
@@ -257,5 +384,33 @@ class ConsultaResultado extends Model
         }
 
         return in_array(strtolower(trim((string) $value)), ['1', 'true', 'sim', 'yes'], true);
+    }
+
+    /**
+     * Retorna o erro pronto para exibição pública.
+     *
+     * @return array<string, string>
+     */
+    public function publicErrorUi(array $context = []): array
+    {
+        if (! $this->isErro() && blank($this->error_message)) {
+            return [];
+        }
+
+        $defaultContext = [
+            'context' => 'consulta-resultado',
+            'reference' => $this->lote?->id ? 'Lote #'.$this->lote->id : null,
+        ];
+
+        return app(SystemCriticalError::class)->forAsyncFailure(
+            $this->error_message,
+            null,
+            array_merge($defaultContext, $context)
+        );
+    }
+
+    public function publicErrorMessage(array $context = []): string
+    {
+        return $this->publicErrorUi($context)['message'] ?? '';
     }
 }

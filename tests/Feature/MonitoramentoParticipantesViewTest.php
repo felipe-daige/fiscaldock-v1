@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\ConsultaLote;
+use App\Models\ConsultaResultado;
 use App\Models\Participante;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -85,4 +87,43 @@ it('ignora return_to externo e usa dashboard como fallback na ficha do participa
         ->assertSee('Voltar para o dashboard')
         ->assertSee('href="/app/dashboard"', false)
         ->assertDontSee('evil.test');
+});
+
+it('exibe a mensagem operacional da ultima consulta na ficha do participante', function () {
+    $user = User::factory()->create();
+
+    $participante = Participante::create([
+        'user_id' => $user->id,
+        'documento' => '12345678000195',
+        'razao_social' => 'Fornecedor Mensagem',
+        'origem_tipo' => 'SPED_EFD_FISCAL',
+        'uf' => 'SP',
+    ]);
+
+    $lote = ConsultaLote::create([
+        'user_id' => $user->id,
+        'status' => ConsultaLote::STATUS_FINALIZADO,
+        'total_participantes' => 1,
+        'creditos_cobrados' => 0,
+        'tab_id' => 'tab-participante-mensagem',
+        'processado_em' => now(),
+    ]);
+
+    ConsultaResultado::create([
+        'consulta_lote_id' => $lote->id,
+        'participante_id' => $participante->id,
+        'status' => ConsultaResultado::STATUS_SUCESSO,
+        'resultado_dados' => [
+            'situacao_cadastral' => 'ATIVA',
+            'mensagem' => 'Participante conciliado a partir do EFD com sucesso.',
+        ],
+        'consultado_em' => now(),
+    ]);
+
+    actingAs($user)
+        ->withHeader('X-Requested-With', 'XMLHttpRequest')
+        ->get('/app/participante/'.$participante->id)
+        ->assertOk()
+        ->assertSee('Mensagem da Consulta')
+        ->assertSee('Participante conciliado a partir do EFD com sucesso.');
 });

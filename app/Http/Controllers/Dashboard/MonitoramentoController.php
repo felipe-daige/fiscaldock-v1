@@ -180,7 +180,7 @@ class MonitoramentoController extends Controller
                 'regime_tributario' => $consulta->participante?->regime_tributario,
                 'detalhes' => [],
             ],
-            'error_message' => $consulta->error_message,
+            'error_message' => $consulta->publicErrorMessage(),
         ]);
     }
 
@@ -633,8 +633,10 @@ class MonitoramentoController extends Controller
                             ];
 
                             if ($consulta->status === 'erro') {
-                                $data['error_code'] = $consulta->error_code;
-                                $data['error_message'] = $consulta->error_message;
+                                $data['error_message'] = $consulta->publicErrorMessage();
+                                $data['ui_error'] = $consulta->publicErrorUi([
+                                    'url' => '/app/monitoramento/avulso',
+                                ]);
                             }
 
                             echo 'data: '.json_encode($data)."\n\n";

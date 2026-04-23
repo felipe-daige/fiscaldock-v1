@@ -98,14 +98,14 @@ class ConsultaReportService
                 'nome_fantasia' => $dados['nome_fantasia'] ?? $participante->nome_fantasia,
                 'uf' => $dados['uf'] ?? $participante->uf,
                 'status_consulta' => $resultado->status,
-                'error_message' => $resultado->error_message,
+                'error_message' => $resultado->publicErrorMessage(),
                 'consultado_em' => $resultado->consultado_em?->format('d/m/Y H:i'),
 
                 // Dados básicos
                 'situacao_cadastral' => $dados['situacao_cadastral'] ?? null,
                 'simples_nacional' => $this->formatarBoolean($dados['simples_nacional'] ?? null),
                 'mei' => $this->formatarBoolean($dados['mei'] ?? null),
-                'regime_tributario' => $this->formatarCrt($dados['crt'] ?? $participante->crt),
+                'regime_tributario' => $resultado->getRegimeTributarioLabel() ?? '',
                 'cnae_principal' => $this->formatarCnaePrincipal($dados['cnaes'] ?? null),
                 'cnaes' => $dados['cnaes'] ?? null,
                 'qsa' => $dados['qsa'] ?? null,
@@ -387,19 +387,6 @@ class ConsultaReportService
             'alto' => 'Alto Risco',
             'critico' => 'Risco Critico',
             default => 'Nao Avaliado',
-        };
-    }
-
-    /**
-     * Formata CRT para nome legível.
-     */
-    private function formatarCrt(?int $crt): string
-    {
-        return match ($crt) {
-            1 => 'Simples Nacional',
-            2 => 'Simples Excesso',
-            3 => 'Lucro Presumido/Real',
-            default => '',
         };
     }
 

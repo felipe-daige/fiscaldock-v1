@@ -290,7 +290,7 @@
                 </div>
                 <div class="flex items-center gap-3">
                     @if ($sortCustom)
-                        <a href="{{ $resetSortUrl }}" data-link class="inline-flex items-center gap-1 text-[10px] font-semibold text-gray-500 hover:text-gray-900 uppercase tracking-wide" title="Limpar ordenação">
+                        <a href="{{ $resetSortUrl }}" data-link data-clearance-preserve-scroll class="inline-flex items-center gap-1 text-[10px] font-semibold text-gray-500 hover:text-gray-900 uppercase tracking-wide" title="Limpar ordenação">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                             Limpar ordem · {{ $sortLabels[$sort] ?? $sort }}
                             @if ($dir === 'asc')
@@ -373,38 +373,50 @@
         </div>
 
         {{-- Tabela --}}
-        <div class="bg-white rounded border border-gray-300 overflow-hidden">
+        <div class="bg-white rounded border border-gray-300 overflow-hidden relative" id="clearance-listagem-card">
+            <div id="clearance-sort-loading" class="hidden absolute inset-0 z-10 bg-white/75 backdrop-blur-[1px] flex items-center justify-center pointer-events-none">
+                <div class="bg-white rounded border border-gray-300 shadow-sm px-4 py-3 flex items-center gap-3">
+                    <svg class="w-4 h-4 animate-spin text-gray-700" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                    </svg>
+                    <div>
+                        <p class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Ordenação</p>
+                        <p class="text-sm text-gray-700">Ordenando notas...</p>
+                    </div>
+                </div>
+            </div>
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200 text-sm">
                     <thead class="bg-gray-50">
                         <tr>
                             <th class="px-3 py-2 text-left"><input type="checkbox" id="chk-master" class="w-4 h-4"></th>
                             <th class="px-3 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
-                                <a href="{{ $buildSortUrl('origem') }}" data-link class="inline-flex items-center gap-1 hover:text-gray-700">Origem {!! $sortArrow('origem') !!}</a>
+                                <a href="{{ $buildSortUrl('origem') }}" data-link data-clearance-preserve-scroll class="inline-flex items-center gap-1 hover:text-gray-700">Origem {!! $sortArrow('origem') !!}</a>
                             </th>
                             <th class="px-3 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
-                                <a href="{{ $buildSortUrl('numero') }}" data-link class="inline-flex items-center gap-1 hover:text-gray-700">Nota {!! $sortArrow('numero') !!}</a>
+                                <a href="{{ $buildSortUrl('numero') }}" data-link data-clearance-preserve-scroll class="inline-flex items-center gap-1 hover:text-gray-700">Nota {!! $sortArrow('numero') !!}</a>
                             </th>
                             <th class="px-3 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
-                                <a href="{{ $buildSortUrl('data_emissao') }}" data-link class="inline-flex items-center gap-1 hover:text-gray-700">Emissão {!! $sortArrow('data_emissao') !!}</a>
+                                <a href="{{ $buildSortUrl('data_emissao') }}" data-link data-clearance-preserve-scroll class="inline-flex items-center gap-1 hover:text-gray-700">Emissão {!! $sortArrow('data_emissao') !!}</a>
                             </th>
                             <th class="px-3 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
-                                <a href="{{ $buildSortUrl('emit_razao_social') }}" data-link class="inline-flex items-center gap-1 hover:text-gray-700">Emitente {!! $sortArrow('emit_razao_social') !!}</a>
+                                <a href="{{ $buildSortUrl('emit_razao_social') }}" data-link data-clearance-preserve-scroll class="inline-flex items-center gap-1 hover:text-gray-700">Emitente {!! $sortArrow('emit_razao_social') !!}</a>
                             </th>
                             <th class="px-3 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
-                                <a href="{{ $buildSortUrl('dest_razao_social') }}" data-link class="inline-flex items-center gap-1 hover:text-gray-700">Destinatário {!! $sortArrow('dest_razao_social') !!}</a>
+                                <a href="{{ $buildSortUrl('dest_razao_social') }}" data-link data-clearance-preserve-scroll class="inline-flex items-center gap-1 hover:text-gray-700">Destinatário {!! $sortArrow('dest_razao_social') !!}</a>
                             </th>
                             <th class="px-3 py-2 text-right text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
-                                <a href="{{ $buildSortUrl('valor_total') }}" data-link class="inline-flex items-center gap-1 hover:text-gray-700 justify-end w-full">Valor {!! $sortArrow('valor_total') !!}</a>
+                                <a href="{{ $buildSortUrl('valor_total') }}" data-link data-clearance-preserve-scroll class="inline-flex items-center gap-1 hover:text-gray-700 justify-end w-full">Valor {!! $sortArrow('valor_total') !!}</a>
                             </th>
                             <th class="px-3 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
-                                <a href="{{ $buildSortUrl('modelo') }}" data-link class="inline-flex items-center gap-1 hover:text-gray-700">Modelo {!! $sortArrow('modelo') !!}</a>
+                                <a href="{{ $buildSortUrl('modelo') }}" data-link data-clearance-preserve-scroll class="inline-flex items-center gap-1 hover:text-gray-700">Modelo {!! $sortArrow('modelo') !!}</a>
                             </th>
                             <th class="px-3 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
-                                <a href="{{ $buildSortUrl('tipo_nota') }}" data-link class="inline-flex items-center gap-1 hover:text-gray-700">Tipo {!! $sortArrow('tipo_nota') !!}</a>
+                                <a href="{{ $buildSortUrl('tipo_nota') }}" data-link data-clearance-preserve-scroll class="inline-flex items-center gap-1 hover:text-gray-700">Tipo {!! $sortArrow('tipo_nota') !!}</a>
                             </th>
                             <th class="px-3 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
-                                <a href="{{ $buildSortUrl('status') }}" data-link class="inline-flex items-center gap-1 hover:text-gray-700">Status {!! $sortArrow('status') !!}</a>
+                                <a href="{{ $buildSortUrl('status') }}" data-link data-clearance-preserve-scroll class="inline-flex items-center gap-1 hover:text-gray-700">Status {!! $sortArrow('status') !!}</a>
                             </th>
                             <th class="px-3 py-2 text-right text-[10px] font-semibold text-gray-500 uppercase tracking-wide"></th>
                         </tr>

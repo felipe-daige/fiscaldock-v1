@@ -45,6 +45,20 @@ class ParecerFiscalService
         return array_values($itens);
     }
 
+    /**
+     * Gera uma versão compacta do parecer para tabelas e resumos.
+     *
+     * Remove itens apenas contextuais e expõe um rótulo curto para badge,
+     * preservando o texto completo no tooltip.
+     *
+     * @param  array<string, mixed>  $resultadoDados
+     * @return array<int, array<string, string>>
+     */
+    public function gerarResumo(array $resultadoDados): array
+    {
+        return $this->compactarParaResumo($this->gerar($resultadoDados));
+    }
+
     private function detectSituacaoInativa(array $dados): ?array
     {
         $situacao = strtoupper(trim((string) ($dados['situacao_cadastral'] ?? '')));
@@ -228,5 +242,40 @@ class ParecerFiscalService
         }
 
         return substr($apenasDigitos, 0, 2);
+    }
+
+    /**
+     * @param  array<int, array<string, string>>  $itens
+     * @return array<int, array<string, string>>
+     */
+    private function compactarParaResumo(array $itens): array
+    {
+        return array_values(array_map(function (array $item): array {
+            $titulo = trim((string) ($item['titulo'] ?? 'Parecer'));
+            $descricao = trim((string) ($item['descricao'] ?? ''));
+
+            $item['badge_label'] = $this->resolveBadgeLabel($item);
+            $item['tooltip'] = $descricao !== ''
+                ? "{$titulo}: {$descricao}"
+                : $titulo;
+
+            return $item;
+        }, array_filter($itens, function (array $item): bool {
+            return ($item['severidade'] ?? null) !== 'info';
+        })));
+    }
+
+    /**
+     * @param  array<string, string>  $item
+     */
+    private function resolveBadgeLabel(array $item): string
+    {
+        return match ($item['chave'] ?? null) {
+            'situacao_inativa' => 'Inativa na RF',
+            'socio_pj' => 'QSA com PJ',
+            'historico_simples' => 'Histórico Simples',
+            'divergencia_cnae' => 'CNAEs diversos',
+            default => trim((string) ($item['titulo'] ?? 'Parecer')),
+        };
     }
 }

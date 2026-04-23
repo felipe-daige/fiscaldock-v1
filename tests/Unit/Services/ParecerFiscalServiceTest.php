@@ -258,3 +258,25 @@ it('cenário realista TE LOG LOGISTICA produz 4 alertas', function () {
         'regime_tributario',
     ]);
 });
+
+it('gera resumo sem itens apenas contextuais', function () {
+    $parecer = parecerService()->gerarResumo([
+        'regime_tributario' => 'Lucro Presumido',
+    ]);
+
+    expect($parecer)->toBe([]);
+});
+
+it('gera resumo com badge curto e tooltip completo para listagens', function () {
+    $parecer = parecerService()->gerarResumo([
+        'situacao_cadastral' => 'BAIXADA',
+        'motivo_situacao_cadastral' => 'EXTINCAO POR ENCERRAMENTO',
+        'regime_tributario' => 'Lucro Presumido',
+    ]);
+
+    expect($parecer)->toHaveCount(1);
+    expect($parecer[0]['chave'])->toBe('situacao_inativa');
+    expect($parecer[0]['badge_label'])->toBe('Inativa na RF');
+    expect($parecer[0]['tooltip'])->toContain('Empresa inativa na Receita Federal');
+    expect($parecer[0]['tooltip'])->toContain('EXTINCAO POR ENCERRAMENTO');
+});

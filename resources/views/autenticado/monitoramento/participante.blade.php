@@ -173,6 +173,7 @@
                     @php
                         $dados = $ultimaConsulta->resultado_dados;
                         $consultasRealizadas = $dados['consultas_realizadas'] ?? [];
+                        $mensagemUltimaConsulta = $ultimaConsulta->getMensagemExibivel();
                     @endphp
                     <div class="bg-white rounded border border-gray-300 overflow-hidden">
                         <div class="bg-gray-50 px-4 py-2 border-b border-gray-200">
@@ -212,6 +213,13 @@
                             </div>
                         </div>
                         <div class="p-4 sm:p-6 space-y-6">
+                            @if($mensagemUltimaConsulta)
+                                <div class="bg-white rounded border border-gray-300 p-4">
+                                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Mensagem da Consulta</p>
+                                    <p class="mt-2 text-sm text-gray-700">{{ $mensagemUltimaConsulta }}</p>
+                                </div>
+                            @endif
+
                             {{-- Parecer Fiscal Automático (planos pagos) --}}
                             @if(!empty($parecerFiscal ?? []))
                                 @php
@@ -895,6 +903,7 @@
                             $cndFederal = $resultado?->getDado('cnd_federal');
                             $cndt = $resultado?->getDado('cndt');
                             $dataConsulta = $resultado?->consultado_em ?? $lote->created_at;
+                            $mensagemResultado = $resultado?->getMensagemExibivel();
                             $resultadoStatusColors = [
                                 'sucesso'     => '#047857',
                                 'erro'        => '#dc2626',
@@ -946,8 +955,8 @@
                                             @endif
                                         </p>
                                         @endif
-                                        @if($statusResultado === 'erro' && $resultado?->error_message)
-                                        <p class="text-xs text-red-500 mt-0.5 truncate max-w-xs">{{ $resultado->error_message }}</p>
+                                        @if($mensagemResultado)
+                                        <p class="text-xs text-gray-500 mt-0.5 max-w-xl">{{ $mensagemResultado }}</p>
                                         @endif
                                     </div>
                                 </div>

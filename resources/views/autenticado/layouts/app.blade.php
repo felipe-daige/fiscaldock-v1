@@ -66,6 +66,12 @@
 
         </div>
     </div>
+    <script>
+        window.systemSupportConfig = @json([
+            'whatsappUrl' => config('support.whatsapp_url'),
+            'contactLabel' => config('support.contact_label'),
+        ]);
+    </script>
     <script src="{{ asset('js/error-inline.js') }}?v={{ filemtime(public_path('js/error-inline.js')) }}"></script>
 </body>
 </html>

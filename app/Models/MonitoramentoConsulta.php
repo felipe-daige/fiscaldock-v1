@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\SystemCriticalError;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -208,5 +209,33 @@ class MonitoramentoConsulta extends Model
                 ->from('monitoramento_consultas')
                 ->groupBy('participante_id');
         });
+    }
+
+    /**
+     * Retorna o erro pronto para exibição pública.
+     *
+     * @return array<string, string>
+     */
+    public function publicErrorUi(array $context = []): array
+    {
+        if (! $this->isErro() && blank($this->error_message) && blank($this->error_code)) {
+            return [];
+        }
+
+        $defaultContext = [
+            'context' => 'monitoramento-consulta',
+            'reference' => $this->id ? 'Consulta #'.$this->id : null,
+        ];
+
+        return app(SystemCriticalError::class)->forAsyncFailure(
+            $this->error_message,
+            $this->error_code,
+            array_merge($defaultContext, $context)
+        );
+    }
+
+    public function publicErrorMessage(array $context = []): string
+    {
+        return $this->publicErrorUi($context)['message'] ?? '';
     }
 }

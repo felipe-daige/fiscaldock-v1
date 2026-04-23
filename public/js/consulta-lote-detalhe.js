@@ -123,6 +123,7 @@
 
         var progressBar = document.getElementById('consulta-lote-bar');
         var progressPercent = document.getElementById('consulta-lote-percent');
+        var progressMessage = document.getElementById('consulta-lote-mensagem');
         var progressEtapa = document.getElementById('consulta-lote-etapa');
         var stepsContainer = document.getElementById('consulta-lote-steps');
 
@@ -136,7 +137,10 @@
             statusPollHandle: null,
             resultsPollHandle: null,
             ultimaEtapaConcluida: null,
-            knownStepLabels: {}
+            knownStepLabels: {},
+            progressoAtual: statusInicial === 'finalizado' ? 100 : 0,
+            mensagemAtual: '',
+            etapaLabelAtual: ''
         };
 
         window._cleanupFunctions = window._cleanupFunctions || {};
@@ -176,12 +180,47 @@
             state.resultsPollHandle = null;
         }
 
-        function updateProgress(percent, label) {
+        function resolveProgressMessage(snapshot, fallback) {
+            if (snapshot && snapshot.mensagem) return snapshot.mensagem;
+            if (snapshot && snapshot.etapa_label) return snapshot.etapa_label;
+            if (state.mensagemAtual) return state.mensagemAtual;
+            return fallback || '';
+        }
+
+        function resolveProgressStepLabel(snapshot, fallback) {
+            if (snapshot && snapshot.etapa_label) return snapshot.etapa_label;
+            if (state.etapaLabelAtual) return state.etapaLabelAtual;
+            return fallback || '';
+        }
+
+        function resolveProgressPercent(snapshot, fallback) {
+            if (snapshot && snapshot.status === 'concluido') return 100;
+            if (snapshot && snapshot.progresso !== null && snapshot.progresso !== undefined && snapshot.progresso !== '') {
+                return snapshot.progresso;
+            }
+            return state.progressoAtual !== null && state.progressoAtual !== undefined
+                ? state.progressoAtual
+                : (fallback || 0);
+        }
+
+        function updateProgress(percent, message, stepLabel) {
             var value = Math.max(0, Math.min(100, Number(percent) || 0));
+            state.progressoAtual = value;
+            if (message) state.mensagemAtual = message;
+            if (stepLabel) state.etapaLabelAtual = stepLabel;
 
             if (progressBar) progressBar.style.width = value + '%';
             if (progressPercent) progressPercent.textContent = value + '%';
-            if (label && progressEtapa) progressEtapa.textContent = label;
+            if (progressMessage) progressMessage.textContent = message || 'Processando...';
+            if (progressEtapa) {
+                if (stepLabel) {
+                    progressEtapa.textContent = stepLabel;
+                    progressEtapa.classList.remove('hidden');
+                } else {
+                    progressEtapa.textContent = '';
+                    progressEtapa.classList.add('hidden');
+                }
+            }
         }
 
         function rememberStepLabel(step, label) {
@@ -355,20 +394,27 @@
             renderSteps(snapshot);
 
             if (snapshot.status === 'finalizado') {
-                updateProgress(100, 'Finalizado, carregando resultado...');
+                updateProgress(100, 'Finalizado, carregando resultado...', resolveProgressStepLabel(snapshot));
                 pollResultsReadiness();
                 return;
             }
 
             if (snapshot.status === 'erro' || snapshot.status === 'timeout') {
-                updateProgress(snapshot.progresso || 0, snapshot.error_message || snapshot.mensagem || 'Erro no processamento.');
+                updateProgress(
+                    resolveProgressPercent(snapshot),
+                    snapshot.error_message || resolveProgressMessage(snapshot, 'Erro no processamento.'),
+                    resolveProgressStepLabel(snapshot)
+                );
                 scheduleReload(500);
                 return;
             }
 
-            var progressoAtual = snapshot.status === 'concluido' ? 100 : (snapshot.progresso || 0);
-            var labelAtual = snapshot.etapa_label || snapshot.mensagem || 'Processando...';
-            updateProgress(progressoAtual, labelAtual);
+            var progressoAtual = resolveProgressPercent(snapshot);
+            updateProgress(
+                progressoAtual,
+                resolveProgressMessage(snapshot, 'Processando...'),
+                resolveProgressStepLabel(snapshot)
+            );
         }
 
         function scheduleStatusPolling(delayMs) {
@@ -441,7 +487,7 @@
         }
 
         if (statusInicial === 'finalizado' && awaitResult) {
-            updateProgress(100, 'Finalizado, carregando resultado...');
+            updateProgress(100, 'Finalizado, carregando resultado...', '');
             pollResultsReadiness();
         }
     }

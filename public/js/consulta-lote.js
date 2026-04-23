@@ -77,6 +77,9 @@
         etapas: [],
         etapaAtual: null,
         ultimaEtapaConcluida: null,
+        progressoAtual: 0,
+        mensagemAtual: '',
+        etapaLabelAtual: '',
         eventSource: null,
         credits: window.consultaData?.credits || 0,
         isExecuting: false,
@@ -202,6 +205,7 @@
             consultaProgressoSection: document.getElementById('consulta-progresso-section'),
             progressoTitulo: document.getElementById('progresso-titulo'),
             progressoMensagem: document.getElementById('progresso-mensagem'),
+            progressoEtapaLabel: document.getElementById('progresso-etapa-label'),
             progressoBarra: document.getElementById('progresso-barra'),
             progressoPercentual: document.getElementById('progresso-percentual'),
             consultaProgressoIcon: document.getElementById('consulta-progresso-icon'),
@@ -1085,7 +1089,7 @@
                 // Sempre processar estados terminais (sem throttle)
                 if (data.status === 'finalizado') {
                     inferirUltimaEtapaConcluida(data);
-                    updateProgresso(data.progresso, data.mensagem);
+                    updateProgresso(resolvePercentualProgresso(data, 100), resolveMensagemProgresso(data, 'Finalizado'), resolveEtapaLabelProgresso(data));
                     state.eventSource.close();
                     state.eventSource = null;
                     pararPolling();
@@ -1094,7 +1098,7 @@
                 }
                 if (data.status === 'concluido') {
                     atualizarStripEtapas(data);
-                    updateProgresso(100, data.etapa_label || data.mensagem || 'Etapa concluída');
+                    updateProgresso(100, resolveMensagemProgresso(data, 'Etapa concluída'), resolveEtapaLabelProgresso(data));
                     return;
                 }
                 if (data.status === 'erro') {
@@ -1102,14 +1106,20 @@
                     state.eventSource = null;
                     pararPolling();
                     atualizarStripEtapas(data);
-                    onConsultaErro(data.error_message || 'Erro desconhecido');
+                    onConsultaErro(
+                        (resolveSystemCriticalError(data, 'consulta-lote') || {}).message || 'Falha no processamento.',
+                        resolveSystemCriticalError(data, 'consulta-lote')
+                    );
                     return;
                 }
                 if (data.status === 'timeout') {
                     state.eventSource.close();
                     state.eventSource = null;
                     pararPolling();
-                    onConsultaErro(data.mensagem || 'Tempo limite atingido. Verifique o histórico.');
+                    onConsultaErro(
+                        (resolveSystemCriticalError(data, 'consulta-lote-timeout') || {}).message || 'Processamento indisponível no momento.',
+                        resolveSystemCriticalError(data, 'consulta-lote-timeout')
+                    );
                     return;
                 }
 
@@ -1119,7 +1129,7 @@
                 lastUpdate = now;
 
                 atualizarStripEtapas(data);
-                updateProgresso(data.progresso, data.mensagem);
+                updateProgresso(resolvePercentualProgresso(data), resolveMensagemProgresso(data, 'Processando...'), resolveEtapaLabelProgresso(data));
             };
 
             state.eventSource.onerror = function() {
@@ -1157,9 +1167,9 @@
                             if (state.eventSource) { state.eventSource.close(); state.eventSource = null; }
                             onConsultaErro('Erro no processamento.');
                         } else {
-                            var progressoAtual = data.status === 'concluido' ? 100 : data.progresso;
+                            var progressoAtual = resolvePercentualProgresso(data);
                             atualizarStripEtapas(data);
-                            updateProgresso(progressoAtual, data.etapa_label || data.mensagem || null);
+                            updateProgresso(progressoAtual, resolveMensagemProgresso(data, null), resolveEtapaLabelProgresso(data));
                         }
                     })
                     .catch(function() {}); // silenciar erros de rede
@@ -1174,11 +1184,46 @@
     /**
      * Atualiza indicadores de progresso.
      */
-    function updateProgresso(percentual, mensagem) {
+    function resolveMensagemProgresso(data, fallback) {
+        if (data && data.mensagem) return data.mensagem;
+        if (data && data.etapa_label) return data.etapa_label;
+        if (state.mensagemAtual) return state.mensagemAtual;
+        return fallback || '';
+    }
+
+    function resolveEtapaLabelProgresso(data, fallback) {
+        if (data && data.etapa_label) return data.etapa_label;
+        if (state.etapaLabelAtual) return state.etapaLabelAtual;
+        return fallback || '';
+    }
+
+    function resolvePercentualProgresso(data, fallback) {
+        if (data && data.status === 'concluido') return 100;
+        if (data && data.progresso !== null && data.progresso !== undefined && data.progresso !== '') {
+            return data.progresso;
+        }
+        return state.progressoAtual !== null && state.progressoAtual !== undefined
+            ? state.progressoAtual
+            : (fallback || 0);
+    }
+
+    function updateProgresso(percentual, mensagem, etapaLabel) {
         var valor = normalizarPercentual(percentual);
+        state.progressoAtual = valor;
+        if (mensagem) state.mensagemAtual = mensagem;
+        if (etapaLabel) state.etapaLabelAtual = etapaLabel;
         if (elements.progressoBarra) elements.progressoBarra.style.width = `${valor}%`;
         if (elements.progressoPercentual) elements.progressoPercentual.textContent = `${valor}%`;
         if (elements.progressoMensagem && mensagem) elements.progressoMensagem.textContent = mensagem;
+        if (elements.progressoEtapaLabel) {
+            if (etapaLabel) {
+                elements.progressoEtapaLabel.textContent = etapaLabel;
+                elements.progressoEtapaLabel.classList.remove('hidden');
+            } else {
+                elements.progressoEtapaLabel.textContent = '';
+                elements.progressoEtapaLabel.classList.add('hidden');
+            }
+        }
     }
 
     /**
@@ -1455,13 +1500,31 @@
     /**
      * Atualiza ícone e estado visual do card de progresso da consulta.
      */
-    function atualizarIconeConsulta(status, errorMessage) {
+    function resolveSystemCriticalError(payload, action, overrides) {
+        if (!window.SystemCriticalError) {
+            return null;
+        }
+
+        return window.SystemCriticalError.fromPayload(payload || {}, {
+            title: overrides && overrides.title,
+            message: overrides && overrides.message,
+            context: {
+                action: action || 'consulta-lote',
+                url: window.location.pathname + window.location.search
+            }
+        });
+    }
+
+    function atualizarIconeConsulta(status, errorState) {
         const icon = elements.consultaProgressoIcon;
         const card = elements.consultaProgressoCard;
         const barra = elements.progressoBarra;
         const erroDiv = elements.consultaProgressoErro;
         const erroMsg = elements.consultaProgressoErroMsg;
         const suporteLink = elements.consultaProgressoSuporteLink;
+        const criticalError = typeof errorState === 'string'
+            ? resolveSystemCriticalError({ status: 'erro' }, 'consulta-lote', { message: errorState })
+            : errorState;
 
         if (!icon || !card) return;
 
@@ -1479,9 +1542,9 @@
             card.classList.add('border-red-200');
             if (barra) barra.className = 'bg-red-600 h-full rounded-full transition-all duration-500 ease-out';
             if (erroDiv) erroDiv.classList.remove('hidden');
-            if (erroMsg && errorMessage) erroMsg.textContent = errorMessage;
-            if (suporteLink) {
-                suporteLink.href = buildSupportHref(errorMessage || 'Erro na consulta.', 'consulta-lote');
+            if (erroMsg && criticalError && criticalError.message) erroMsg.textContent = criticalError.message;
+            if (suporteLink && criticalError && window.SystemCriticalError) {
+                window.SystemCriticalError.applyActionLink(suporteLink, criticalError);
             }
         } else {
             icon.className = 'w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0';
@@ -1496,7 +1559,7 @@
      * Handler de consulta concluida.
      */
     function onConsultaFinalizada() {
-        updateProgresso(100, 'Finalizado');
+        updateProgresso(100, 'Finalizado', '');
         marcarTodasEtapasConcluidas();
         atualizarIconeConsulta('finalizado');
 
@@ -1622,8 +1685,8 @@
         }
         var pills = parecer.map(function(item) {
             var hex = item.hex || '#6b7280';
-            var titulo = escapeHtml(item.titulo || item.chave || '');
-            var descricao = escapeHtml(item.descricao || '');
+            var titulo = escapeHtml(item.badge_label || item.titulo || item.chave || '');
+            var descricao = escapeHtml(item.tooltip || item.descricao || '');
             return '<span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold text-white"'
                 + ' style="background-color: ' + hex + '"'
                 + ' title="' + descricao + '">'
@@ -1652,6 +1715,14 @@
             var statusBadge = r.status === 'sucesso'
                 ? '<span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Sucesso</span>'
                 : '<span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">' + (r.status || 'Erro') + '</span>';
+            var mensagemOperacional = r.mensagem_exibivel || r.error_message || '';
+            var statusCell = statusBadge;
+
+            if (mensagemOperacional) {
+                statusCell += '<p class="text-[11px] text-gray-500 mt-1 whitespace-normal max-w-[14rem] mx-auto">'
+                    + escapeHtml(String(mensagemOperacional))
+                    + '</p>';
+            }
 
             return '<tr class="border-b border-gray-100 hover:bg-gray-50">'
                 + '<td class="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">' + formatCnpj(r.participante && r.participante.cnpj) + '</td>'
@@ -1663,7 +1734,7 @@
                 + '<td class="px-3 py-2 text-xs text-center">' + formatRegularidade(r.crf_fgts) + '</td>'
                 + '<td class="px-3 py-2 text-xs text-center">' + formatRegularidade(r.cndt) + '</td>'
                 + '<td class="px-3 py-2 text-xs">' + formatParecer(r.parecer) + '</td>'
-                + '<td class="px-3 py-2 text-xs text-center">' + statusBadge + '</td>'
+                + '<td class="px-3 py-2 text-xs text-center">' + statusCell + '</td>'
                 + '</tr>';
         }).join('');
 
@@ -1717,9 +1788,9 @@
     /**
      * Handler de erro na consulta.
      */
-    function onConsultaErro(mensagem) {
-        atualizarIconeConsulta('erro', mensagem);
-        showInlineErrorMessage(mensagem, voltarParaFormulario, 'consulta-lote');
+    function onConsultaErro(mensagem, criticalError) {
+        atualizarIconeConsulta('erro', criticalError || mensagem);
+        showInlineErrorMessage(mensagem, voltarParaFormulario, 'consulta-lote', criticalError);
     }
 
     /**
@@ -1729,7 +1800,7 @@
         // Reset estado visual
         clearInlineError();
         atualizarIconeConsulta('processando');
-        updateProgresso(0, 'Iniciando consulta...');
+        updateProgresso(0, 'Iniciando consulta...', '');
         if (elements.consultaProgressoErro) elements.consultaProgressoErro.classList.add('hidden');
         if (elements.resultadoConsulta) elements.resultadoConsulta.classList.add('hidden');
 
@@ -1762,7 +1833,7 @@
         // Reset visual
         clearInlineError();
         atualizarIconeConsulta('processando');
-        updateProgresso(0, 'Iniciando...');
+        updateProgresso(0, 'Iniciando...', '');
         if (elements.consultaProgressoErro) elements.consultaProgressoErro.classList.add('hidden');
         if (elements.resultadoConsulta) elements.resultadoConsulta.classList.add('hidden');
 
@@ -1774,6 +1845,9 @@
         state.etapas = [];
         state.etapaAtual = null;
         state.ultimaEtapaConcluida = null;
+        state.progressoAtual = 0;
+        state.mensagemAtual = '';
+        state.etapaLabelAtual = '';
         state.consultaLoteId = null;
 
         // Trocar seções (usar fallback direto ao DOM)
@@ -1815,11 +1889,12 @@
         }
     }
 
-    function showInlineErrorMessage(message, retryFn, action) {
+    function showInlineErrorMessage(message, retryFn, action, criticalError) {
         if (window.showInlineError) {
             window.showInlineError(elements.consultaInlineErrorRegion, {
                 message: message,
                 retryFn: typeof retryFn === 'function' ? retryFn : undefined,
+                criticalError: criticalError || undefined,
                 context: {
                     action: action || 'consulta-lote',
                     url: window.location.pathname + window.location.search
@@ -1837,18 +1912,6 @@
         }
     }
 
-    function buildSupportHref(message, action) {
-        var params = new URLSearchParams();
-        params.set('contexto', action || 'consulta-lote');
-        params.set('url', window.location.pathname + window.location.search);
-        params.set('mensagem', message || 'Erro na consulta.');
-
-        return '/app/suporte?' + params.toString();
-    }
-
-    /**
-     * Formata CNPJ.
-     */
     function formatCnpj(cnpj) {
         if (!cnpj) return '-';
         const numeros = cnpj.replace(/\D/g, '');

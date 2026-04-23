@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\SystemCriticalError;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -195,5 +196,29 @@ class ConsultaLote extends Model
             self::STATUS_ERRO => ['label' => 'Erro', 'class' => 'bg-red-100 text-red-800'],
             default => ['label' => $this->status, 'class' => 'bg-gray-100 text-gray-800'],
         };
+    }
+
+    /**
+     * Retorna o erro pronto para exibição pública.
+     *
+     * @return array<string, string>
+     */
+    public function publicErrorUi(array $context = []): array
+    {
+        $defaultContext = [
+            'context' => 'consulta-lote',
+            'reference' => $this->id ? 'Lote #'.$this->id : null,
+        ];
+
+        return app(SystemCriticalError::class)->forAsyncFailure(
+            $this->error_message,
+            $this->error_code,
+            array_merge($defaultContext, $context)
+        );
+    }
+
+    public function publicErrorMessage(array $context = []): string
+    {
+        return $this->publicErrorUi($context)['message'];
     }
 }

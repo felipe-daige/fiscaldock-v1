@@ -335,6 +335,13 @@
                                 <p id="erro-titulo" class="text-sm font-semibold text-gray-900">Não foi possível consultar</p>
                                 <p id="erro-mensagem" class="text-xs text-gray-700 mt-1">-</p>
                                 <p id="erro-refund" class="hidden text-[11px] text-gray-500 mt-2">Créditos estornados.</p>
+                                <a id="erro-suporte-link"
+                                   href="{{ config('support.whatsapp_url') }}"
+                                   target="_blank"
+                                   rel="noopener noreferrer"
+                                   class="hidden inline-flex mt-3 text-xs text-gray-700 hover:text-gray-900 hover:underline">
+                                    {{ config('support.contact_label') }}
+                                </a>
                             </div>
                         </div>
                     </div>

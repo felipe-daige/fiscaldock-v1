@@ -156,6 +156,9 @@
                                         'erro' => ['label' => 'Erro', 'hex' => '#dc2626'],
                                         default => ['label' => 'Pendente', 'hex' => '#9ca3af'],
                                     };
+                                    $erroCritico = $lote->publicErrorUi([
+                                        'url' => '/app/consulta/historico',
+                                    ]);
                                 @endphp
                                 <tr class="hover:bg-gray-50/50 transition-colors">
                                     <td class="px-3 py-3">
@@ -176,8 +179,15 @@
                                     </td>
                                     <td class="px-3 py-3">
                                         <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $statusMeta['hex'] }}">{{ $statusMeta['label'] }}</span>
-                                        @if($lote->isErro() && $lote->error_code)
-                                            <div class="text-[11px] text-gray-500 mt-1">{{ $lote->error_code }}</div>
+                                        @if($lote->isErro())
+                                            <div class="mt-2">
+                                                <a href="{{ $erroCritico['action_url'] ?? config('support.whatsapp_url') }}"
+                                                   target="{{ $erroCritico['action_target'] ?? '_blank' }}"
+                                                   rel="{{ $erroCritico['action_rel'] ?? 'noopener noreferrer' }}"
+                                                   class="text-[11px] text-gray-600 hover:text-gray-900 hover:underline">
+                                                    {{ $erroCritico['action_label'] ?? config('support.contact_label') }}
+                                                </a>
+                                            </div>
                                         @endif
                                     </td>
                                     <td class="px-3 py-3 text-right">
@@ -206,6 +216,9 @@
                                 'erro' => ['label' => 'Erro', 'hex' => '#dc2626'],
                                 default => ['label' => 'Pendente', 'hex' => '#9ca3af'],
                             };
+                            $erroCritico = $lote->publicErrorUi([
+                                'url' => '/app/consulta/historico',
+                            ]);
                         @endphp
                         <div class="px-4 py-3">
                             <div class="flex items-start justify-between gap-3">
@@ -241,8 +254,14 @@
                                     </div>
                                 </div>
                             </div>
-                            @if($lote->isErro() && $lote->error_message)
-                                <p class="text-xs text-gray-500 mt-3">{{ $lote->error_message }}</p>
+                            @if($lote->isErro())
+                                <p class="text-xs text-gray-500 mt-3">{{ $lote->publicErrorMessage() }}</p>
+                                <a href="{{ $erroCritico['action_url'] ?? config('support.whatsapp_url') }}"
+                                   target="{{ $erroCritico['action_target'] ?? '_blank' }}"
+                                   rel="{{ $erroCritico['action_rel'] ?? 'noopener noreferrer' }}"
+                                   class="inline-flex mt-2 text-xs text-gray-700 hover:text-gray-900 hover:underline">
+                                    {{ $erroCritico['action_label'] ?? config('support.contact_label') }}
+                                </a>
                             @endif
                         </div>
                     @endforeach

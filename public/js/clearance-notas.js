@@ -1,5 +1,6 @@
 const TIER_STORAGE_KEY = 'clearance:tier';
 const SELECTION_STORAGE_KEY = 'clearance:selection';
+const SORT_SCROLL_STORAGE_KEY = 'clearance:sort-scroll-y';
 const TIERS_VALIDOS = ['basico', 'full'];
 const TIER_LABEL = { basico: 'Básico', full: 'Full' };
 
@@ -53,6 +54,21 @@ function fecharSse() {
     }
 }
 
+function getSystemError(payload, action, overrides) {
+    if (!window.SystemCriticalError) {
+        return null;
+    }
+
+    return window.SystemCriticalError.fromPayload(payload || {}, {
+        title: overrides && overrides.title,
+        message: overrides && overrides.message,
+        context: {
+            action: action || 'clearance-notas',
+            url: window.location.pathname + window.location.search
+        }
+    });
+}
+
 function abrirSseProgresso(tabId) {
     fecharSse();
     const url = '/app/consulta/progresso/stream?tab_id=' + encodeURIComponent(tabId);
@@ -62,7 +78,11 @@ function abrirSseProgresso(tabId) {
     currentSseTimeout = setTimeout(() => {
         fecharSse();
         esconderProgresso();
-        showError('Clearance externo não retornou em 120 segundos. Recarregue a página mais tarde.', 'clearance-sse-timeout');
+        showError(
+            'A validação não foi concluída dentro do tempo esperado.',
+            'clearance-sse-timeout',
+            getSystemError({ status: 'timeout' }, 'clearance-sse-timeout')
+        );
     }, 120000);
 
     es.onmessage = (event) => {
@@ -92,14 +112,21 @@ function abrirSseProgresso(tabId) {
         if (status === 'erro') {
             fecharSse();
             esconderProgresso();
-            const msg = data.error_message || data.mensagem || 'Clearance externo falhou.';
-            showError(msg, 'clearance-sse-erro');
+            showError(
+                (getSystemError(data, 'clearance-sse-erro') || {}).message || 'Falha no processamento.',
+                'clearance-sse-erro',
+                getSystemError(data, 'clearance-sse-erro')
+            );
             return;
         }
         if (status === 'timeout') {
             fecharSse();
             esconderProgresso();
-            showError(data.mensagem || 'Clearance externo excedeu o limite.', 'clearance-sse-timeout');
+            showError(
+                (getSystemError(data, 'clearance-sse-timeout') || {}).message || 'A validação excedeu o tempo esperado.',
+                'clearance-sse-timeout',
+                getSystemError(data, 'clearance-sse-timeout')
+            );
         }
     };
 
@@ -167,6 +194,42 @@ function queryFiltros() {
     const params = new URLSearchParams();
     for (const [k, v] of fd.entries()) if (v) params.append(k, v);
     return params.toString();
+}
+
+function sortLinks() {
+    return Array.from(document.querySelectorAll('[data-clearance-preserve-scroll]'));
+}
+
+function storeSortScroll() {
+    try {
+        sessionStorage.setItem(SORT_SCROLL_STORAGE_KEY, String(window.scrollY || 0));
+    } catch (e) {}
+}
+
+function restoreSortScroll() {
+    try {
+        const raw = sessionStorage.getItem(SORT_SCROLL_STORAGE_KEY);
+        if (raw === null) return;
+
+        sessionStorage.removeItem(SORT_SCROLL_STORAGE_KEY);
+
+        const scrollY = parseInt(raw, 10);
+        if (Number.isNaN(scrollY) || scrollY < 0) return;
+
+        window.requestAnimationFrame(() => {
+            window.scrollTo(0, scrollY);
+        });
+    } catch (e) {}
+}
+
+function showSortLoading() {
+    const overlay = $('clearance-sort-loading');
+    if (overlay) overlay.classList.remove('hidden');
+}
+
+function hideSortLoading() {
+    const overlay = $('clearance-sort-loading');
+    if (overlay) overlay.classList.add('hidden');
 }
 
 function origemDoCheckbox(chk) {
@@ -290,11 +353,12 @@ function atualizarSelecao() {
     atualizarCusto();
 }
 
-function showError(message, action) {
+function showError(message, action, criticalError) {
     const errorRegion = $('clearance-notas-error');
     if (window.showInlineError) {
         window.showInlineError(errorRegion, {
             message,
+            criticalError: criticalError || undefined,
             context: {
                 action,
                 url: window.location.pathname + window.location.search,
@@ -560,6 +624,7 @@ function initClearanceNotas() {
     if (!root) return;
 
     fecharSse();
+    hideSortLoading();
 
     idsUrl = root.dataset.idsUrl || '';
     validarUrl = root.dataset.validarUrl || '';
@@ -581,13 +646,26 @@ function initClearanceNotas() {
     document.addEventListener('click', onDocumentClick);
     document.addEventListener('keydown', onDocumentKeydown);
 
+    sortLinks().forEach((link) => {
+        link.removeEventListener('click', storeSortScroll);
+        link.removeEventListener('click', showSortLoading);
+        link.addEventListener('click', storeSortScroll);
+        link.addEventListener('click', showSortLoading);
+    });
+
     window._cleanupFunctions = window._cleanupFunctions || {};
     window._cleanupFunctions.clearanceNotas = () => {
         fecharSse();
         esconderProgresso();
+        hideSortLoading();
+        sortLinks().forEach((link) => {
+            link.removeEventListener('click', storeSortScroll);
+            link.removeEventListener('click', showSortLoading);
+        });
     };
 
     carregarSelecaoDoStorage();
+    restoreSortScroll();
     registrarOrigens();
     selecionarTier(tierSelecionado);
     atualizarSelecao();

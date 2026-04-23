@@ -15,6 +15,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -521,6 +522,7 @@ class ClearanceController extends Controller
                     ? $chaveConsultada
                     : ($notaResultado['nfe_id'] ?? null),
                 'aguardaPersistencia' => $lote->isFinalizado() && ! $notaResultado,
+                'progressSnapshot' => $this->getClearanceProgressSnapshot($lote),
             ]);
         }
 
@@ -529,11 +531,14 @@ class ClearanceController extends Controller
                 'success' => false,
                 'error' => 'Consulta ainda não persistida nas tabelas canônicas do clearance.',
                 'status_lote' => ConsultaLote::normalizeStatus($lote->status),
+                'resultado_pronto' => false,
             ], Response::HTTP_NOT_FOUND);
         }
 
         return response()->json([
             'success' => true,
+            'status_lote' => ConsultaLote::normalizeStatus($lote->status),
+            'resultado_pronto' => true,
             'nota' => $notaResultado,
         ]);
     }
@@ -566,10 +571,13 @@ class ClearanceController extends Controller
         $resumo = $this->resumirResultadosClearance($resultados);
 
         if ($this->isAjaxRequest($request)) {
+            $resultadoPronto = $lote->isFinalizado() && $resultados->isNotEmpty();
+
             return response()->json([
                 'success' => true,
                 'status_lote' => ConsultaLote::normalizeStatus($lote->status),
                 'total_resultados' => $resultados->count(),
+                'resultado_pronto' => $resultadoPronto,
                 'resumo' => $resumo,
             ]);
         }
@@ -581,6 +589,7 @@ class ClearanceController extends Controller
             'resumo' => $resumo,
             'tipoValidacao' => strtolower((string) $request->query('tipo_validacao', '')),
             'aguardaPersistencia' => $lote->isFinalizado() && $resultados->isEmpty(),
+            'progressSnapshot' => $this->getClearanceProgressSnapshot($lote),
         ]);
     }
 
@@ -981,15 +990,39 @@ class ClearanceController extends Controller
                 'tab_id' => $tabId,
             ]);
 
+            $totalNfe = collect($notasPayload)
+                ->filter(fn (array $nota) => ($nota['tipo_documento'] ?? null) === 'NFE')
+                ->count();
+            $totalCte = collect($notasPayload)
+                ->filter(fn (array $nota) => ($nota['tipo_documento'] ?? null) === 'CTE')
+                ->count();
+
             $payload = [
                 'user_id' => $userId,
                 'consulta_lote_id' => $lote->id,
                 'tab_id' => $tabId,
                 'tipo_validacao' => $tipo,
                 'total_notas' => count($notasPayload),
+                'total_nfe' => $totalNfe,
+                'total_cte' => $totalCte,
                 'notas' => $notasPayload,
                 'progress_url' => url('/api/consultas/progresso'),
             ];
+
+            if (! empty($tabId)) {
+                Cache::put(
+                    "progresso:{$userId}:{$tabId}",
+                    $this->buildClearanceNotasInitialProgressCache(
+                        $userId,
+                        $tabId,
+                        $lote->id,
+                        $tipo,
+                        $totalNfe,
+                        $totalCte
+                    ),
+                    600
+                );
+            }
 
             $response = Http::timeout(15)
                 ->withHeaders([
@@ -1139,6 +1172,100 @@ class ClearanceController extends Controller
         }
 
         return $payload;
+    }
+
+    private function buildClearanceNotasInitialProgressCache(
+        int $userId,
+        string $tabId,
+        int $consultaLoteId,
+        string $tipoValidacao,
+        int $totalNfe,
+        int $totalCte
+    ): array {
+        $etapasPuladas = [];
+
+        if ($totalNfe <= 0) {
+            $etapasPuladas[] = 2;
+        }
+
+        if ($totalCte <= 0) {
+            $etapasPuladas[] = 3;
+        }
+
+        return [
+            'user_id' => $userId,
+            'tab_id' => $tabId,
+            'consulta_lote_id' => $consultaLoteId,
+            'fluxo' => 'clearance_notas',
+            'tipo_validacao' => $tipoValidacao,
+            'total_nfe' => $totalNfe,
+            'total_cte' => $totalCte,
+            'progresso' => 0,
+            'mensagem' => 'Preparando consulta',
+            'etapa' => 1,
+            'total_etapas' => 4,
+            'etapa_label' => 'Preparando consulta',
+            'etapas_concluidas' => [],
+            'etapas_puladas' => $etapasPuladas,
+            'ultima_etapa_concluida' => null,
+            'trilha_etapas' => $this->buildClearanceNotasProgressTrail(
+                1,
+                'Preparando consulta',
+                ConsultaLote::STATUS_PROCESSANDO,
+                [],
+                $etapasPuladas
+            ),
+            'status' => ConsultaLote::STATUS_PROCESSANDO,
+            'updated_at' => now()->toIso8601String(),
+        ];
+    }
+
+    private function buildClearanceNotasProgressTrail(
+        ?int $etapaAtual,
+        ?string $etapaLabel,
+        string $status,
+        array $etapasConcluidas,
+        array $etapasPuladas
+    ): array {
+        $sequence = [
+            1 => 'Preparando consulta',
+            2 => 'Consultando NF-e na Receita Federal',
+            3 => 'Consultando CT-e na Receita Federal',
+            0 => 'Preparando resultados',
+        ];
+
+        $skipped = array_fill_keys(array_map('intval', $etapasPuladas), true);
+        $done = array_fill_keys(array_map('intval', $etapasConcluidas), true);
+        $current = $etapaAtual !== null ? (int) $etapaAtual : null;
+
+        $trail = [];
+
+        foreach ([1, 2, 3, 0] as $step) {
+            $label = $sequence[$step];
+            $label = match (true) {
+                $status === ConsultaLote::STATUS_FINALIZADO && $step === 0 => 'Resultados prontos',
+                $current === $step && filled($etapaLabel) => (string) $etapaLabel,
+                default => $label,
+            };
+
+            $stepStatus = match (true) {
+                isset($skipped[$step]) => 'skipped',
+                $status === ConsultaLote::STATUS_FINALIZADO => 'done',
+                $status === ConsultaLote::STATUS_ERRO && $current === $step => 'error',
+                $current === $step && $status === ConsultaLote::STATUS_PROCESSANDO => 'current',
+                $current === $step && $status === ConsultaLote::STATUS_CONCLUIDO => 'done',
+                ($step > 0 && isset($done[$step])) || ($step === 0 && $current === 0 && $status === ConsultaLote::STATUS_CONCLUIDO) => 'done',
+                default => 'pending',
+            };
+
+            $trail[] = [
+                'etapa' => $step,
+                'etapa_label' => $label,
+                'status' => $stepStatus,
+            ];
+        }
+
+        return $trail;
     }
 
     /**
@@ -1354,6 +1481,49 @@ class ClearanceController extends Controller
         return $request->header('X-Requested-With') === 'XMLHttpRequest' ||
                $request->wantsJson() ||
                $request->expectsJson();
+    }
+
+    private function getClearanceProgressSnapshot(ConsultaLote $lote): ?array
+    {
+        if (empty($lote->tab_id)) {
+            return null;
+        }
+
+        $cached = Cache::get("progresso:{$lote->user_id}:{$lote->tab_id}");
+
+        if (! is_array($cached)) {
+            return null;
+        }
+
+        $cacheStatus = $cached['status'] ?? null;
+        $loteStatus = ConsultaLote::normalizeStatus($lote->status);
+        $loteAberto = in_array($loteStatus, [ConsultaLote::STATUS_PROCESSANDO, ConsultaLote::STATUS_PENDENTE], true);
+        $cacheIntermediario = in_array($cacheStatus, [
+            ConsultaLote::STATUS_PROCESSANDO,
+            ConsultaLote::STATUS_PENDENTE,
+            ConsultaLote::STATUS_CONCLUIDO,
+        ], true);
+        $cacheTerminalCompativel = $cacheStatus === ConsultaLote::STATUS_ERRO
+            ? $loteStatus === ConsultaLote::STATUS_ERRO
+            : $cacheStatus === ConsultaLote::STATUS_FINALIZADO && $lote->isFinalizado();
+
+        if (! (($cacheIntermediario && $loteAberto) || $cacheTerminalCompativel)) {
+            return null;
+        }
+
+        return [
+            'status' => $cached['status'] ?? $loteStatus,
+            'progresso' => (int) ($cached['progresso'] ?? 0),
+            'mensagem' => $cached['mensagem'] ?? null,
+            'etapa' => $cached['etapa'] ?? null,
+            'total_etapas' => $cached['total_etapas'] ?? null,
+            'etapa_label' => $cached['etapa_label'] ?? null,
+            'etapas_puladas' => $cached['etapas_puladas'] ?? [],
+            'trilha_etapas' => $cached['trilha_etapas'] ?? null,
+            'ultima_etapa_concluida' => $cached['ultima_etapa_concluida'] ?? null,
+            'consulta_lote_id' => $cached['consulta_lote_id'] ?? $lote->id,
+            'updated_at' => $cached['updated_at'] ?? null,
+        ];
     }
 
     /**
@@ -1663,10 +1833,14 @@ class ClearanceController extends Controller
             return null;
         }
 
+        if ($this->isInvalidDatePlaceholder($valor)) {
+            return null;
+        }
+
         try {
             return Carbon::parse($valor)->format('d/m/Y H:i');
         } catch (\Throwable) {
-            return is_string($valor) ? $valor : null;
+            return is_string($valor) && ! $this->isInvalidDatePlaceholder($valor) ? $valor : null;
         }
     }
 
@@ -1676,11 +1850,31 @@ class ClearanceController extends Controller
             return null;
         }
 
+        if ($this->isInvalidDatePlaceholder($valor)) {
+            return null;
+        }
+
         try {
             return Carbon::parse($valor)->format('d/m/Y H:i');
         } catch (\Throwable) {
-            return is_string($valor) ? $valor : null;
+            return is_string($valor) && ! $this->isInvalidDatePlaceholder($valor) ? $valor : null;
         }
+    }
+
+    private function isInvalidDatePlaceholder($valor): bool
+    {
+        if (! is_string($valor)) {
+            return false;
+        }
+
+        return in_array(strtolower(trim($valor)), [
+            'invalid datetime',
+            'invalid date',
+            'invalid date time',
+            'nan',
+            'null',
+            'undefined',
+        ], true);
     }
 
     /**

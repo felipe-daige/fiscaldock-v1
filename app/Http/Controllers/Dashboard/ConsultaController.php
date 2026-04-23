@@ -1516,18 +1516,21 @@ class ConsultaController extends Controller
                 'etapa' => $cacheData['etapa'] ?? null,
                 'total_etapas' => $cacheData['total_etapas'] ?? null,
                 'etapa_label' => $cacheData['etapa_label'] ?? null,
+                'etapas_puladas' => $cacheData['etapas_puladas'] ?? [],
+                'trilha_etapas' => $cacheData['trilha_etapas'] ?? null,
                 'ultima_etapa_concluida' => $ultimaEtapaConcluida,
                 'consulta_lote_id' => $cacheData['consulta_lote_id'] ?? $lote->id,
                 'updated_at' => $cacheData['updated_at'] ?? null,
                 'total_participantes' => $lote->total_participantes,
                 'total_resultados' => $totalResultados,
+                'ui_error' => $cacheData['ui_error'] ?? null,
             ]);
         }
 
         $status = ConsultaLote::normalizeStatus($lote->status);
         $mensagem = in_array($status, [ConsultaLote::STATUS_PENDENTE, ConsultaLote::STATUS_PROCESSANDO], true)
             ? 'Aguardando atualização do provedor...'
-            : null;
+            : ($status === ConsultaLote::STATUS_ERRO ? $lote->publicErrorMessage() : null);
         $progresso = ConsultaLote::isSuccessfulStatus($lote->status) ? 100 : 0;
 
         return response()->json([
@@ -1538,10 +1541,13 @@ class ConsultaController extends Controller
             'etapa' => null,
             'total_etapas' => null,
             'etapa_label' => null,
+            'etapas_puladas' => [],
+            'trilha_etapas' => null,
             'ultima_etapa_concluida' => null,
             'consulta_lote_id' => $lote->id,
             'total_participantes' => $lote->total_participantes,
             'total_resultados' => $totalResultados,
+            'ui_error' => $status === ConsultaLote::STATUS_ERRO ? $lote->publicErrorUi() : null,
         ]);
     }
 
@@ -1559,7 +1565,7 @@ class ConsultaController extends Controller
         }
 
         $resultados = $lote->resultados()
-            ->with('participante:id,documento,razao_social,uf,crt')
+            ->with('participante:id,documento,razao_social,uf,crt,regime_tributario')
             ->get();
 
         $parecerService = app(ParecerFiscalService::class);
@@ -1568,28 +1574,33 @@ class ConsultaController extends Controller
             'success' => true,
             'lote_id' => $lote->id,
             'total' => $resultados->count(),
-            'resultados' => $resultados->map(fn ($r) => [
-                'participante' => [
-                    'id' => $r->participante?->id,
-                    'cnpj'         => $r->participante?->documento,
-                    'documento_formatado' => $r->participante?->cnpj_formatado ?: $r->participante?->documento,
-                    'razao_social' => $r->participante?->razao_social,
-                    'uf'           => $r->participante?->uf,
-                ],
-                'status'             => $r->status,
-                'error_message'      => $r->error_message,
-                'situacao_cadastral' => $r->getDado('situacao_cadastral'),
-                'regime_tributario'  => $r->getRegimeTributarioLabel(),
-                'simples_nacional'   => $r->getDado('simples_nacional'),
-                'mei'                => $r->getDado('mei'),
-                'cnd_federal'        => $r->getDado('cnd_federal'),
-                'crf_fgts'           => $r->getDado('crf_fgts'),
-                'cndt'               => $r->getDado('cndt'),
-                'cnd_estadual'       => $r->getDado('cnd_estadual'),
-                'parecer'            => $r->isSucesso()
-                    ? $parecerService->gerar($r->getParecerFiscalPayload())
-                    : [],
-            ]),
+            'resultados' => $resultados->map(function ($r) use ($parecerService) {
+                $parecerResumo = $r->isSucesso()
+                    ? $parecerService->gerarResumo($r->getParecerFiscalPayload())
+                    : [];
+
+                return [
+                    'participante' => [
+                        'id' => $r->participante?->id,
+                        'cnpj'         => $r->participante?->documento,
+                        'documento_formatado' => $r->participante?->cnpj_formatado ?: $r->participante?->documento,
+                        'razao_social' => $r->participante?->razao_social,
+                        'uf'           => $r->participante?->uf,
+                    ],
+                    'status'             => $r->status,
+                    'error_message'      => $r->publicErrorMessage(),
+                    'mensagem_exibivel'  => $r->getMensagemExibivel(),
+                    'situacao_cadastral' => $r->getDado('situacao_cadastral'),
+                    'regime_tributario'  => $r->getRegimeTributarioLabel(),
+                    'simples_nacional'   => $r->getDado('simples_nacional'),
+                    'mei'                => $r->getDado('mei'),
+                    'cnd_federal'        => $r->getDado('cnd_federal'),
+                    'crf_fgts'           => $r->getDado('crf_fgts'),
+                    'cndt'               => $r->getDado('cndt'),
+                    'cnd_estadual'       => $r->getDado('cnd_estadual'),
+                    'parecer'            => $parecerResumo,
+                ];
+            }),
         ]);
     }
 
@@ -1616,13 +1627,13 @@ class ConsultaController extends Controller
         $parecerService = app(ParecerFiscalService::class);
 
         return $lote->resultados()
-            ->with('participante:id,documento,razao_social,uf,crt')
+            ->with('participante:id,documento,razao_social,uf,crt,regime_tributario')
             ->orderByDesc('consultado_em')
             ->orderBy('id')
             ->get()
             ->map(function (ConsultaResultado $resultado) use ($parecerService) {
-                $parecer = $resultado->isSucesso()
-                    ? $parecerService->gerar($resultado->getParecerFiscalPayload())
+                $parecerResumo = $resultado->isSucesso()
+                    ? $parecerService->gerarResumo($resultado->getParecerFiscalPayload())
                     : [];
 
                 $statusMeta = match ($resultado->status) {
@@ -1636,12 +1647,6 @@ class ConsultaController extends Controller
                 $cndFederal = $this->normalizeConsultaLoteRegularidadeBadge($resultado->getDado('cnd_federal'));
                 $fgts = $this->normalizeConsultaLoteRegularidadeBadge($resultado->getDado('crf_fgts'));
                 $cndt = $this->normalizeConsultaLoteRegularidadeBadge($resultado->getDado('cndt'));
-                $parecerTitulos = collect($parecer)
-                    ->map(fn (array $item) => trim((string) ($item['titulo'] ?? ($item['chave'] ?? 'Parecer'))))
-                    ->filter()
-                    ->unique()
-                    ->values()
-                    ->all();
 
                 return [
                     'participante_id' => $resultado->participante?->id,
@@ -1652,15 +1657,16 @@ class ConsultaController extends Controller
                     'status' => $resultado->status,
                     'status_label' => $statusMeta['label'],
                     'status_hex' => $statusMeta['hex'],
-                    'error_message' => $resultado->error_message,
+                    'error_message' => $resultado->publicErrorMessage(),
+                    'mensagem_exibivel' => $resultado->getMensagemExibivel(),
                     'consultado_em_label' => $resultado->consultado_em?->format('d/m/Y H:i') ?: '—',
                     'situacao_cadastral' => $situacaoCadastral !== '' ? $situacaoCadastral : '—',
                     'regime_tributario' => $regimeTributario ?: '—',
                     'cnd_federal_badge' => $cndFederal,
                     'fgts_badge' => $fgts,
                     'cndt_badge' => $cndt,
-                    'parecer' => $parecer,
-                    'parecer_count' => count($parecer),
+                    'parecer' => $parecerResumo,
+                    'parecer_count' => count($parecerResumo),
                 ];
             });
     }
@@ -1752,7 +1758,11 @@ class ConsultaController extends Controller
         }
 
         if ($etapa === 0) {
-            return $this->normalizeConsultaSnapshotEtapa($totalEtapas, $totalEtapas);
+            $etapaAnterior = $totalEtapas !== null && $totalEtapas > 1
+                ? $totalEtapas - 1
+                : $totalEtapas;
+
+            return $this->normalizeConsultaSnapshotEtapa($etapaAnterior, $totalEtapas);
         }
 
         if ($etapa <= 1) {

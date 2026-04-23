@@ -7,6 +7,7 @@ use App\Models\EfdNota;
 use App\Models\Participante;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 use function Pest\Laravel\actingAs;
@@ -202,4 +203,125 @@ it('retorna webhook_disparado=false quando WEBHOOK_CONSULTAS_NOTAS_URL não est�
 
     expect(ConsultaLote::count())->toBe(0);
     Http::assertNothingSent();
+});
+
+it('resultado de notas em processamento hidrata snapshot inicial de progresso do cache', function () {
+    $user = bulkDispatchUser(credits: 100);
+    $tabId = 'tab-clearance-progress-snapshot';
+    $lote = ConsultaLote::create([
+        'user_id' => $user->id,
+        'cliente_id' => null,
+        'plano_id' => null,
+        'status' => ConsultaLote::STATUS_PROCESSANDO,
+        'total_participantes' => 1,
+        'creditos_cobrados' => 10,
+        'tab_id' => $tabId,
+    ]);
+
+    Cache::put("progresso:{$user->id}:{$tabId}", [
+        'user_id' => $user->id,
+        'tab_id' => $tabId,
+        'consulta_lote_id' => $lote->id,
+        'fluxo' => 'clearance_notas',
+        'status' => ConsultaLote::STATUS_CONCLUIDO,
+        'progresso' => 100,
+        'mensagem' => 'Preparando consulta concluída.',
+        'etapa' => 1,
+        'total_etapas' => 4,
+        'etapa_label' => 'Preparando consulta',
+        'etapas_puladas' => [3],
+        'trilha_etapas' => [
+            ['etapa' => 1, 'etapa_label' => 'Preparando consulta', 'status' => 'done'],
+            ['etapa' => 2, 'etapa_label' => 'Consultando NF-e na Receita Federal', 'status' => 'pending'],
+            ['etapa' => 3, 'etapa_label' => 'Consultando CT-e na Receita Federal', 'status' => 'skipped'],
+            ['etapa' => 0, 'etapa_label' => 'Preparando resultados', 'status' => 'pending'],
+        ],
+        'updated_at' => now()->toIso8601String(),
+    ], 600);
+
+    actingAs($user)
+        ->get("/app/clearance/notas/resultado/{$lote->id}?tipo_validacao=basico")
+        ->assertOk()
+        ->assertSee('data-progress-snapshot', false)
+        ->assertSee('Preparando consulta concluída.', false)
+        ->assertSee('clearance-resultado-progresso', false)
+        ->assertDontSee('Resultado Consolidado', false);
+});
+
+it('resultado de notas só exibe resumo consolidado quando lote está finalizado', function () {
+    $user = bulkDispatchUser(credits: 100);
+    $lote = ConsultaLote::create([
+        'user_id' => $user->id,
+        'cliente_id' => null,
+        'plano_id' => null,
+        'status' => ConsultaLote::STATUS_FINALIZADO,
+        'total_participantes' => 1,
+        'creditos_cobrados' => 10,
+        'tab_id' => 'tab-clearance-finalizado',
+        'processado_em' => now(),
+    ]);
+
+    actingAs($user)
+        ->get("/app/clearance/notas/resultado/{$lote->id}?tipo_validacao=basico")
+        ->assertOk()
+        ->assertSee('Resultado Consolidado', false)
+        ->assertDontSee('clearance-resultado-progresso', false);
+});
+
+it('resultado de notas ajax informa quando o resumo final está pronto', function () {
+    $user = bulkDispatchUser(credits: 100);
+    $lote = ConsultaLote::create([
+        'user_id' => $user->id,
+        'cliente_id' => null,
+        'plano_id' => null,
+        'status' => ConsultaLote::STATUS_FINALIZADO,
+        'total_participantes' => 1,
+        'creditos_cobrados' => 10,
+        'tab_id' => 'tab-clearance-ajax-pronto',
+        'processado_em' => now(),
+    ]);
+
+    \Illuminate\Support\Facades\DB::table('nfe_consultas')->insert([
+        'user_id' => $user->id,
+        'consulta_lote_id' => $lote->id,
+        'chave_acesso' => '35240413305697000150550000000404041953940992',
+        'tipo_documento' => 'NFE',
+        'modelo' => '55',
+        'numero' => '40404',
+        'serie' => 1,
+        'status' => 'AUTORIZADA',
+        'valor_total' => 1000,
+        'consultado_em' => now(),
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    actingAs($user)
+        ->getJson("/app/clearance/notas/resultado/{$lote->id}?tipo_validacao=basico")
+        ->assertOk()
+        ->assertJsonPath('status_lote', ConsultaLote::STATUS_FINALIZADO)
+        ->assertJsonPath('total_resultados', 1)
+        ->assertJsonPath('resultado_pronto', true)
+        ->assertJsonPath('resumo.total', 1);
+});
+
+it('resultado de notas ajax mantém resultado_pronto falso sem snapshots persistidos', function () {
+    $user = bulkDispatchUser(credits: 100);
+    $lote = ConsultaLote::create([
+        'user_id' => $user->id,
+        'cliente_id' => null,
+        'plano_id' => null,
+        'status' => ConsultaLote::STATUS_FINALIZADO,
+        'total_participantes' => 1,
+        'creditos_cobrados' => 10,
+        'tab_id' => 'tab-clearance-ajax-aguardando',
+        'processado_em' => now(),
+    ]);
+
+    actingAs($user)
+        ->getJson("/app/clearance/notas/resultado/{$lote->id}?tipo_validacao=basico")
+        ->assertOk()
+        ->assertJsonPath('status_lote', ConsultaLote::STATUS_FINALIZADO)
+        ->assertJsonPath('total_resultados', 0)
+        ->assertJsonPath('resultado_pronto', false);
 });

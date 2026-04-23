@@ -86,10 +86,17 @@
         @endif
 
         @if($importacao->status === 'erro')
-            <div class="bg-white rounded border border-gray-300 p-4 border-l-4 border-l-red-500 mb-6">
-                <p class="text-sm font-semibold text-gray-900">Esta importação terminou com erro</p>
-                <p class="text-sm text-gray-700 mt-1">Verifique o arquivo enviado e tente novamente.</p>
-            </div>
+            @include('autenticado.partials.system-critical-error', [
+                'errorUi' => app(\App\Support\SystemCriticalError::class)->forAsyncFailure(
+                    null,
+                    null,
+                    [
+                        'context' => 'importacao-efd',
+                        'url' => request()->getPathInfo(),
+                        'reference' => 'Importação #'.$importacao->id,
+                    ]
+                ),
+            ])
         @endif
 
         @if($concluido)
