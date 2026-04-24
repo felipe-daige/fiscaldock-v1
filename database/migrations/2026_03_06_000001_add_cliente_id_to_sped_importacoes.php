@@ -91,7 +91,7 @@ return new class extends Migration
         }
         if (Schema::hasColumn('efd_importacoes', 'cliente_id')) {
             Schema::table('efd_importacoes', function (Blueprint $table) {
-                $table->dropForeignKey(['cliente_id']);
+                $table->dropForeign(['cliente_id']);
                 $table->dropColumn('cliente_id');
             });
         }
