@@ -11,9 +11,9 @@ uses(TestCase::class);
 uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
 
 it('retorna estrutura vazia quando não há snapshots', function () {
-    $service = new DivergenciaService();
+    $service = new DivergenciaService;
 
-    $resultado = $service->analisar(new Collection(), userId: 1, creditosCobrados: 0);
+    $resultado = $service->analisar(new Collection, userId: 1, creditosCobrados: 0);
 
     expect($resultado)->toHaveKeys(['veredito', 'kpis', 'breakdown', 'divergencias', 'sem_divergencia', 'ruido']);
     expect($resultado['veredito']['severidade'])->toBe('ok');
@@ -59,7 +59,7 @@ it('carrega declarado de efd_notas e xml_notas pela chave', function () {
         'valor_total' => 250.00,
     ]);
 
-    $service = new DivergenciaService();
+    $service = new DivergenciaService;
 
     $declarado = $service->buscarDeclaradoPorChave(
         $user->id,
@@ -74,7 +74,7 @@ it('carrega declarado de efd_notas e xml_notas pela chave', function () {
 });
 
 it('classifica severidade pelas regras canônicas', function () {
-    $service = new DivergenciaService();
+    $service = new DivergenciaService;
 
     // Caso SOTRACTOR: declarado 250, SEFAZ 1135 → crítica
     expect($service->classificarSeveridade(statusSefaz: 'AUTORIZADA', declarado: 250.00, sefaz: 1135.00))
@@ -166,7 +166,7 @@ it('agrega veredito, kpis e breakdown a partir de snapshots + declarado', functi
         'detalhe_url' => null,
     ]);
 
-    $service = new DivergenciaService();
+    $service = new DivergenciaService;
     $resultado = $service->analisar($snapshots, $user->id, creditosCobrados: 50);
 
     expect($resultado['veredito']['severidade'])->toBe('critica');

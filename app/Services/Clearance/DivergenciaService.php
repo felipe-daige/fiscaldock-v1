@@ -9,8 +9,11 @@ use Illuminate\Support\Collection;
 class DivergenciaService
 {
     public const TOLERANCIA_ABSOLUTA_RUIDO = 5.00;
+
     public const TOLERANCIA_PERCENTUAL_RUIDO = 0.5;
+
     public const LIMIAR_CRITICO_ABSOLUTO = 100.00;
+
     public const LIMIAR_CRITICO_PERCENTUAL = 10.0;
 
     /**
@@ -25,18 +28,18 @@ class DivergenciaService
                 'veredito' => $this->verediticoVazio(),
                 'kpis' => $this->kpisVazios($creditosCobrados),
                 'breakdown' => $this->breakdownVazio(),
-                'divergencias' => new Collection(),
-                'sem_divergencia' => new Collection(),
-                'ruido' => new Collection(),
+                'divergencias' => new Collection,
+                'sem_divergencia' => new Collection,
+                'ruido' => new Collection,
             ];
         }
 
         $chaves = $snapshots->pluck('chave_acesso')->filter()->unique()->values()->all();
         $declaradoMap = $this->buscarDeclaradoPorChave($userId, $chaves);
 
-        $divergencias = new Collection();
-        $semDivergencia = new Collection();
-        $ruido = new Collection();
+        $divergencias = new Collection;
+        $semDivergencia = new Collection;
+        $ruido = new Collection;
 
         $kpiEncontradas = 0;
         $kpiCanceladasDeclaradas = 0;

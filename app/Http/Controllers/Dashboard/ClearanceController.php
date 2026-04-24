@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Dashboard;
 
-use Carbon\Carbon;
 use App\Http\Controllers\Controller;
 use App\Models\Cliente;
 use App\Models\ConsultaLote;
@@ -13,9 +12,10 @@ use App\Services\Clearance\DivergenciaService;
 use App\Services\CreditService;
 use App\Services\NotaFiscalService;
 use App\Services\ValidacaoContabilService;
-use Illuminate\Support\Collection;
+use Carbon\Carbon;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -336,7 +336,7 @@ class ClearanceController extends Controller
                     return response()->json([
                         'success' => false,
                         'message' => 'Erro de validação.',
-                        'errors' => ['blocos' => ["A chave #".($indiceChave + 1)." do bloco ".($indiceBloco + 1)." deve ter 44 dígitos numéricos."]],
+                        'errors' => ['blocos' => ['A chave #'.($indiceChave + 1).' do bloco '.($indiceBloco + 1).' deve ter 44 dígitos numéricos.']],
                     ], Response::HTTP_UNPROCESSABLE_ENTITY);
                 }
 
@@ -344,7 +344,7 @@ class ClearanceController extends Controller
                     return response()->json([
                         'success' => false,
                         'message' => 'Erro de validação.',
-                        'errors' => ['blocos' => ["A chave #".($indiceChave + 1)." do bloco ".($indiceBloco + 1)." possui dígito verificador inválido."]],
+                        'errors' => ['blocos' => ['A chave #'.($indiceChave + 1).' do bloco '.($indiceBloco + 1).' possui dígito verificador inválido.']],
                     ], Response::HTTP_UNPROCESSABLE_ENTITY);
                 }
 
@@ -1006,7 +1006,7 @@ class ClearanceController extends Controller
         $resultados = $this->listarConsultasDfePorLote($userId, $lote->id);
         $resumo = $this->resumirResultadosClearance($resultados);
 
-        $analiseDivergencia = (new DivergenciaService())->analisar(
+        $analiseDivergencia = (new DivergenciaService)->analisar(
             $resultados,
             $userId,
             (int) ($lote->creditos_cobrados ?? 0)
