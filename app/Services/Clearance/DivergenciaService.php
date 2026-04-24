@@ -104,4 +104,37 @@ class DivergenciaService
             'operacionais' => ['count' => 0, 'valor' => 0.0],
         ];
     }
+
+    /**
+     * @return 'critica'|'revisar'|'ruido'|'ok'
+     */
+    public function classificarSeveridade(string $statusSefaz, ?float $declarado, ?float $sefaz): string
+    {
+        $status = strtoupper($statusSefaz);
+
+        if ($declarado !== null && $declarado > 0 && in_array($status, ['CANCELADA', 'DENEGADA', 'INUTILIZADA'], true)) {
+            return 'critica';
+        }
+
+        if ($declarado !== null && $declarado > 0 && $status === 'NAO_ENCONTRADA') {
+            return 'critica';
+        }
+
+        if ($declarado === null || $sefaz === null) {
+            return 'ok';
+        }
+
+        $delta = abs($sefaz - $declarado);
+        $deltaPct = $declarado > 0 ? ($delta / $declarado) * 100 : 0;
+
+        if ($delta <= self::TOLERANCIA_ABSOLUTA_RUIDO || $deltaPct <= self::TOLERANCIA_PERCENTUAL_RUIDO) {
+            return $delta === 0.0 ? 'ok' : 'ruido';
+        }
+
+        if ($delta > self::LIMIAR_CRITICO_ABSOLUTO && $deltaPct > self::LIMIAR_CRITICO_PERCENTUAL) {
+            return 'critica';
+        }
+
+        return 'revisar';
+    }
 }

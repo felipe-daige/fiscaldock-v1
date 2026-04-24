@@ -72,3 +72,35 @@ it('carrega declarado de efd_notas e xml_notas pela chave', function () {
     expect($declarado['50240246088921000159550010000017471100017471']['origem'])->toBe('efd');
     expect($declarado)->not->toHaveKey('00000000000000000000000000000000000000000000');
 });
+
+it('classifica severidade pelas regras canônicas', function () {
+    $service = new DivergenciaService();
+
+    // Caso SOTRACTOR: declarado 250, SEFAZ 1135 → crítica
+    expect($service->classificarSeveridade(statusSefaz: 'AUTORIZADA', declarado: 250.00, sefaz: 1135.00))
+        ->toBe('critica');
+
+    // Caso WURTH 111720: declarado 4801, SEFAZ 4957,52 → revisar (3,3%, R$ 156,52)
+    expect($service->classificarSeveridade(statusSefaz: 'AUTORIZADA', declarado: 4801.00, sefaz: 4957.52))
+        ->toBe('revisar');
+
+    // Caso WURTH 111721: declarado 51, SEFAZ 51,11 → ruído (R$ 0,11)
+    expect($service->classificarSeveridade(statusSefaz: 'AUTORIZADA', declarado: 51.00, sefaz: 51.11))
+        ->toBe('ruido');
+
+    // Caso PANTANAL CT-e: declarado = SEFAZ → ok
+    expect($service->classificarSeveridade(statusSefaz: 'AUTORIZADA', declarado: 114.98, sefaz: 114.98))
+        ->toBe('ok');
+
+    // Nota fria: status SEFAZ NAO_ENCONTRADA + declarado > 0 → crítica
+    expect($service->classificarSeveridade(statusSefaz: 'NAO_ENCONTRADA', declarado: 1000.00, sefaz: null))
+        ->toBe('critica');
+
+    // Cancelada declarada: SEFAZ CANCELADA + declarado > 0 → crítica
+    expect($service->classificarSeveridade(statusSefaz: 'CANCELADA', declarado: 500.00, sefaz: 500.00))
+        ->toBe('critica');
+
+    // Sem declarado (só SEFAZ): → ok
+    expect($service->classificarSeveridade(statusSefaz: 'AUTORIZADA', declarado: null, sefaz: 1000.00))
+        ->toBe('ok');
+});
