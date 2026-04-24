@@ -98,10 +98,46 @@ return new class extends Migration {
             $table->index('uf_inicio');
             $table->index('uf_fim');
         });
+
+        Schema::create('clearance_divergencia_tratamentos', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            $table->char('chave_acesso', 44);
+            $table->string('tipo_documento', 8);
+            $table->string('estado', 32);
+            $table->text('nota')->nullable();
+            $table->string('evidencia_path')->nullable();
+            $table->foreignId('criado_por')->constrained('users');
+            $table->timestamp('criado_em');
+            $table->foreignId('atualizado_por')->constrained('users');
+            $table->timestamp('atualizado_em');
+            $table->timestamps();
+
+            $table->unique(['user_id', 'chave_acesso'], 'clearance_trat_user_chave_unique');
+            $table->index(['user_id', 'estado']);
+            $table->index('chave_acesso');
+        });
+
+        Schema::create('clearance_divergencia_tratamento_historicos', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('tratamento_id')->constrained('clearance_divergencia_tratamentos')->cascadeOnDelete();
+            $table->unsignedBigInteger('lote_id')->nullable();
+            $table->string('estado_anterior', 32)->nullable();
+            $table->string('estado_novo', 32);
+            $table->text('nota_snapshot')->nullable();
+            $table->foreignId('alterado_por')->constrained('users');
+            $table->timestamp('alterado_em');
+            $table->timestamps();
+
+            $table->index('tratamento_id');
+            $table->index('lote_id');
+        });
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('clearance_divergencia_tratamento_historicos');
+        Schema::dropIfExists('clearance_divergencia_tratamentos');
         Schema::dropIfExists('cte_consultas');
     }
 };
