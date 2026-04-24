@@ -9,7 +9,9 @@ use App\Models\ConsultaLote;
 use App\Models\EfdNota;
 use App\Models\XmlImportacao;
 use App\Models\XmlNota;
+use App\Services\Clearance\DivergenciaService;
 use App\Services\CreditService;
+use App\Services\NotaFiscalService;
 use App\Services\ValidacaoContabilService;
 use Illuminate\Support\Collection;
 use Illuminate\Database\Query\Builder;
@@ -19,11 +21,14 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 class ClearanceController extends Controller
 {
     public const CLEARANCE_NFE_AVULSA_CUSTO = 14;
+
+    private const BUSCA_AVULSA_CACHE_TTL_MINUTES = 120;
 
     private const AUTH_VIEW_PREFIX = 'autenticado.clearance.';
 
@@ -31,7 +36,8 @@ class ClearanceController extends Controller
 
     public function __construct(
         protected ValidacaoContabilService $validacaoService,
-        protected CreditService $creditService
+        protected CreditService $creditService,
+        protected NotaFiscalService $notaFiscalService
     ) {}
 
     /**
@@ -225,6 +231,36 @@ class ClearanceController extends Controller
         return $this->render($request, 'buscar', $data);
     }
 
+    public function historico(Request $request)
+    {
+        if (! Auth::check()) {
+            return $this->redirectToLogin($request);
+        }
+
+        $userId = Auth::id();
+        $filtros = $this->filtrosHistoricoConsultasDfe($request);
+
+        $query = $this->notaFiscalService->consultaDfeHistoricoQuery($userId);
+        $this->aplicarFiltrosHistoricoConsultasDfe($query, $filtros);
+
+        $consultas = $query
+            ->orderByRaw('COALESCE(consultado_em, created_at) DESC')
+            ->orderByDesc('consulta_id')
+            ->paginate(25)
+            ->withQueryString();
+
+        $consultas->getCollection()->transform(
+            fn ($consulta) => $this->notaFiscalService->formatarHistoricoConsultaDfe($consulta, $userId)
+        );
+
+        return $this->render($request, 'historico', [
+            'consultas' => $consultas,
+            'filtros' => $filtros,
+            'filtrosAtivos' => collect($filtros)->filter(fn ($value) => $value !== null && $value !== '')->count(),
+            'statusOptions' => $this->statusOptionsHistoricoDfe($userId),
+        ]);
+    }
+
     /**
      * Dispara consulta avulsa de DF-e via n8n + InfoSimples.
      *
@@ -243,77 +279,198 @@ class ClearanceController extends Controller
         $user = Auth::user();
 
         $validated = $request->validate([
-            'tipo_documento' => 'required|string|in:nfe,cte,nfse',
-            'chave_acesso' => 'required|string',
+            'tipo_documento' => 'nullable|string|in:nfe,cte,nfse',
+            'chave_acesso' => 'nullable|string',
             'cliente_id' => 'required|integer',
             'tab_id' => 'required|string|max:36',
+            'blocos' => 'nullable|array|min:1',
+            'blocos.*.tipo_documento' => 'required|string|in:nfe,cte,nfse',
+            'blocos.*.chaves_acesso' => 'required|string',
         ], [
             'cliente_id.required' => 'Selecione o cliente associado antes de consultar.',
             'cliente_id.integer' => 'Cliente inválido.',
         ]);
+        $blocos = $this->normalizarBlocosBusca($validated);
 
-        if ($validated['tipo_documento'] === 'nfse') {
+        if ($blocos->isEmpty()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Erro de validação.',
-                'errors' => ['tipo_documento' => ['NFS-e ainda não é suportada. Em breve.']],
+                'errors' => ['blocos' => ['Adicione ao menos um bloco com tipo e chaves de acesso.']],
             ], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $chave = preg_replace('/\D/', '', $validated['chave_acesso']);
+        $duplicadas = [];
+        $chavesVistas = [];
+        $notasPreparadas = collect();
 
-        if (strlen($chave) !== 44) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Erro de validação.',
-                'errors' => ['chave_acesso' => ['A chave de acesso deve ter 44 dígitos numéricos.']],
-            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+        foreach ($blocos as $indiceBloco => $bloco) {
+            $tipoDocumentoBloco = strtolower((string) ($bloco['tipo_documento'] ?? ''));
+
+            if ($tipoDocumentoBloco === 'nfse') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Erro de validação.',
+                    'errors' => ['blocos' => ['NFS-e ainda não é suportada. Em breve.']],
+                ], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            $chaves = $this->extrairChavesAcesso($bloco['chaves_acesso'] ?? null, deduplicar: false);
+
+            if ($chaves === []) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Erro de validação.',
+                    'errors' => ['blocos' => ['Cada bloco precisa ter ao menos uma chave de acesso válida.']],
+                ], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            $modelosPermitidos = match ($tipoDocumentoBloco) {
+                'nfe' => ['55', '65'],
+                'cte' => ['57'],
+                default => [],
+            };
+
+            foreach ($chaves as $indiceChave => $chave) {
+                if (strlen($chave) !== 44) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Erro de validação.',
+                        'errors' => ['blocos' => ["A chave #".($indiceChave + 1)." do bloco ".($indiceBloco + 1)." deve ter 44 dígitos numéricos."]],
+                    ], Response::HTTP_UNPROCESSABLE_ENTITY);
+                }
+
+                if (! $this->validarDigitoVerificadorDfe($chave)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Erro de validação.',
+                        'errors' => ['blocos' => ["A chave #".($indiceChave + 1)." do bloco ".($indiceBloco + 1)." possui dígito verificador inválido."]],
+                    ], Response::HTTP_UNPROCESSABLE_ENTITY);
+                }
+
+                $modeloChave = substr($chave, 20, 2);
+
+                if (! in_array($modeloChave, $modelosPermitidos, true)) {
+                    $labelTipo = strtoupper($tipoDocumentoBloco);
+                    $labelModelos = implode(', ', $modelosPermitidos);
+
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Erro de validação.',
+                        'errors' => ['blocos' => ["A chave {$chave} usa modelo {$modeloChave} incompatível com {$labelTipo}. Modelos aceitos: {$labelModelos}."]],
+                    ], Response::HTTP_UNPROCESSABLE_ENTITY);
+                }
+
+                if (isset($chavesVistas[$chave])) {
+                    $duplicadas[] = $chave;
+
+                    continue;
+                }
+
+                $chavesVistas[$chave] = true;
+
+                $notasPreparadas->push([
+                    'ordem_lote' => $notasPreparadas->count() + 1,
+                    'chave_acesso' => $chave,
+                    'tipo_documento' => match ($modeloChave) {
+                        '55' => 'NFE',
+                        '65' => 'NFCE',
+                        '57' => 'CTE',
+                        default => strtoupper($tipoDocumentoBloco),
+                    },
+                    'tipo_documento_bloco' => $tipoDocumentoBloco,
+                ]);
+            }
         }
 
-        if (! $this->validarDigitoVerificadorNfe($chave)) {
+        if ($duplicadas !== []) {
             return response()->json([
                 'success' => false,
                 'message' => 'Erro de validação.',
-                'errors' => ['chave_acesso' => ['Dígito verificador da chave de acesso inválido.']],
-            ], Response::HTTP_UNPROCESSABLE_ENTITY);
-        }
-
-        $modeloChave = substr($chave, 20, 2);
-        $modelosPermitidos = match ($validated['tipo_documento']) {
-            'nfe' => ['55', '65'],
-            'cte' => ['57'],
-            default => [],
-        };
-
-        if (! in_array($modeloChave, $modelosPermitidos, true)) {
-            $labelTipo = strtoupper($validated['tipo_documento']);
-            $labelModelos = implode(', ', $modelosPermitidos);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Erro de validação.',
-                'errors' => ['chave_acesso' => ["Modelo {$modeloChave} incompatível com {$labelTipo}. Modelos aceitos: {$labelModelos}."]],
+                'errors' => ['blocos' => ['Existem chaves repetidas no envio: '.implode(', ', array_values(array_unique($duplicadas))).'.']],
             ], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         $clienteId = (int) $validated['cliente_id'];
-        $clienteOwned = Cliente::where('id', $clienteId)
+        $cliente = Cliente::where('id', $clienteId)
             ->where('user_id', $user->id)
-            ->exists();
+            ->first();
 
-        if (! $clienteOwned) {
+        if (! $cliente) {
             return response()->json([
                 'success' => false,
                 'error' => 'Cliente não encontrado ou não pertence a este usuário.',
             ], Response::HTTP_FORBIDDEN);
         }
 
-        $custo = self::CLEARANCE_NFE_AVULSA_CUSTO;
-        $tipoDoc = $validated['tipo_documento'];
-        $tipoDocUpper = strtoupper($tipoDoc);
-        $labelTipoDoc = $tipoDoc === 'cte' ? 'CT-e' : 'NF-e';
-        $transactionType = "clearance_{$tipoDoc}_avulsa";
-        $refundType = "{$transactionType}_refund";
+        $clienteCnpj = preg_replace('/\D/', '', (string) $cliente->documento);
+
+        $acervoPorChave = $this->localizarNotasNoAcervo($user->id, $notasPreparadas->pluck('chave_acesso'));
+        $notasExistentes = collect();
+        $notasParaConsultar = collect();
+
+        foreach ($notasPreparadas as $notaPreparada) {
+            $chave = $notaPreparada['chave_acesso'];
+            $ordem = (int) $notaPreparada['ordem_lote'];
+
+            if (isset($acervoPorChave[$chave])) {
+                $notasExistentes->push(
+                    $this->formatarResultadoAcervoExistente(
+                        $acervoPorChave[$chave]['nota'],
+                        $acervoPorChave[$chave]['origem'],
+                        $ordem
+                    )
+                );
+
+                continue;
+            }
+
+            $notasParaConsultar->push(array_merge($notaPreparada, [
+                'id' => null,
+                'origem' => 'avulsa',
+                'cliente_id' => $clienteId,
+            ]));
+        }
+
+        $quantidadeNotas = $notasParaConsultar->count();
+        $quantidadeItens = $notasPreparadas->count();
+        $quantidadeExistentes = $notasExistentes->count();
+        $custo = self::CLEARANCE_NFE_AVULSA_CUSTO * $quantidadeNotas;
+        $tiposNoEnvio = $notasPreparadas->pluck('tipo_documento')->unique()->values();
+        $labelTipoDoc = $tiposNoEnvio->contains('CTE') && $tiposNoEnvio->count() > 1
+            ? 'DF-e'
+            : ($tiposNoEnvio->contains('CTE') ? 'CT-e' : 'NF-e');
+        $transactionType = 'clearance_busca_avulsa';
+        $refundType = 'clearance_busca_avulsa_refund';
+
+        if ($quantidadeItens === 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro de validação.',
+                'errors' => ['blocos' => ['Nenhuma chave válida foi encontrada no envio.']],
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        if ($quantidadeNotas === 0) {
+            $token = $this->storeBuscaResultadoLocal($user->id, [
+                'cliente_id' => $clienteId,
+                'cliente_nome' => Cliente::query()->where('id', $clienteId)->value('razao_social'),
+                'resultados' => $notasExistentes->sortBy('ordem_lote')->values()->all(),
+                'resumo' => $this->resumirResultadosClearance($notasExistentes),
+                'total_itens' => $quantidadeItens,
+                'total_existentes' => $quantidadeExistentes,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'resultado_url' => route('app.clearance.buscar.resultado-local', ['token' => $token]),
+                'mensagem' => 'Todas as chaves já estavam no acervo.',
+                'novo_saldo' => $this->creditService->getBalance($user),
+                'total_itens' => $quantidadeItens,
+                'total_existentes' => $quantidadeExistentes,
+                'total_consultadas' => 0,
+            ]);
+        }
 
         if (! $this->creditService->hasEnough($user, $custo)) {
             return response()->json([
@@ -339,7 +496,9 @@ class ClearanceController extends Controller
             $user,
             $custo,
             $transactionType,
-            "Clearance {$labelTipoDoc} avulsa · chave …".substr($chave, -4)
+            $quantidadeNotas === 1
+                ? "Clearance {$labelTipoDoc} avulsa · chave …".substr($notasParaConsultar->first()['chave_acesso'], -4)
+                : "Clearance {$labelTipoDoc} avulsa em lote · {$quantidadeNotas} chaves"
         );
 
         if (! $debitado) {
@@ -357,29 +516,48 @@ class ClearanceController extends Controller
                 'cliente_id' => $clienteId,
                 'plano_id' => null,
                 'status' => ConsultaLote::STATUS_PROCESSANDO,
-                'total_participantes' => 1,
+                'total_participantes' => $quantidadeNotas,
                 'creditos_cobrados' => $custo,
                 'tab_id' => $validated['tab_id'],
             ]);
 
+            $ordemPorChave = $notasPreparadas
+                ->mapWithKeys(fn (array $nota) => [$nota['chave_acesso'] => (int) $nota['ordem_lote']])
+                ->all();
+
+            $this->storeBuscaAcervoPrecheck($user->id, $lote->id, [
+                'resultados' => $notasExistentes->values()->all(),
+                'ordem_por_chave' => $ordemPorChave,
+            ]);
+
+            $notasPayload = $notasParaConsultar->values()->map(function (array $nota) {
+                return [
+                    'id' => null,
+                    'origem' => 'avulsa',
+                    'chave_acesso' => $nota['chave_acesso'],
+                    'tipo_documento' => $nota['tipo_documento'],
+                    'cliente_id' => $nota['cliente_id'],
+                ];
+            })->all();
+
+            $totalNfe = collect($notasPayload)
+                ->filter(fn (array $nota) => in_array(($nota['tipo_documento'] ?? null), ['NFE', 'NFCE'], true))
+                ->count();
+            $totalCte = collect($notasPayload)
+                ->filter(fn (array $nota) => ($nota['tipo_documento'] ?? null) === 'CTE')
+                ->count();
+
             $payload = [
                 'user_id' => $user->id,
+                'cliente_id' => $clienteId,
+                'cliente_cnpj' => $clienteCnpj,
                 'consulta_lote_id' => $lote->id,
                 'tab_id' => $validated['tab_id'],
                 'tipo_validacao' => 'basico',
-                'total_notas' => 1,
-                'notas' => [[
-                    'id' => null,
-                    'origem' => 'avulsa',
-                    'chave_acesso' => $chave,
-                    'tipo_documento' => match ($modeloChave) {
-                        '55' => 'NFE',
-                        '65' => 'NFCE',
-                        '57' => 'CTE',
-                        default => $tipoDocUpper,
-                    },
-                    'cliente_id' => $clienteId,
-                ]],
+                'total_notas' => $quantidadeNotas,
+                'total_nfe' => $totalNfe,
+                'total_cte' => $totalCte,
+                'notas' => $notasPayload,
                 'progress_url' => url('/api/consultas/progresso'),
             ];
 
@@ -419,6 +597,8 @@ class ClearanceController extends Controller
             Log::info("Clearance {$labelTipoDoc}: despachado para n8n", [
                 'consulta_lote_id' => $lote->id,
                 'user_id' => $user->id,
+                'total_notas' => $quantidadeNotas,
+                'total_existentes' => $quantidadeExistentes,
             ]);
 
             return response()->json([
@@ -426,13 +606,18 @@ class ClearanceController extends Controller
                 'consulta_lote_id' => $lote->id,
                 'tab_id' => $validated['tab_id'],
                 'progress_url' => url('/app/consulta/progresso/stream?tab_id='.$validated['tab_id']),
-                'resultado_url' => route('app.clearance.buscar.resultado', [
-                    'consultaLoteId' => $lote->id,
-                    'tipo_documento' => $tipoDoc,
-                    'chave_acesso' => $chave,
-                ]),
+                'resultado_url' => $quantidadeNotas === 1 && $quantidadeExistentes === 0
+                    ? route('app.clearance.buscar.resultado', [
+                        'consultaLoteId' => $lote->id,
+                        'tipo_documento' => strtolower($notasPayload[0]['tipo_documento']),
+                        'chave_acesso' => $notasPayload[0]['chave_acesso'],
+                    ])
+                    : route('app.clearance.notas.resultado', ['consultaLoteId' => $lote->id]),
                 'mensagem' => 'Consulta iniciada.',
                 'novo_saldo' => $this->creditService->getBalance($user),
+                'total_itens' => $quantidadeItens,
+                'total_existentes' => $quantidadeExistentes,
+                'total_consultadas' => $quantidadeNotas,
             ]);
 
         } catch (\Throwable $e) {
@@ -462,6 +647,224 @@ class ClearanceController extends Controller
                 'error' => 'Erro interno ao processar consulta.',
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
+    }
+
+    private function normalizarBlocosBusca(array $validated): Collection
+    {
+        if (! empty($validated['blocos']) && is_array($validated['blocos'])) {
+            return collect($validated['blocos'])
+                ->map(fn ($bloco) => [
+                    'tipo_documento' => strtolower((string) ($bloco['tipo_documento'] ?? '')),
+                    'chaves_acesso' => (string) ($bloco['chaves_acesso'] ?? ''),
+                ])
+                ->filter(fn (array $bloco) => $bloco['tipo_documento'] !== '' || trim($bloco['chaves_acesso']) !== '')
+                ->values();
+        }
+
+        if (! empty($validated['tipo_documento']) || ! empty($validated['chave_acesso'])) {
+            return collect([[
+                'tipo_documento' => strtolower((string) ($validated['tipo_documento'] ?? '')),
+                'chaves_acesso' => (string) ($validated['chave_acesso'] ?? ''),
+            ]]);
+        }
+
+        return collect();
+    }
+
+    private function extrairChavesAcesso(?string $conteudo, bool $deduplicar = true): array
+    {
+        $linhas = preg_split('/[\r\n,;]+/', (string) $conteudo) ?: [];
+
+        $chaves = collect($linhas)
+            ->map(fn ($linha) => preg_replace('/\D/', '', (string) $linha))
+            ->filter()
+            ->values();
+
+        if ($deduplicar) {
+            $chaves = $chaves->unique()->values();
+        }
+
+        return $chaves->all();
+    }
+
+    private function localizarNotasNoAcervo(int $userId, Collection $chaves): array
+    {
+        $chaves = $chaves->filter()->unique()->values();
+
+        if ($chaves->isEmpty()) {
+            return [];
+        }
+
+        $xml = XmlNota::query()
+            ->with('cliente')
+            ->where('user_id', $userId)
+            ->whereIn('nfe_id', $chaves)
+            ->get()
+            ->keyBy('nfe_id');
+
+        $chavesRestantes = $chaves->reject(fn (string $chave) => $xml->has($chave))->values();
+
+        $efd = EfdNota::query()
+            ->with(['cliente', 'participante'])
+            ->where('user_id', $userId)
+            ->whereIn('chave_acesso', $chavesRestantes)
+            ->get()
+            ->keyBy('chave_acesso');
+
+        $encontradas = [];
+
+        foreach ($chaves as $chave) {
+            if ($xml->has($chave)) {
+                $encontradas[$chave] = [
+                    'origem' => 'xml',
+                    'nota' => $xml->get($chave),
+                ];
+
+                continue;
+            }
+
+            if ($efd->has($chave)) {
+                $encontradas[$chave] = [
+                    'origem' => 'efd',
+                    'nota' => $efd->get($chave),
+                ];
+            }
+        }
+
+        return $encontradas;
+    }
+
+    private function formatarResultadoAcervoExistente(object $nota, string $origem, int $ordem): object
+    {
+        if ($origem === 'xml' && $nota instanceof XmlNota) {
+            return (object) [
+                'id' => 'xml-'.$nota->id,
+                'consulta_lote_id' => null,
+                'chave_acesso' => $nota->nfe_id,
+                'tipo_documento' => strtoupper((string) ($nota->tipo_documento ?: 'NFE')),
+                'modelo' => $this->inferirModeloDocumento($nota->tipo_documento, $nota->nfe_id),
+                'numero' => $nota->numero_nota,
+                'serie' => $nota->serie,
+                'status' => 'JA_NO_ACERVO',
+                'status_label' => 'JA_NO_ACERVO',
+                'status_hex' => $this->statusHexConsultaDfe('JA_NO_ACERVO'),
+                'valor_total' => $nota->valor_total,
+                'valor_total_label' => $nota->valor_total !== null ? 'R$ '.number_format((float) $nota->valor_total, 2, ',', '.') : '—',
+                'data_emissao' => $nota->data_emissao,
+                'data_emissao_label' => optional($nota->data_emissao)->format('d/m/Y H:i'),
+                'emit_nome' => $nota->emit_razao_social,
+                'emit_cnpj' => $nota->emit_cnpj,
+                'dest_nome' => $nota->dest_razao_social,
+                'dest_cnpj' => $nota->dest_cnpj,
+                'tomador_nome' => null,
+                'tomador_cnpj' => null,
+                'participante_label' => $nota->dest_razao_social ?: $nota->dest_cnpj ?: 'Não informado',
+                'consultado_em' => null,
+                'consultado_em_label' => 'Já no acervo',
+                'detalhe_url' => route('app.notas-fiscais.detalhes', ['origem' => 'xml', 'id' => $nota->id]),
+                'origem_acervo_label' => 'XML',
+                'origem_acervo_hex' => '#0f766e',
+                'ordem_lote' => $ordem,
+            ];
+        }
+
+        /** @var EfdNota $nota */
+        $tipoDocumento = match ((string) $nota->modelo) {
+            '57' => 'CTE',
+            '65' => 'NFCE',
+            default => 'NFE',
+        };
+        $clienteNome = $nota->cliente?->razao_social;
+        $participanteNome = $nota->participante?->razao_social;
+        $emitente = $nota->tipo_operacao === 'entrada' ? ($participanteNome ?: 'Participante EFD') : ($clienteNome ?: 'Empresa');
+        $destinatario = $nota->tipo_operacao === 'entrada' ? ($clienteNome ?: 'Empresa') : ($participanteNome ?: 'Participante EFD');
+
+        return (object) [
+            'id' => 'efd-'.$nota->id,
+            'consulta_lote_id' => null,
+            'chave_acesso' => $nota->chave_acesso,
+            'tipo_documento' => $tipoDocumento,
+            'modelo' => (string) ($nota->modelo ?: $this->inferirModeloDocumento($tipoDocumento, $nota->chave_acesso)),
+            'numero' => $nota->numero,
+            'serie' => $nota->serie,
+            'status' => 'JA_NO_ACERVO',
+            'status_label' => 'JA_NO_ACERVO',
+            'status_hex' => $this->statusHexConsultaDfe('JA_NO_ACERVO'),
+            'valor_total' => $nota->valor_total,
+            'valor_total_label' => $nota->valor_total !== null ? 'R$ '.number_format((float) $nota->valor_total, 2, ',', '.') : '—',
+            'data_emissao' => $nota->data_emissao,
+            'data_emissao_label' => optional($nota->data_emissao)->format('d/m/Y'),
+            'emit_nome' => $emitente,
+            'emit_cnpj' => null,
+            'dest_nome' => $destinatario,
+            'dest_cnpj' => null,
+            'tomador_nome' => null,
+            'tomador_cnpj' => null,
+            'participante_label' => $destinatario ?: 'Não informado',
+            'consultado_em' => null,
+            'consultado_em_label' => 'Já no acervo',
+            'detalhe_url' => route('app.notas-fiscais.detalhes', ['origem' => 'efd', 'id' => $nota->id]),
+            'origem_acervo_label' => 'EFD',
+            'origem_acervo_hex' => '#4338ca',
+            'ordem_lote' => $ordem,
+        ];
+    }
+
+    private function storeBuscaAcervoPrecheck(int $userId, int $consultaLoteId, array $payload): void
+    {
+        Cache::put(
+            $this->buscarAcervoPrecheckCacheKey($userId, $consultaLoteId),
+            $payload,
+            now()->addMinutes(self::BUSCA_AVULSA_CACHE_TTL_MINUTES)
+        );
+    }
+
+    private function getBuscaAcervoPrecheck(int $userId, int $consultaLoteId): array
+    {
+        return Cache::get($this->buscarAcervoPrecheckCacheKey($userId, $consultaLoteId), []);
+    }
+
+    private function buscarAcervoPrecheckCacheKey(int $userId, int $consultaLoteId): string
+    {
+        return "clearance:buscar:precheck:user:{$userId}:lote:{$consultaLoteId}";
+    }
+
+    private function storeBuscaResultadoLocal(int $userId, array $payload): string
+    {
+        $token = Str::random(40);
+
+        Cache::put(
+            $this->buscarResultadoLocalCacheKey($userId, $token),
+            $payload,
+            now()->addMinutes(self::BUSCA_AVULSA_CACHE_TTL_MINUTES)
+        );
+
+        return $token;
+    }
+
+    private function getBuscaResultadoLocal(int $userId, string $token): ?array
+    {
+        return Cache::get($this->buscarResultadoLocalCacheKey($userId, $token));
+    }
+
+    private function buscarResultadoLocalCacheKey(int $userId, string $token): string
+    {
+        return "clearance:buscar:local:user:{$userId}:token:{$token}";
+    }
+
+    private function inferirModeloDocumento(?string $tipoDocumento, ?string $chaveAcesso): string
+    {
+        $chave = preg_replace('/\D/', '', (string) $chaveAcesso);
+
+        if (strlen($chave) === 44) {
+            return substr($chave, 20, 2);
+        }
+
+        return match (strtoupper((string) $tipoDocumento)) {
+            'CTE' => '57',
+            'NFCE' => '65',
+            default => '55',
+        };
     }
 
     /**
@@ -543,6 +946,39 @@ class ClearanceController extends Controller
         ]);
     }
 
+    public function resultadoBuscaLocal(Request $request, string $token)
+    {
+        if (! Auth::check()) {
+            if ($this->isAjaxRequest($request)) {
+                return response()->json(['success' => false, 'error' => 'Usuário não autenticado.'], Response::HTTP_UNAUTHORIZED);
+            }
+
+            return $this->redirectToLogin($request);
+        }
+
+        $userId = Auth::id();
+        $payload = $this->getBuscaResultadoLocal($userId, $token);
+
+        if (! $payload) {
+            if ($this->isAjaxRequest($request)) {
+                return response()->json(['success' => false, 'error' => 'Resultado local não encontrado.'], Response::HTTP_NOT_FOUND);
+            }
+
+            abort(404);
+        }
+
+        $resultados = collect($payload['resultados'] ?? [])->map(fn ($resultado) => (object) $resultado);
+        $resumo = $payload['resumo'] ?? $this->resumirResultadosClearance($resultados);
+
+        return $this->render($request, 'buscar-resultado-local', [
+            'resultados' => $resultados,
+            'resumo' => $resumo,
+            'clienteNome' => $payload['cliente_nome'] ?? 'Cliente não informado',
+            'totalItens' => (int) ($payload['total_itens'] ?? $resultados->count()),
+            'totalExistentes' => (int) ($payload['total_existentes'] ?? $resultados->count()),
+        ]);
+    }
+
     public function resultadoNotas(Request $request, int $consultaLoteId)
     {
         if (! Auth::check()) {
@@ -570,6 +1006,12 @@ class ClearanceController extends Controller
         $resultados = $this->listarConsultasDfePorLote($userId, $lote->id);
         $resumo = $this->resumirResultadosClearance($resultados);
 
+        $analiseDivergencia = (new DivergenciaService())->analisar(
+            $resultados,
+            $userId,
+            (int) ($lote->creditos_cobrados ?? 0)
+        );
+
         if ($this->isAjaxRequest($request)) {
             $resultadoPronto = $lote->isFinalizado() && $resultados->isNotEmpty();
 
@@ -579,6 +1021,8 @@ class ClearanceController extends Controller
                 'total_resultados' => $resultados->count(),
                 'resultado_pronto' => $resultadoPronto,
                 'resumo' => $resumo,
+                'veredito' => $analiseDivergencia['veredito'],
+                'kpis' => $analiseDivergencia['kpis'],
             ]);
         }
 
@@ -587,6 +1031,7 @@ class ClearanceController extends Controller
             'statusMeta' => $this->statusMetaLote($lote->status),
             'resultados' => $resultados,
             'resumo' => $resumo,
+            'divergencia' => $analiseDivergencia,
             'tipoValidacao' => strtolower((string) $request->query('tipo_validacao', '')),
             'aguardaPersistencia' => $lote->isFinalizado() && $resultados->isEmpty(),
             'progressSnapshot' => $this->getClearanceProgressSnapshot($lote),
@@ -596,7 +1041,7 @@ class ClearanceController extends Controller
     /**
      * Valida dígito verificador (módulo 11) de uma chave de acesso NF-e de 44 dígitos.
      */
-    private function validarDigitoVerificadorNfe(string $chave): bool
+    private function validarDigitoVerificadorDfe(string $chave): bool
     {
         if (strlen($chave) !== 44 || ! ctype_digit($chave)) {
             return false;
@@ -1344,7 +1789,7 @@ class ClearanceController extends Controller
                 ->where('user_id', $userId)
                 ->firstOrFail();
 
-            return redirect('/app/notas-fiscais?chave='.$efdNota->chave_acesso);
+            return redirect('/app/notas?chave='.$efdNota->chave_acesso);
         }
 
         $nota = XmlNota::where('id', $id)
@@ -1549,8 +1994,9 @@ class ClearanceController extends Controller
     private function listarUltimasConsultasDfe(int $userId, int $limite = 10)
     {
         return $this->consultaDfeHistoricoQuery($userId)
+            ->where('fluxo_origem', 'avulsa')
             ->orderByRaw('COALESCE(consultado_em, created_at) DESC')
-            ->orderByDesc('id')
+            ->orderByDesc('consulta_id')
             ->limit($limite)
             ->get()
             ->map(function ($consulta) {
@@ -1560,6 +2006,11 @@ class ClearanceController extends Controller
             });
     }
 
+    private function consultaDfeHistoricoQuery(int $userId): Builder
+    {
+        return $this->notaFiscalService->consultaDfeHistoricoQuery($userId);
+    }
+
     private function buscarConsultaDfePorLote(int $userId, int $consultaLoteId): ?object
     {
         return $this->consultaDfeHistoricoQuery($userId)
@@ -1567,6 +2018,60 @@ class ClearanceController extends Controller
             ->orderByRaw('COALESCE(consultado_em, created_at) DESC')
             ->orderByDesc('id')
             ->first();
+    }
+
+    private function filtrosHistoricoConsultasDfe(Request $request): array
+    {
+        $tipoDocumento = strtolower((string) $request->input('tipo_documento', ''));
+        $status = strtoupper(trim((string) $request->input('status', '')));
+        $origemFluxo = strtolower((string) $request->input('origem_fluxo', ''));
+
+        return [
+            'busca' => trim((string) $request->input('busca', '')),
+            'tipo_documento' => in_array($tipoDocumento, ['nfe', 'nfce', 'cte'], true) ? $tipoDocumento : '',
+            'status' => $status,
+            'origem_fluxo' => in_array($origemFluxo, ['avulsa', 'lote'], true) ? $origemFluxo : '',
+        ];
+    }
+
+    private function aplicarFiltrosHistoricoConsultasDfe(Builder $query, array $filtros): void
+    {
+        if (($filtros['busca'] ?? '') !== '') {
+            $busca = '%'.$filtros['busca'].'%';
+            $query->where(function ($sub) use ($busca) {
+                $sub->where('chave_acesso', 'ILIKE', $busca)
+                    ->orWhere('numero', 'ILIKE', $busca)
+                    ->orWhere('cliente_nome', 'ILIKE', $busca)
+                    ->orWhere('emit_nome', 'ILIKE', $busca)
+                    ->orWhere('emit_cnpj', 'ILIKE', $busca)
+                    ->orWhere('dest_nome', 'ILIKE', $busca)
+                    ->orWhere('dest_cnpj', 'ILIKE', $busca)
+                    ->orWhere('tomador_nome', 'ILIKE', $busca)
+                    ->orWhere('tomador_cnpj', 'ILIKE', $busca);
+            });
+        }
+
+        if (($filtros['tipo_documento'] ?? '') !== '') {
+            $query->where('tipo_documento', strtoupper($filtros['tipo_documento']));
+        }
+
+        if (($filtros['status'] ?? '') !== '') {
+            $query->whereRaw('UPPER(status) = ?', [$filtros['status']]);
+        }
+
+        if (($filtros['origem_fluxo'] ?? '') !== '') {
+            $query->where('fluxo_origem', $filtros['origem_fluxo']);
+        }
+    }
+
+    private function statusOptionsHistoricoDfe(int $userId): Collection
+    {
+        return $this->consultaDfeHistoricoQuery($userId)
+            ->selectRaw('UPPER(status) as status')
+            ->whereNotNull('status')
+            ->distinct()
+            ->orderBy('status')
+            ->pluck('status');
     }
 
     private function listarConsultasDfePorLote(int $userId, int $consultaLoteId): Collection
@@ -1629,12 +2134,19 @@ class ClearanceController extends Controller
             ->orderByDesc('id')
             ->get();
 
+        $chaves = $resultados->pluck('chave_acesso')->filter()->unique()->values();
         $xmlByChave = XmlNota::query()
             ->where('user_id', $userId)
-            ->whereIn('nfe_id', $resultados->pluck('chave_acesso')->filter()->unique()->values())
-            ->pluck('id', 'nfe_id');
+            ->whereIn('nfe_id', $chaves)
+            ->pluck('id', 'nfe_id')
+            ->all();
+        $efdByChave = EfdNota::query()
+            ->where('user_id', $userId)
+            ->whereIn('chave_acesso', $chaves)
+            ->pluck('id', 'chave_acesso')
+            ->all();
 
-        return $resultados->map(function ($resultado) use ($userId, $xmlByChave) {
+        $resultadosPersistidos = $resultados->map(function ($resultado) use ($xmlByChave, $efdByChave) {
             $status = strtoupper((string) ($resultado->status ?? 'INDETERMINADO'));
             $resultado->status_label = $status;
             $resultado->status_hex = $this->statusHexConsultaDfe($status);
@@ -1648,69 +2160,32 @@ class ClearanceController extends Controller
                 ?: $resultado->dest_cnpj
                 ?: $resultado->tomador_cnpj
                 ?: 'Não informado';
-            $resultado->detalhe_url = isset($xmlByChave[$resultado->chave_acesso])
-                ? route('app.clearance.nota', ['id' => $xmlByChave[$resultado->chave_acesso]])
-                : $this->resolverDetalheNotaUrl($userId, $resultado->chave_acesso);
+            $chave = trim((string) $resultado->chave_acesso);
+            $resultado->detalhe_url = match (true) {
+                $chave !== '' && isset($xmlByChave[$chave]) => route('app.notas-fiscais.detalhes', ['origem' => 'xml', 'id' => $xmlByChave[$chave]]),
+                $chave !== '' && isset($efdByChave[$chave]) => route('app.notas-fiscais.detalhes', ['origem' => 'efd', 'id' => $efdByChave[$chave]]),
+                default => null,
+            };
+            $resultado->origem_acervo_label = null;
+            $resultado->origem_acervo_hex = null;
+            $resultado->ordem_lote = null;
 
             return $resultado;
         });
-    }
 
-    private function consultaDfeHistoricoQuery(int $userId): Builder
-    {
-        $nfe = DB::table('nfe_consultas as consulta')
-            ->leftJoin('clientes as cliente', 'cliente.id', '=', 'consulta.cliente_id')
-            ->selectRaw("
-                consulta.id,
-                consulta.consulta_lote_id,
-                consulta.cliente_id,
-                consulta.chave_acesso,
-                UPPER(COALESCE(consulta.tipo_documento, 'NFE')) as tipo_documento,
-                consulta.numero,
-                consulta.serie,
-                consulta.status,
-                consulta.valor_total,
-                consulta.data_emissao,
-                consulta.emit_nome,
-                consulta.emit_cnpj,
-                consulta.dest_nome,
-                consulta.dest_cnpj,
-                NULL::varchar as tomador_nome,
-                NULL::varchar as tomador_cnpj,
-                cliente.razao_social as cliente_nome,
-                consulta.consultado_em,
-                consulta.created_at
-            ")
-            ->where('consulta.user_id', $userId)
-            ->whereNotNull('consulta.consulta_lote_id');
+        $precheck = $this->getBuscaAcervoPrecheck($userId, $consultaLoteId);
+        $resultadosAcervo = collect($precheck['resultados'] ?? [])
+            ->map(fn ($resultado) => (object) $resultado);
+        $ordemPorChave = collect($precheck['ordem_por_chave'] ?? []);
 
-        $cte = DB::table('cte_consultas as consulta')
-            ->leftJoin('clientes as cliente', 'cliente.id', '=', 'consulta.cliente_id')
-            ->selectRaw("
-                consulta.id,
-                consulta.consulta_lote_id,
-                consulta.cliente_id,
-                consulta.chave_acesso,
-                UPPER(COALESCE(consulta.tipo_documento, 'CTE')) as tipo_documento,
-                consulta.numero,
-                consulta.serie,
-                consulta.status,
-                consulta.valor_prestacao as valor_total,
-                consulta.data_emissao,
-                consulta.emit_nome,
-                consulta.emit_cnpj,
-                consulta.dest_nome,
-                consulta.dest_cnpj,
-                consulta.tomador_nome,
-                consulta.tomador_cnpj,
-                cliente.razao_social as cliente_nome,
-                consulta.consultado_em,
-                consulta.created_at
-            ")
-            ->where('consulta.user_id', $userId)
-            ->whereNotNull('consulta.consulta_lote_id');
+        return $resultadosPersistidos
+            ->concat($resultadosAcervo)
+            ->sortBy(function ($resultado) use ($ordemPorChave) {
+                $chave = trim((string) ($resultado->chave_acesso ?? ''));
 
-        return DB::query()->fromSub($nfe->unionAll($cte), 'consultas');
+                return $ordemPorChave->get($chave, PHP_INT_MAX);
+            })
+            ->values();
     }
 
     private function buscarNotaAcervoPorChave(int $userId, string $chaveAcesso): ?XmlNota
@@ -1727,8 +2202,10 @@ class ClearanceController extends Controller
             'id' => $nota->id,
             'consulta_lote_id' => $nota->consulta_lote_id,
             'tipo_documento' => strtoupper((string) ($nota->tipo_documento ?? 'NFE')),
+            'modelo' => $nota->modelo ?? null,
             'nfe_id' => $nota->chave_acesso,
             'numero_nota' => $nota->numero,
+            'numero' => $nota->numero,
             'serie' => $nota->serie,
             'valor_total' => $nota->valor_total,
             'valor_total_label' => $nota->valor_total !== null
@@ -1736,7 +2213,11 @@ class ClearanceController extends Controller
                 : '—',
             'data_emissao' => $this->formatarDataCurta($nota->data_emissao),
             'emit' => $nota->emit_nome ?: $nota->emit_cnpj,
+            'emit_cnpj' => $nota->emit_cnpj ?? null,
             'dest' => $nota->dest_nome ?: $nota->tomador_nome ?: $nota->dest_cnpj ?: $nota->tomador_cnpj,
+            'dest_cnpj' => $nota->dest_cnpj ?? null,
+            'tomador_nome' => $nota->tomador_nome ?? null,
+            'tomador_cnpj' => $nota->tomador_cnpj ?? null,
             'cliente_nome' => $nota->cliente_nome,
             'situacao' => strtoupper((string) ($nota->status ?? 'INDETERMINADO')),
             'situacao_hex' => $this->statusHexConsultaDfe($nota->status ?? null),
@@ -1748,13 +2229,17 @@ class ClearanceController extends Controller
     private function formatarResultadoXmlAcervo(XmlNota $nota): array
     {
         $situacao = strtoupper((string) data_get($nota->validacao, 'situacao', 'SALVA_NO_ACERVO'));
+        $chave = (string) $nota->nfe_id;
+        $modeloDerivado = strlen($chave) === 44 ? substr($chave, 20, 2) : null;
 
         return [
             'id' => $nota->id,
             'consulta_lote_id' => null,
             'tipo_documento' => strtoupper((string) ($nota->tipo_documento ?: 'NFE')),
+            'modelo' => $modeloDerivado,
             'nfe_id' => $nota->nfe_id,
             'numero_nota' => $nota->numero_nota,
+            'numero' => $nota->numero_nota,
             'serie' => $nota->serie,
             'valor_total' => $nota->valor_total,
             'valor_total_label' => $nota->valor_total !== null
@@ -1762,12 +2247,16 @@ class ClearanceController extends Controller
                 : '—',
             'data_emissao' => optional($nota->data_emissao)->format('d/m/Y H:i'),
             'emit' => $nota->emit_razao_social ?: $nota->emit_cnpj,
+            'emit_cnpj' => $nota->emit_cnpj,
             'dest' => $nota->dest_razao_social ?: $nota->dest_cnpj,
+            'dest_cnpj' => $nota->dest_cnpj,
+            'tomador_nome' => null,
+            'tomador_cnpj' => null,
             'cliente_nome' => $nota->cliente?->razao_social,
             'situacao' => $situacao,
             'situacao_hex' => $this->statusHexConsultaDfe($situacao),
             'consultado_em' => $this->formatarDataConsulta($nota->updated_at ?: $nota->created_at),
-            'detalhe_url' => route('app.clearance.nota', ['id' => $nota->id]),
+            'detalhe_url' => route('app.notas-fiscais.detalhes', ['origem' => 'xml', 'id' => $nota->id]),
         ];
     }
 
@@ -1785,16 +2274,26 @@ class ClearanceController extends Controller
             ->value('id');
 
         if ($xmlNotaId) {
-            return route('app.clearance.nota', ['id' => $xmlNotaId]);
+            return route('app.notas-fiscais.detalhes', ['origem' => 'xml', 'id' => $xmlNotaId]);
         }
 
-        return '/app/notas-fiscais?chave='.urlencode($chave);
+        $efdNotaId = EfdNota::query()
+            ->where('user_id', $userId)
+            ->where('chave_acesso', $chave)
+            ->value('id');
+
+        if ($efdNotaId) {
+            return route('app.notas-fiscais.detalhes', ['origem' => 'efd', 'id' => $efdNotaId]);
+        }
+
+        return null;
     }
 
     private function resumirResultadosClearance(Collection $resultados): array
     {
         return [
             'total' => $resultados->count(),
+            'ja_no_acervo' => $resultados->filter(fn ($item) => ($item->status_label ?? '') === 'JA_NO_ACERVO')->count(),
             'autorizadas' => $resultados->filter(fn ($item) => in_array($item->status_label ?? '', ['AUTORIZADA', 'NEGATIVA'], true))->count(),
             'alertas' => $resultados->filter(fn ($item) => in_array($item->status_label ?? '', ['CANCELADA', 'DENEGADA', 'INUTILIZADA'], true))->count(),
             'indeterminadas' => $resultados->filter(fn ($item) => in_array($item->status_label ?? '', ['INDETERMINADO', 'NAO_ENCONTRADA'], true))->count(),
@@ -1819,6 +2318,7 @@ class ClearanceController extends Controller
     private function statusHexConsultaDfe(?string $status): string
     {
         return match (strtoupper((string) $status)) {
+            'JA_NO_ACERVO' => '#4338ca',
             'AUTORIZADA', 'NEGATIVA' => '#047857',
             'CANCELADA', 'DENEGADA', 'INUTILIZADA' => '#dc2626',
             'INDETERMINADO', 'NAO_ENCONTRADA' => '#d97706',
