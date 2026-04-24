@@ -20,14 +20,166 @@ class DivergenciaService
      */
     public function analisar(Collection $snapshots, int $userId, int $creditosCobrados): array
     {
-        return [
-            'veredito' => $this->verediticoVazio(),
-            'kpis' => $this->kpisVazios($creditosCobrados),
-            'breakdown' => $this->breakdownVazio(),
-            'divergencias' => new Collection(),
-            'sem_divergencia' => new Collection(),
-            'ruido' => new Collection(),
+        if ($snapshots->isEmpty()) {
+            return [
+                'veredito' => $this->verediticoVazio(),
+                'kpis' => $this->kpisVazios($creditosCobrados),
+                'breakdown' => $this->breakdownVazio(),
+                'divergencias' => new Collection(),
+                'sem_divergencia' => new Collection(),
+                'ruido' => new Collection(),
+            ];
+        }
+
+        $chaves = $snapshots->pluck('chave_acesso')->filter()->unique()->values()->all();
+        $declaradoMap = $this->buscarDeclaradoPorChave($userId, $chaves);
+
+        $divergencias = new Collection();
+        $semDivergencia = new Collection();
+        $ruido = new Collection();
+
+        $kpiEncontradas = 0;
+        $kpiCanceladasDeclaradas = 0;
+        $kpiDenegadas = 0;
+        $kpiInutilizadas = 0;
+        $valorCriticoTotal = 0.0;
+        $breakdown = $this->breakdownVazio();
+
+        foreach ($snapshots as $snapshot) {
+            $chave = $snapshot->chave_acesso ?? null;
+            $statusSefaz = strtoupper((string) ($snapshot->status_label ?? $snapshot->status ?? ''));
+            $sefazValor = $snapshot->valor_total !== null ? (float) $snapshot->valor_total : null;
+            $declarado = $chave !== null && isset($declaradoMap[$chave]) ? $declaradoMap[$chave] : null;
+            $declaradoValor = $declarado['valor_total'] ?? null;
+
+            if (! in_array($statusSefaz, ['NAO_ENCONTRADA', 'ERRO_PARAMETRO', 'ERRO_PROVEDOR', 'TIMEOUT'], true)) {
+                $kpiEncontradas++;
+            }
+            if ($statusSefaz === 'CANCELADA' && $declaradoValor !== null && $declaradoValor > 0) {
+                $kpiCanceladasDeclaradas++;
+            }
+            if ($statusSefaz === 'DENEGADA' && $declaradoValor !== null && $declaradoValor > 0) {
+                $kpiDenegadas++;
+            }
+            if ($statusSefaz === 'INUTILIZADA' && $declaradoValor !== null && $declaradoValor > 0) {
+                $kpiInutilizadas++;
+            }
+
+            $severidade = $this->classificarSeveridade($statusSefaz, $declaradoValor, $sefazValor);
+            $deltaValor = ($declaradoValor !== null && $sefazValor !== null) ? round($sefazValor - $declaradoValor, 2) : 0.0;
+            $deltaPct = ($declaradoValor !== null && $declaradoValor > 0 && $sefazValor !== null)
+                ? round((($sefazValor - $declaradoValor) / $declaradoValor) * 100, 2)
+                : 0.0;
+
+            $linha = (object) array_merge((array) $snapshot, [
+                'declarado_valor' => $declaradoValor,
+                'declarado_valor_label' => $declaradoValor !== null ? 'R$ '.number_format($declaradoValor, 2, ',', '.') : '—',
+                'delta_valor' => $deltaValor,
+                'delta_valor_label' => 'R$ '.number_format($deltaValor, 2, ',', '.'),
+                'delta_percentual' => $deltaPct,
+                'delta_percentual_label' => number_format($deltaPct, 1, ',', '.').'%',
+                'severidade' => $severidade,
+                'tipos_divergencia' => $this->tiposDivergencia($statusSefaz, $declaradoValor, $severidade),
+                'declarado_origem' => $declarado['origem'] ?? null,
+            ]);
+
+            if ($severidade === 'critica' || $severidade === 'revisar') {
+                $divergencias->push($linha);
+                if ($severidade === 'critica') {
+                    if ($declaradoValor !== null && $sefazValor === null && $statusSefaz === 'NAO_ENCONTRADA') {
+                        $valorCriticoTotal += $declaradoValor;
+                    } else {
+                        $valorCriticoTotal += abs($deltaValor);
+                    }
+                }
+            } elseif ($severidade === 'ruido') {
+                $ruido->push($linha);
+            } else {
+                $semDivergencia->push($linha);
+            }
+
+            foreach ($linha->tipos_divergencia as $tipo) {
+                if (isset($breakdown[$tipo])) {
+                    $breakdown[$tipo]['count']++;
+                    $breakdown[$tipo]['valor'] += abs($deltaValor);
+                }
+            }
+        }
+
+        $totalCriticas = $divergencias->where('severidade', 'critica')->count();
+        $totalRevisar = $divergencias->where('severidade', 'revisar')->count();
+        $valorDivergente = round($valorCriticoTotal, 2);
+
+        $veredito = [
+            'severidade' => $totalCriticas > 0 ? 'critica' : ($totalRevisar > 0 ? 'revisar' : 'ok'),
+            'total_criticas' => $totalCriticas,
+            'total_revisar' => $totalRevisar,
+            'valor_divergente' => $valorDivergente,
+            'mensagem' => $this->mensagemVeredito($totalCriticas, $totalRevisar, $valorCriticoTotal),
         ];
+
+        return [
+            'veredito' => $veredito,
+            'kpis' => [
+                'existencia' => [
+                    'total' => $snapshots->count(),
+                    'encontradas' => $kpiEncontradas,
+                    'nao_encontradas' => $snapshots->count() - $kpiEncontradas,
+                ],
+                'status' => [
+                    'total' => $snapshots->count(),
+                    'canceladas_declaradas' => $kpiCanceladasDeclaradas,
+                    'denegadas' => $kpiDenegadas,
+                    'inutilizadas' => $kpiInutilizadas,
+                ],
+                'valor' => [
+                    'notas_divergentes' => $totalCriticas,
+                    'valor_divergente' => $valorDivergente,
+                ],
+                'roi' => [
+                    'creditos' => $creditosCobrados,
+                    'custo_reais' => round($creditosCobrados * 0.20, 2),
+                    'exposicao_reais' => $valorDivergente,
+                ],
+            ],
+            'breakdown' => $breakdown,
+            'divergencias' => $divergencias->sortByDesc('severidade')->values(),
+            'sem_divergencia' => $semDivergencia->values(),
+            'ruido' => $ruido->values(),
+        ];
+    }
+
+    /** @return array<int, string> */
+    private function tiposDivergencia(string $statusSefaz, ?float $declarado, string $severidade): array
+    {
+        $tipos = [];
+
+        if ($statusSefaz === 'NAO_ENCONTRADA' && $declarado !== null && $declarado > 0) {
+            $tipos[] = 'notas_frias';
+        }
+        if (in_array($statusSefaz, ['CANCELADA', 'DENEGADA', 'INUTILIZADA'], true) && $declarado !== null && $declarado > 0) {
+            $tipos[] = 'canceladas_declaradas';
+        }
+        if ($severidade === 'critica' && ! in_array($statusSefaz, ['NAO_ENCONTRADA', 'CANCELADA', 'DENEGADA', 'INUTILIZADA'], true)) {
+            $tipos[] = 'valor_divergente';
+        }
+
+        return $tipos;
+    }
+
+    private function mensagemVeredito(int $criticas, int $revisar, float $valorDivergente): string
+    {
+        if ($criticas === 0 && $revisar === 0) {
+            return 'Nenhuma divergência acima da tolerância neste lote.';
+        }
+
+        $valor = 'R$ '.number_format($valorDivergente, 2, ',', '.');
+
+        if ($criticas > 0) {
+            return "{$criticas} ".($criticas === 1 ? 'divergência crítica' : 'divergências críticas')." encontrada(s) — {$valor} em exposição fiscal.";
+        }
+
+        return "{$revisar} ".($revisar === 1 ? 'divergência' : 'divergências')." a revisar — {$valor}.";
     }
 
     /**
