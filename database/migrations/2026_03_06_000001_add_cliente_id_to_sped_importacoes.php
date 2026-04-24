@@ -15,19 +15,33 @@ return new class extends Migration
         });
 
         // Adiciona coluna origem_arquivo em efd_notas (idempotente)
-        DB::statement('ALTER TABLE efd_notas ADD COLUMN IF NOT EXISTS origem_arquivo VARCHAR(255) NULL');
+        if (!Schema::hasColumn('efd_notas', 'origem_arquivo')) {
+            Schema::table('efd_notas', function (Blueprint $table) {
+                $table->string('origem_arquivo')->nullable()->after('tipo_operacao');
+            });
+        }
 
         // Backfill: determina origem_arquivo a partir do tipo_efd da importação
-        DB::statement("
-            UPDATE efd_notas n
-            SET origem_arquivo = CASE
-                WHEN imp.tipo_efd = 'EFD PIS/COFINS' THEN 'contribuicoes'
-                ELSE 'fiscal'
-            END
-            FROM efd_importacoes imp
-            WHERE imp.id = n.importacao_id
-            AND n.origem_arquivo IS NULL
-        ");
+        // Postgresql syntax
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement("
+                UPDATE efd_notas n
+                SET origem_arquivo = CASE
+                    WHEN imp.tipo_efd = 'EFD PIS/COFINS' THEN 'contribuicoes'
+                    ELSE 'fiscal'
+                END
+                FROM efd_importacoes imp
+                WHERE imp.id = n.importacao_id
+                AND n.origem_arquivo IS NULL
+            ");
+        } else {
+            // SQLite fallback: simple update without join
+            DB::statement("
+                UPDATE efd_notas
+                SET origem_arquivo = 'fiscal'
+                WHERE origem_arquivo IS NULL
+            ");
+        }
 
         // Cria tabela alertas (idempotente)
         if (!Schema::hasTable('alertas')) {
@@ -65,9 +79,21 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('alertas');
-        DB::statement('ALTER TABLE efd_notas DROP COLUMN IF EXISTS origem_arquivo');
-        DB::statement('ALTER TABLE efd_importacoes DROP COLUMN IF EXISTS resumo_final');
-        DB::statement('ALTER TABLE efd_importacoes DROP CONSTRAINT IF EXISTS efd_importacoes_cliente_id_foreign');
-        DB::statement('ALTER TABLE efd_importacoes DROP COLUMN IF EXISTS cliente_id');
+        if (Schema::hasColumn('efd_notas', 'origem_arquivo')) {
+            Schema::table('efd_notas', function (Blueprint $table) {
+                $table->dropColumn('origem_arquivo');
+            });
+        }
+        if (Schema::hasColumn('efd_importacoes', 'resumo_final')) {
+            Schema::table('efd_importacoes', function (Blueprint $table) {
+                $table->dropColumn('resumo_final');
+            });
+        }
+        if (Schema::hasColumn('efd_importacoes', 'cliente_id')) {
+            Schema::table('efd_importacoes', function (Blueprint $table) {
+                $table->dropForeignKey(['cliente_id']);
+                $table->dropColumn('cliente_id');
+            });
+        }
     }
 };

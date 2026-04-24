@@ -1,7 +1,14 @@
 <?php
 
+use App\Models\EfdImportacao;
+use App\Models\EfdNota;
+use App\Models\User;
 use App\Services\Clearance\DivergenciaService;
 use Illuminate\Support\Collection;
+use Tests\TestCase;
+
+uses(TestCase::class);
+uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
 
 it('retorna estrutura vazia quando não há snapshots', function () {
     $service = new DivergenciaService();
@@ -17,4 +24,51 @@ it('retorna estrutura vazia quando não há snapshots', function () {
     expect($resultado['divergencias'])->toBeInstanceOf(Collection::class)->toHaveCount(0);
     expect($resultado['sem_divergencia'])->toBeInstanceOf(Collection::class)->toHaveCount(0);
     expect($resultado['ruido'])->toBeInstanceOf(Collection::class)->toHaveCount(0);
+});
+
+it('carrega declarado de efd_notas e xml_notas pela chave', function () {
+    $user = User::factory()->create();
+    $cliente = \App\Models\Cliente::create([
+        'user_id' => $user->id,
+        'tipo_pessoa' => 'PJ',
+        'documento' => '12345678901234',
+        'razao_social' => 'Test Cliente',
+        'is_empresa_propria' => false,
+    ]);
+
+    $importacao = EfdImportacao::create([
+        'user_id' => $user->id,
+        'cliente_id' => $cliente->id,
+        'tipo_efd' => 'EFD ICMS/IPI',
+        'status' => 'finalizada',
+        'periodo_inicial' => '2024-02-01',
+        'periodo_final' => '2024-02-29',
+    ]);
+
+    EfdNota::create([
+        'user_id' => $user->id,
+        'importacao_id' => $importacao->id,
+        'cliente_id' => $cliente->id,
+        'chave_acesso' => '50240246088921000159550010000017471100017471',
+        'modelo' => '55',
+        'numero' => 1747,
+        'serie' => '1',
+        'data_emissao' => '2024-02-29',
+        'tipo_operacao' => 'saida',
+        'origem_arquivo' => 'fiscal',
+        'valor_total' => 250.00,
+    ]);
+
+    $service = new DivergenciaService();
+
+    $declarado = $service->buscarDeclaradoPorChave(
+        $user->id,
+        ['50240246088921000159550010000017471100017471', '00000000000000000000000000000000000000000000']
+    );
+
+    expect($declarado)->toBeArray();
+    expect($declarado)->toHaveKey('50240246088921000159550010000017471100017471');
+    expect($declarado['50240246088921000159550010000017471100017471']['valor_total'])->toEqual(250.00);
+    expect($declarado['50240246088921000159550010000017471100017471']['origem'])->toBe('efd');
+    expect($declarado)->not->toHaveKey('00000000000000000000000000000000000000000000');
 });

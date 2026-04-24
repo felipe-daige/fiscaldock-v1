@@ -2,6 +2,8 @@
 
 namespace App\Services\Clearance;
 
+use App\Models\EfdNota;
+use App\Models\XmlNota;
 use Illuminate\Support\Collection;
 
 class DivergenciaService
@@ -26,6 +28,45 @@ class DivergenciaService
             'sem_divergencia' => new Collection(),
             'ruido' => new Collection(),
         ];
+    }
+
+    /**
+     * Retorna map chave_acesso => ['valor_total' => float, 'origem' => 'xml'|'efd', 'id' => int].
+     * XML tem precedência sobre EFD quando ambos existem (busca avulsa / upload é mais rico).
+     */
+    public function buscarDeclaradoPorChave(int $userId, array $chaves): array
+    {
+        if (empty($chaves)) {
+            return [];
+        }
+
+        $map = [];
+
+        EfdNota::query()
+            ->where('user_id', $userId)
+            ->whereIn('chave_acesso', $chaves)
+            ->get(['id', 'chave_acesso', 'valor_total'])
+            ->each(function ($nota) use (&$map) {
+                $map[$nota->chave_acesso] = [
+                    'valor_total' => (float) $nota->valor_total,
+                    'origem' => 'efd',
+                    'id' => $nota->id,
+                ];
+            });
+
+        XmlNota::query()
+            ->where('user_id', $userId)
+            ->whereIn('nfe_id', $chaves)
+            ->get(['id', 'nfe_id', 'valor_total'])
+            ->each(function ($nota) use (&$map) {
+                $map[$nota->nfe_id] = [
+                    'valor_total' => (float) $nota->valor_total,
+                    'origem' => 'xml',
+                    'id' => $nota->id,
+                ];
+            });
+
+        return $map;
     }
 
     private function verediticoVazio(): array
