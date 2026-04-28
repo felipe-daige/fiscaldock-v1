@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Http\Controllers\Concerns\RendersAuthView;
 use App\Http\Controllers\Controller;
 use App\Models\Cliente;
 use App\Models\ConsultaLote;
@@ -26,6 +27,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 class ClearanceController extends Controller
 {
+    use RendersAuthView;
+
     public const CLEARANCE_NFE_AVULSA_CUSTO = 14;
 
     private const BUSCA_AVULSA_CACHE_TTL_MINUTES = 120;
@@ -1971,24 +1974,9 @@ class ClearanceController extends Controller
         ];
     }
 
-    /**
-     * Renderiza view com suporte a AJAX.
-     */
     private function render(Request $request, string $viewName, array $data = [])
     {
-        $view = self::AUTH_VIEW_PREFIX.$viewName;
-
-        if (! view()->exists($view)) {
-            abort(404);
-        }
-
-        if ($this->isAjaxRequest($request)) {
-            return view($view, $data);
-        }
-
-        return view(self::AUTH_LAYOUT_VIEW, array_merge([
-            'initialView' => $view,
-        ], $data));
+        return $this->renderAuthView($request, $viewName, $data);
     }
 
     private function listarUltimasConsultasDfe(int $userId, int $limite = 10)
