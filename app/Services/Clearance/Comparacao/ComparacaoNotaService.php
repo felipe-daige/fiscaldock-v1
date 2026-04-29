@@ -59,6 +59,8 @@ class ComparacaoNotaService
         $itensFantasmaDeclarado = collect($itensPareados)->filter(fn ($p) => $p->matchType === 'fantasma_declarado')->count();
         $itensFantasmaSefaz = collect($itensPareados)->filter(fn ($p) => $p->matchType === 'fantasma_sefaz')->count();
 
+        $severidade = $this->calcularSeveridade($declarado, $sefaz, $totaisDiff, $itensPareados, $headerDivergencias);
+
         return new Comparacao(
             chave: $chave,
             tipoDocumento: $tipoDocumento,
@@ -74,11 +76,62 @@ class ComparacaoNotaService
                 itensDivergentes: $itensDivergentes,
                 itensFantasmaDeclarado: $itensFantasmaDeclarado,
                 itensFantasmaSefaz: $itensFantasmaSefaz,
-                severidade: 'ok',
+                severidade: $severidade,
                 sefazAusente: false,
                 declaradoAusente: false,
             ),
         );
+    }
+
+    /**
+     * @param  array<int, CampoComparado>  $totaisDiff
+     * @param  array<int, ItemPareado>  $itensPareados
+     */
+    private function calcularSeveridade(
+        ?NotaNormalizada $declarado,
+        ?NotaNormalizada $sefaz,
+        array $totaisDiff,
+        array $itensPareados,
+        int $headerDivergencias,
+    ): string {
+        $situacao = strtoupper((string) ($sefaz->metaSefaz['situacao'] ?? ''));
+        $valorDeclarado = (float) ($declarado->totais['valor_total'] ?? 0);
+        if ($valorDeclarado > 0 && in_array($situacao, ['CANCELADA', 'DENEGADA', 'INUTILIZADA'], true)) {
+            return 'critica';
+        }
+
+        $valorTotal = collect($totaisDiff)->firstWhere('chave', 'valor_total');
+        if ($valorTotal !== null && $valorTotal->divergente) {
+            $dec = (float) ($valorTotal->declarado ?? 0);
+            $sef = (float) ($valorTotal->sefaz ?? 0);
+            $delta = abs($dec - $sef);
+            $pct = $dec > 0 ? ($delta / $dec) * 100 : 0;
+            if ($delta > (float) config('clearance.comparacao.limiar_critico_valor_abs', 100.0)
+                && $pct > (float) config('clearance.comparacao.limiar_critico_valor_pct', 10.0)) {
+                return 'critica';
+            }
+        }
+
+        foreach ($itensPareados as $par) {
+            if (! in_array($par->matchType, ['cprod', 'sequencia'], true)) {
+                continue;
+            }
+            $ncm = collect($par->diffs)->firstWhere('chave', 'ncm');
+            $cfop = collect($par->diffs)->firstWhere('chave', 'cfop');
+            if (($ncm && $ncm->divergente) || ($cfop && $cfop->divergente)) {
+                return 'critica';
+            }
+        }
+
+        $totaisDivergencias = collect($totaisDiff)->filter(fn ($c) => $c->divergente)->count();
+        $itensComDiff = collect($itensPareados)->filter(fn ($p) => $p->temDivergencia && in_array($p->matchType, ['cprod', 'sequencia'], true))->count();
+        $fantasmas = collect($itensPareados)->filter(fn ($p) => str_starts_with($p->matchType, 'fantasma_'))->count();
+
+        if ($headerDivergencias > 0 || $totaisDivergencias > 0 || $itensComDiff > 0 || $fantasmas > 0) {
+            return 'revisar';
+        }
+
+        return 'ok';
     }
 
     private const LABELS_HEADER = [

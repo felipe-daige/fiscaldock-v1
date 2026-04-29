@@ -257,3 +257,71 @@ it('marca sobras como fantasma quando quantidades diferem no fallback nItem', fu
     $tipos = collect($resultado->itensPareados)->pluck('matchType')->all();
     expect($tipos)->toBe(['sequencia', 'fantasma_declarado', 'fantasma_declarado']);
 });
+
+it('severidade ok quando tudo bate', function () {
+    $service = new ComparacaoNotaService;
+    $declarado = notaMinima();
+    $sefaz = notaMinima();
+
+    $resultado = $service->comparar($declarado, $sefaz, 'NFE');
+
+    expect($resultado->resumo->severidade)->toBe('ok');
+});
+
+it('severidade critica quando situacao SEFAZ é CANCELADA e declarado>0', function () {
+    $service = new ComparacaoNotaService;
+    $declarado = notaMinima();
+    $sefaz = new \App\Services\Clearance\Comparacao\NotaNormalizada(
+        chave: $declarado->chave, tipoDocumento: 'NFE',
+        header: $declarado->header,
+        metaSefaz: ['situacao' => 'CANCELADA', 'protocolo' => null, 'data_autorizacao' => null],
+        partes: $declarado->partes, totais: $declarado->totais, itens: [], origemLabel: 'sefaz',
+    );
+
+    $resultado = $service->comparar($declarado, $sefaz, 'NFE');
+
+    expect($resultado->resumo->severidade)->toBe('critica');
+});
+
+it('severidade critica quando valor_total diverge >10% e >R$100', function () {
+    $service = new ComparacaoNotaService;
+    $declarado = notaMinima();
+    $totaisSefaz = $declarado->totais;
+    $totaisSefaz['valor_total'] = 800.00;
+    $sefaz = new \App\Services\Clearance\Comparacao\NotaNormalizada(
+        chave: $declarado->chave, tipoDocumento: 'NFE',
+        header: $declarado->header, metaSefaz: [], partes: $declarado->partes,
+        totais: $totaisSefaz, itens: [], origemLabel: 'sefaz',
+    );
+
+    $resultado = $service->comparar($declarado, $sefaz, 'NFE');
+
+    expect($resultado->resumo->severidade)->toBe('critica');
+});
+
+it('severidade critica quando NCM diverge em algum item pareado', function () {
+    $service = new ComparacaoNotaService;
+    $declarado = notaComItens([itemNFE(['cProd' => 'A', 'nItem' => 1, 'ncm' => '12345678', 'vProd' => 100])]);
+    $sefazItens = [itemNFE(['cProd' => 'A', 'nItem' => 1, 'ncm' => '99999999', 'vProd' => 100])];
+    $sefaz = notaComItens($sefazItens, 'sefaz');
+
+    $resultado = $service->comparar($declarado, $sefaz, 'NFE');
+
+    expect($resultado->resumo->severidade)->toBe('critica');
+});
+
+it('severidade revisar quando há divergência sub-crítica', function () {
+    $service = new ComparacaoNotaService;
+    $declarado = notaMinima();
+    $totaisSefaz = $declarado->totais;
+    $totaisSefaz['valor_total'] = 990.00;
+    $sefaz = new \App\Services\Clearance\Comparacao\NotaNormalizada(
+        chave: $declarado->chave, tipoDocumento: 'NFE',
+        header: $declarado->header, metaSefaz: [], partes: $declarado->partes,
+        totais: $totaisSefaz, itens: [], origemLabel: 'sefaz',
+    );
+
+    $resultado = $service->comparar($declarado, $sefaz, 'NFE');
+
+    expect($resultado->resumo->severidade)->toBe('revisar');
+});
