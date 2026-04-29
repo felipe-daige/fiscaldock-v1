@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\XmlNota;
 use App\Services\Clearance\Comparacao\Adapters\EfdNotaDeclaradoAdapter;
 use App\Services\Clearance\Comparacao\Adapters\XmlNotaDeclaradoAdapter;
+use App\Services\Clearance\Comparacao\Adapters\XmlNotaSefazCteAdapter;
 use App\Services\Clearance\Comparacao\Adapters\XmlNotaSefazNfeAdapter;
 use App\Services\Clearance\Comparacao\NotaNormalizada;
 use Illuminate\Support\Facades\DB;
@@ -352,5 +353,133 @@ it('XmlNotaSefazNfeAdapter funciona sem snapshot (situacao_sefaz null)', functio
     $normalizada = $adapter->carregar();
 
     expect($normalizada->metaSefaz['situacao'])->toBe('CANCELADA');
+    expect($normalizada->itens)->toBe([]);
+});
+
+it('XmlNotaSefazCteAdapter mapeia payload cte_clearance + componentes', function () use (&$testUserIds) {
+    $user = adapterCriarUser($testUserIds);
+    $chave = '50202412345678901234560570010001234567890123';
+
+    $loteId = DB::table('consulta_lotes')->insertGetId([
+        'user_id' => $user->id,
+        'status' => 'concluido',
+        'total_participantes' => 1,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $nota = XmlNota::create([
+        'user_id' => $user->id,
+        'nfe_id' => $chave,
+        'origem' => 'busca_avulsa',
+        'tipo_documento' => 'CTE',
+        'numero_nota' => 4321,
+        'serie' => 1,
+        'data_emissao' => '2026-04-12 10:00:00',
+        'valor_total' => 845.30,
+        'tipo_nota' => XmlNota::TIPO_SAIDA,
+        'emit_cnpj' => '08923352000120',
+        'emit_razao_social' => 'TRANSP LTDA',
+        'dest_cnpj' => '00000165000193',
+        'dest_razao_social' => 'TOMADOR LTDA',
+        'payload' => [
+            'cte_clearance' => [
+                'serie' => '1',
+                'modelo' => '57',
+                'numero' => '4321',
+                'status' => 'AUTORIZADA',
+                'cfop' => '5353',
+                'modal' => 'rodoviario',
+                'tipo_servico' => 'Normal',
+                'natureza_operacao' => 'PRESTACAO DE SERVICO DE TRANSPORTE',
+                'valor_prestacao' => 845.30,
+                'valor_carga' => 5000.00,
+                'totais' => [
+                    'impostos' => [
+                        'normalizado_valor_icms' => 101.44,
+                        'normalizado_base_calculo_icms' => 845.30,
+                    ],
+                ],
+                'componentes' => [
+                    ['nome' => 'FRETE PESO', 'valor' => '700,00'],
+                    ['nome' => 'PEDAGIO', 'valor' => '145,30'],
+                ],
+                'emitente' => ['cnpj' => '08923352000120', 'nome' => 'TRANSP LTDA', 'ie' => '111', 'uf' => 'MS'],
+                'destinatario' => ['cnpj' => '00000165000193', 'nome' => 'DEST LTDA', 'ie' => '222', 'uf' => 'MS'],
+                'tomador' => ['cnpj' => '00000165000193', 'nome' => 'TOMADOR LTDA', 'ie' => '333', 'uf' => 'MS'],
+                'remetente' => ['cnpj' => '11111111000111', 'nome' => 'REMETENTE LTDA', 'uf' => 'SP'],
+                'eventos' => [
+                    ['evento' => 'Autorização de Uso', 'protocolo' => '150240007166359', 'data_autorizacao' => '29/02/2024 às 20:58:54-04:00'],
+                ],
+            ],
+        ],
+    ]);
+    DB::table('xml_notas')->where('id', $nota->id)->update([
+        'consulta_lote_id' => $loteId,
+        'situacao_sefaz' => 'AUTORIZADA',
+        'verificado_sefaz_em' => now(),
+    ]);
+    $nota->refresh();
+
+    $adapter = new XmlNotaSefazCteAdapter($nota);
+    $normalizada = $adapter->carregar();
+
+    expect($normalizada)->toBeInstanceOf(NotaNormalizada::class);
+    expect($normalizada->chave)->toBe($chave);
+    expect($normalizada->tipoDocumento)->toBe('CTE');
+    expect($normalizada->header['numero'])->toBe('4321');
+    expect($normalizada->header['modelo'])->toBe('57');
+    expect($normalizada->metaSefaz['situacao'])->toBe('AUTORIZADA');
+    expect($normalizada->metaSefaz['protocolo'])->toBe('150240007166359');
+    expect($normalizada->partes['emit']['cnpj'])->toBe('08923352000120');
+    expect($normalizada->partes['dest']['cnpj'])->toBe('00000165000193');
+    expect($normalizada->partes['tomador']['cnpj'])->toBe('00000165000193');
+    expect($normalizada->partes['remetente']['cnpj'])->toBe('11111111000111');
+    expect($normalizada->totais['valor_total'])->toBe(845.30);
+    expect($normalizada->totais['valor_icms'])->toBe(101.44);
+    expect($normalizada->itens)->toHaveCount(2);
+    expect($normalizada->itens[0])->toBeInstanceOf(\App\Services\Clearance\Comparacao\ComponenteCte::class);
+    expect($normalizada->itens[0]->nome)->toBe('FRETE PESO');
+    expect($normalizada->itens[0]->valor)->toBe(700.00);
+    expect($normalizada->itens[1]->valor)->toBe(145.30);
+    expect($adapter->origemLabel())->toContain('SEFAZ');
+});
+
+it('XmlNotaSefazCteAdapter aceita partes nulas', function () use (&$testUserIds) {
+    $user = adapterCriarUser($testUserIds);
+    $chave = '50202412345678901234560570010001234567890124';
+
+    $nota = XmlNota::create([
+        'user_id' => $user->id,
+        'nfe_id' => $chave,
+        'origem' => 'busca_avulsa',
+        'tipo_documento' => 'CTE',
+        'numero_nota' => 1,
+        'serie' => 1,
+        'data_emissao' => '2026-04-15 09:00:00',
+        'valor_total' => 100.00,
+        'tipo_nota' => XmlNota::TIPO_SAIDA,
+        'emit_cnpj' => '11111111000111',
+        'dest_cnpj' => '',
+        'payload' => [
+            'cte_clearance' => [
+                'status' => 'AUTORIZADA',
+                'emitente' => ['cnpj' => '11111111000111', 'nome' => 'EMIT', 'uf' => 'SP'],
+                'destinatario' => null,
+                'tomador' => null,
+                'remetente' => null,
+                'componentes' => [],
+            ],
+        ],
+    ]);
+
+    $adapter = new XmlNotaSefazCteAdapter($nota);
+    $normalizada = $adapter->carregar();
+
+    expect($normalizada->partes['emit']['cnpj'])->toBe('11111111000111');
+    expect($normalizada->partes['dest'])->toBeArray();
+    expect($normalizada->partes['dest']['cnpj'])->toBe('');
+    expect($normalizada->partes['tomador']['cnpj'])->toBeNull();
+    expect($normalizada->partes['remetente']['cnpj'])->toBeNull();
     expect($normalizada->itens)->toBe([]);
 });
