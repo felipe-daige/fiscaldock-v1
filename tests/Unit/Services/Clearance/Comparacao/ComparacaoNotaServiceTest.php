@@ -103,3 +103,41 @@ it('compara partes (emit e dest) e gera CampoComparado por sub-campo', function 
     $cnpjEmit = collect($resultado->partesDiff['emit'])->firstWhere('chave', 'cnpj');
     expect($cnpjEmit->divergente)->toBeFalse();
 });
+
+it('aplica tolerancia monetaria de R$0,01 nos totais', function () {
+    $service = new ComparacaoNotaService;
+    $declarado = notaMinima();
+    $totaisSefaz = $declarado->totais;
+    $totaisSefaz['valor_total'] = 1000.005;
+    $sefaz = new \App\Services\Clearance\Comparacao\NotaNormalizada(
+        chave: $declarado->chave,
+        tipoDocumento: 'NFE',
+        header: $declarado->header, metaSefaz: [], partes: $declarado->partes,
+        totais: $totaisSefaz, itens: [], origemLabel: 'sefaz',
+    );
+
+    $resultado = $service->comparar($declarado, $sefaz, 'NFE');
+    $valorTotal = collect($resultado->totaisDiff)->firstWhere('chave', 'valor_total');
+
+    expect($valorTotal->divergente)->toBeFalse();
+    expect($resultado->resumo->totaisDivergencias)->toBe(0);
+});
+
+it('detecta divergência em valor total acima da tolerancia', function () {
+    $service = new ComparacaoNotaService;
+    $declarado = notaMinima();
+    $totaisSefaz = $declarado->totais;
+    $totaisSefaz['valor_total'] = 800.00;
+    $sefaz = new \App\Services\Clearance\Comparacao\NotaNormalizada(
+        chave: $declarado->chave,
+        tipoDocumento: 'NFE',
+        header: $declarado->header, metaSefaz: [], partes: $declarado->partes,
+        totais: $totaisSefaz, itens: [], origemLabel: 'sefaz',
+    );
+
+    $resultado = $service->comparar($declarado, $sefaz, 'NFE');
+    $valorTotal = collect($resultado->totaisDiff)->firstWhere('chave', 'valor_total');
+
+    expect($valorTotal->divergente)->toBeTrue();
+    expect($resultado->resumo->totaisDivergencias)->toBeGreaterThan(0);
+});

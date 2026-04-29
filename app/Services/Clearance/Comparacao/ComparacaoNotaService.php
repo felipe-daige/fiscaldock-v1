@@ -45,6 +45,15 @@ class ComparacaoNotaService
 
         $partesDiff = $this->compararPartes($declarado->partes, $sefaz->partes, $tipoDocumento);
 
+        $totaisDiff = $this->compararCampos(
+            $declarado->totais,
+            $sefaz->totais,
+            self::LABELS_TOTAIS,
+            tolerancia: (float) config('clearance.comparacao.tolerancia_monetaria', 0.01),
+        );
+
+        $totaisDivergencias = collect($totaisDiff)->filter(fn ($c) => $c->divergente)->count();
+
         return new Comparacao(
             chave: $chave,
             tipoDocumento: $tipoDocumento,
@@ -52,11 +61,11 @@ class ComparacaoNotaService
             sefaz: $sefaz,
             headerDiff: $headerDiff,
             partesDiff: $partesDiff,
-            totaisDiff: [],
+            totaisDiff: $totaisDiff,
             itensPareados: [],
             resumo: new ResumoComparacao(
                 headerDivergencias: $headerDivergencias,
-                totaisDivergencias: 0,
+                totaisDivergencias: $totaisDivergencias,
                 itensDivergentes: 0,
                 itensFantasmaDeclarado: 0,
                 itensFantasmaSefaz: 0,
@@ -86,6 +95,18 @@ class ComparacaoNotaService
     private const PARTES_NFE = ['emit', 'dest'];
 
     private const PARTES_CTE = ['emit', 'dest', 'tomador', 'remetente'];
+
+    private const LABELS_TOTAIS = [
+        'valor_total' => 'Valor total',
+        'base_icms' => 'Base ICMS',
+        'valor_icms' => 'Valor ICMS',
+        'valor_ipi' => 'Valor IPI',
+        'valor_pis' => 'Valor PIS',
+        'valor_cofins' => 'Valor COFINS',
+        'valor_frete' => 'Valor frete',
+        'valor_seguro' => 'Valor seguro',
+        'valor_desconto' => 'Valor desconto',
+    ];
 
     /**
      * @param  array<string, array<string, mixed>>  $declarado
