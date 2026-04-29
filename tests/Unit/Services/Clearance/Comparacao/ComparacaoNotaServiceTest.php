@@ -42,3 +42,39 @@ it('retorna comparacao com sefazAusente=true quando sefaz é null', function () 
     expect($resultado->resumo->declaradoAusente)->toBeFalse();
     expect($resultado->sefaz)->toBeNull();
 });
+
+it('compara header e gera CampoComparado por chave', function () {
+    $service = new ComparacaoNotaService;
+    $declarado = notaMinima();
+    $sefaz = notaMinima();
+
+    $resultado = $service->comparar($declarado, $sefaz, 'NFE');
+
+    expect($resultado->headerDiff)->toHaveCount(5);
+    expect($resultado->headerDiff[0])->toBeInstanceOf(\App\Services\Clearance\Comparacao\CampoComparado::class);
+    expect(collect($resultado->headerDiff)->every(fn ($c) => $c->divergente === false))->toBeTrue();
+    expect($resultado->resumo->headerDivergencias)->toBe(0);
+});
+
+it('marca campo divergente quando header diverge', function () {
+    $service = new ComparacaoNotaService;
+    $declarado = notaMinima();
+    $sefaz = new \App\Services\Clearance\Comparacao\NotaNormalizada(
+        chave: $declarado->chave,
+        tipoDocumento: 'NFE',
+        header: array_merge($declarado->header, ['numero' => '9999']),
+        metaSefaz: [],
+        partes: $declarado->partes,
+        totais: $declarado->totais,
+        itens: [],
+        origemLabel: 'sefaz',
+    );
+
+    $resultado = $service->comparar($declarado, $sefaz, 'NFE');
+
+    $numeroComparado = collect($resultado->headerDiff)->firstWhere('chave', 'numero');
+    expect($numeroComparado->divergente)->toBeTrue();
+    expect($numeroComparado->declarado)->toBe('1234');
+    expect($numeroComparado->sefaz)->toBe('9999');
+    expect($resultado->resumo->headerDivergencias)->toBe(1);
+});
