@@ -141,3 +141,82 @@ it('detecta divergência em valor total acima da tolerancia', function () {
     expect($valorTotal->divergente)->toBeTrue();
     expect($resultado->resumo->totaisDivergencias)->toBeGreaterThan(0);
 });
+
+function itemNFE(array $attrs): \App\Services\Clearance\Comparacao\ItemNormalizado
+{
+    return new \App\Services\Clearance\Comparacao\ItemNormalizado(
+        cProd: $attrs['cProd'] ?? null,
+        nItem: $attrs['nItem'] ?? 1,
+        xProd: $attrs['xProd'] ?? null,
+        ncm: $attrs['ncm'] ?? null,
+        cfop: $attrs['cfop'] ?? null,
+        qCom: $attrs['qCom'] ?? null,
+        uCom: $attrs['uCom'] ?? 'UN',
+        vUnCom: $attrs['vUnCom'] ?? null,
+        vProd: $attrs['vProd'] ?? null,
+    );
+}
+
+function notaComItens(array $itens, string $sufixo = 'd'): \App\Services\Clearance\Comparacao\NotaNormalizada
+{
+    $base = notaMinima();
+
+    return new \App\Services\Clearance\Comparacao\NotaNormalizada(
+        chave: $base->chave,
+        tipoDocumento: 'NFE',
+        header: $base->header, metaSefaz: [], partes: $base->partes,
+        totais: $base->totais, itens: $itens, origemLabel: $sufixo,
+    );
+}
+
+it('parea itens por cProd quando cProds correspondem', function () {
+    $service = new ComparacaoNotaService;
+    $declarado = notaComItens([
+        itemNFE(['cProd' => 'A', 'nItem' => 1, 'vProd' => 100]),
+        itemNFE(['cProd' => 'B', 'nItem' => 2, 'vProd' => 200]),
+    ]);
+    $sefaz = notaComItens([
+        itemNFE(['cProd' => 'A', 'nItem' => 1, 'vProd' => 100]),
+        itemNFE(['cProd' => 'B', 'nItem' => 2, 'vProd' => 200]),
+    ], 'sefaz');
+
+    $resultado = $service->comparar($declarado, $sefaz, 'NFE');
+
+    expect($resultado->itensPareados)->toHaveCount(2);
+    expect($resultado->itensPareados[0]->matchType)->toBe('cprod');
+    expect($resultado->itensPareados[1]->matchType)->toBe('cprod');
+    expect($resultado->resumo->itensDivergentes)->toBe(0);
+});
+
+it('desempata cProd duplicado pela ordem de aparição', function () {
+    $service = new ComparacaoNotaService;
+    $declarado = notaComItens([
+        itemNFE(['cProd' => 'A', 'nItem' => 1, 'vProd' => 100]),
+        itemNFE(['cProd' => 'A', 'nItem' => 4, 'vProd' => 400]),
+    ]);
+    $sefaz = notaComItens([
+        itemNFE(['cProd' => 'A', 'nItem' => 2, 'vProd' => 100]),
+        itemNFE(['cProd' => 'A', 'nItem' => 5, 'vProd' => 400]),
+    ], 'sefaz');
+
+    $resultado = $service->comparar($declarado, $sefaz, 'NFE');
+
+    expect($resultado->itensPareados)->toHaveCount(2);
+    expect($resultado->itensPareados[0]->declarado->nItem)->toBe(1);
+    expect($resultado->itensPareados[0]->sefaz->nItem)->toBe(2);
+    expect($resultado->itensPareados[1]->declarado->nItem)->toBe(4);
+    expect($resultado->itensPareados[1]->sefaz->nItem)->toBe(5);
+});
+
+it('marca cProd presente em só um lado como fantasma', function () {
+    $service = new ComparacaoNotaService;
+    $declarado = notaComItens([itemNFE(['cProd' => 'A', 'nItem' => 1, 'vProd' => 100])]);
+    $sefaz = notaComItens([itemNFE(['cProd' => 'B', 'nItem' => 1, 'vProd' => 100])], 'sefaz');
+
+    $resultado = $service->comparar($declarado, $sefaz, 'NFE');
+
+    expect($resultado->itensPareados)->toHaveCount(2);
+    $fantasmas = collect($resultado->itensPareados)->pluck('matchType')->all();
+    expect($fantasmas)->toContain('fantasma_declarado');
+    expect($fantasmas)->toContain('fantasma_sefaz');
+});

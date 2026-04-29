@@ -54,6 +54,11 @@ class ComparacaoNotaService
 
         $totaisDivergencias = collect($totaisDiff)->filter(fn ($c) => $c->divergente)->count();
 
+        $itensPareados = $this->parearItens($declarado->itens, $sefaz->itens);
+        $itensDivergentes = collect($itensPareados)->filter(fn ($p) => $p->temDivergencia && in_array($p->matchType, ['cprod', 'sequencia'], true))->count();
+        $itensFantasmaDeclarado = collect($itensPareados)->filter(fn ($p) => $p->matchType === 'fantasma_declarado')->count();
+        $itensFantasmaSefaz = collect($itensPareados)->filter(fn ($p) => $p->matchType === 'fantasma_sefaz')->count();
+
         return new Comparacao(
             chave: $chave,
             tipoDocumento: $tipoDocumento,
@@ -62,13 +67,13 @@ class ComparacaoNotaService
             headerDiff: $headerDiff,
             partesDiff: $partesDiff,
             totaisDiff: $totaisDiff,
-            itensPareados: [],
+            itensPareados: $itensPareados,
             resumo: new ResumoComparacao(
                 headerDivergencias: $headerDivergencias,
                 totaisDivergencias: $totaisDivergencias,
-                itensDivergentes: 0,
-                itensFantasmaDeclarado: 0,
-                itensFantasmaSefaz: 0,
+                itensDivergentes: $itensDivergentes,
+                itensFantasmaDeclarado: $itensFantasmaDeclarado,
+                itensFantasmaSefaz: $itensFantasmaSefaz,
                 severidade: 'ok',
                 sefazAusente: false,
                 declaradoAusente: false,
@@ -159,6 +164,97 @@ class ComparacaoNotaService
         }
 
         return $resultado;
+    }
+
+    /**
+     * @param  array<int, ItemNormalizado>  $declarado
+     * @param  array<int, ItemNormalizado>  $sefaz
+     * @return array<int, ItemPareado>
+     */
+    private function parearItens(array $declarado, array $sefaz): array
+    {
+        $pares = [];
+        $gruposDec = $this->agruparPorCProd($declarado);
+        $gruposSef = $this->agruparPorCProd($sefaz);
+
+        $cprods = collect(array_keys($gruposDec))->concat(array_keys($gruposSef))->unique()->filter()->values();
+
+        foreach ($cprods as $cprod) {
+            $itensDec = $gruposDec[$cprod] ?? [];
+            $itensSef = $gruposSef[$cprod] ?? [];
+            $countMin = min(count($itensDec), count($itensSef));
+
+            for ($i = 0; $i < $countMin; $i++) {
+                $pares[] = $this->criarParCProd($itensDec[$i], $itensSef[$i]);
+            }
+
+            for ($i = $countMin; $i < count($itensDec); $i++) {
+                $pares[] = new ItemPareado(
+                    declarado: $itensDec[$i], sefaz: null,
+                    matchType: 'fantasma_declarado',
+                    diffs: [], temDivergencia: true,
+                );
+            }
+            for ($i = $countMin; $i < count($itensSef); $i++) {
+                $pares[] = new ItemPareado(
+                    declarado: null, sefaz: $itensSef[$i],
+                    matchType: 'fantasma_sefaz',
+                    diffs: [], temDivergencia: true,
+                );
+            }
+        }
+
+        return $pares;
+    }
+
+    /**
+     * @param  array<int, ItemNormalizado>  $itens
+     * @return array<string, array<int, ItemNormalizado>>
+     */
+    private function agruparPorCProd(array $itens): array
+    {
+        $grupos = [];
+        foreach ($itens as $item) {
+            if ($item->cProd === null || $item->cProd === '') {
+                continue;
+            }
+            $grupos[$item->cProd][] = $item;
+        }
+
+        return $grupos;
+    }
+
+    private function criarParCProd(ItemNormalizado $dec, ItemNormalizado $sef): ItemPareado
+    {
+        $diffs = $this->compararItensCampos($dec, $sef);
+
+        return new ItemPareado(
+            declarado: $dec, sefaz: $sef,
+            matchType: 'cprod',
+            diffs: $diffs,
+            temDivergencia: collect($diffs)->contains(fn ($c) => $c->divergente),
+        );
+    }
+
+    /**
+     * @return array<int, CampoComparado>
+     */
+    private function compararItensCampos(ItemNormalizado $dec, ItemNormalizado $sef): array
+    {
+        $declaradoArr = ['cProd' => $dec->cProd, 'xProd' => $dec->xProd, 'ncm' => $dec->ncm, 'cfop' => $dec->cfop, 'qCom' => $dec->qCom, 'vUnCom' => $dec->vUnCom, 'vProd' => $dec->vProd];
+        $sefazArr = ['cProd' => $sef->cProd, 'xProd' => $sef->xProd, 'ncm' => $sef->ncm, 'cfop' => $sef->cfop, 'qCom' => $sef->qCom, 'vUnCom' => $sef->vUnCom, 'vProd' => $sef->vProd];
+        $labels = [
+            'cProd' => 'Código',
+            'xProd' => 'Descrição',
+            'ncm' => 'NCM',
+            'cfop' => 'CFOP',
+            'qCom' => 'Quantidade',
+            'vUnCom' => 'Vlr unit.',
+            'vProd' => 'Vlr total',
+        ];
+        $tolerancia = (float) config('clearance.comparacao.tolerancia_monetaria', 0.01);
+
+        return $this->compararCampos($declaradoArr, $sefazArr, $labels, tolerancia: $tolerancia);
     }
 
     private function valoresDivergem(mixed $a, mixed $b, ?float $tolerancia = null): bool
