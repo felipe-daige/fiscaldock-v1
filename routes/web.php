@@ -242,6 +242,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/buscar', [ClearanceController::class, 'buscarNfe'])->name('buscar');
         Route::post('/buscar/consultar', [ClearanceController::class, 'consultarNfe'])->name('buscar.consultar');
         Route::get('/buscar/resultado/{consultaLoteId}', [ClearanceController::class, 'resultadoUltimaConsulta'])->name('buscar.resultado');
+        Route::get('/nota/{chave}/comparar', [\App\Http\Controllers\Dashboard\ComparacaoNotaController::class, 'compararPorChave'])
+            ->where('chave', '[0-9]{44}')
+            ->name('nota.comparar');
         Route::post('/importacao/{id}/validar', [ClearanceController::class, 'validarImportacao'])->name('validar-importacao');
         Route::post('/calcular-custo', [ClearanceController::class, 'calcularCusto'])->name('calcular-custo');
         Route::get('/nota/{id}', [ClearanceController::class, 'notaDetalhes'])->name('nota');
