@@ -220,6 +220,8 @@ class ClearanceController extends Controller
             return $this->redirectToLogin($request);
         }
 
+        $buscaAvulsaHabilitada = (bool) config('clearance.busca_avulsa.habilitada', false);
+
         $data = [
             'saldoAtual' => $this->creditService->getBalance(Auth::user()),
             'custoEstimadoCreditos' => self::CLEARANCE_NFE_AVULSA_CUSTO,
@@ -228,8 +230,10 @@ class ClearanceController extends Controller
                 ->orderBy('razao_social')
                 ->get(['id', 'razao_social', 'documento', 'is_empresa_propria']),
             'defaultClienteId' => Auth::user()->empresaPropria()?->id,
-            'ultimasConsultasDfe' => $this->listarUltimasConsultasDfe(Auth::id(), 3),
-            'buscaAvulsaHabilitada' => (bool) config('clearance.busca_avulsa.habilitada', false),
+            'ultimasConsultasDfe' => $buscaAvulsaHabilitada
+                ? $this->listarUltimasConsultasDfe(Auth::id(), 3)
+                : collect(),
+            'buscaAvulsaHabilitada' => $buscaAvulsaHabilitada,
         ];
 
         return $this->render($request, 'buscar', $data);
