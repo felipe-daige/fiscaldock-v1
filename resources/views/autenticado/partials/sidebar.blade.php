@@ -69,7 +69,11 @@
             Verificar Notas
         </x-sidebar.item>
 
-        <x-sidebar.item href="/app/clearance/buscar">
+        <x-sidebar.item
+            href="/app/clearance/buscar"
+            :badge="config('clearance.busca_avulsa.habilitada') ? null : 'DEV'"
+            badgeLabel="Em desenvolvimento"
+        >
             <x-slot:icon>
                 <svg class="sidebar__item-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35m1.6-5.4a7 7 0 11-14 0 7 7 0 0114 0zM9 10h4m-4 3h2"></path>

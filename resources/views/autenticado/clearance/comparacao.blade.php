@@ -543,18 +543,17 @@
         <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
             <h2 class="text-sm font-bold text-amber-900 uppercase tracking-wide mb-2">Sem snapshot SEFAZ</h2>
             <p class="text-sm text-amber-900">
-                Esta chave ainda não tem consulta SEFAZ. Pra comparar:
+                Esta chave ainda não tem consulta SEFAZ. Pra comparar, inclua a nota num lote de verificação.
             </p>
             <div class="mt-3 flex gap-2 flex-wrap">
-                <a href="{{ route('app.clearance.buscar') }}?chave={{ $comparacao->chave }}"
-                    data-link
-                    class="inline-block px-3 py-1.5 rounded text-sm font-medium"
-                    style="background-color: #d97706; color: white;">Fazer busca avulsa (1 crédito) ↗</a>
                 <a href="{{ route('app.clearance.notas') }}?selecionar={{ $comparacao->chave }}"
                     data-link
-                    class="inline-block px-3 py-1.5 rounded text-sm font-medium border border-amber-700 text-amber-900">Incluir
-                    em lote de clearance ↗</a>
+                    class="inline-block px-3 py-1.5 rounded text-sm font-medium"
+                    style="background-color: #b45309; color: white;">Incluir em lote de clearance ↗</a>
             </div>
+            @unless (config('clearance.busca_avulsa.habilitada'))
+                <p class="mt-3 text-[11px] text-amber-800">A busca avulsa por chave está em desenvolvimento. Por enquanto, o clearance é executado sobre as notas trazidas pelas importações EFD/XML.</p>
+            @endunless
         </div>
     @endif
 

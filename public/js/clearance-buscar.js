@@ -10,6 +10,7 @@ function initClearanceBuscar() {
     const BADGE_CORES = config.cores || {};
     const DEFAULT_CLIENTE_ID = config.defaultClienteId ? String(config.defaultClienteId) : '';
     const POSSUI_CLIENTES_DISPONIVEIS = config.possuiClientesDisponiveis === true;
+    const BUSCA_AVULSA_HABILITADA = config.buscaAvulsaHabilitada === true;
 
     const input = document.getElementById('nfe-chave');
     const button = document.getElementById('btn-consultar-nfe');
@@ -441,6 +442,14 @@ function initClearanceBuscar() {
     }
 
     function updateState() {
+        if (!BUSCA_AVULSA_HABILITADA) {
+            button.disabled = true;
+            feedback.textContent = 'Busca avulsa em desenvolvimento — use as importações EFD/XML por enquanto.';
+            feedback.className = 'text-[11px] text-amber-700';
+            count.textContent = '0';
+            return;
+        }
+
         if (!POSSUI_CLIENTES_DISPONIVEIS) {
             button.disabled = true;
             feedback.textContent = 'Cadastre ou regularize a empresa própria para consultar um documento.';

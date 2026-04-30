@@ -61,11 +61,11 @@
                     <span class="font-bold text-gray-900">{{ number_format($saldoCreditos, 0, ',', '.') }}</span>
                     <span class="text-gray-500">créditos</span>
                 </span>
-                <a href="/app/clearance/buscar" data-link class="inline-flex items-center gap-2 px-4 py-2 bg-gray-800 text-white hover:bg-gray-700 rounded text-sm font-medium self-start">
+                <a href="/app/clearance/notas" data-link class="inline-flex items-center gap-2 px-4 py-2 bg-gray-800 text-white hover:bg-gray-700 rounded text-sm font-medium self-start">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M16 10a6 6 0 11-12 0 6 6 0 0112 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
                     </svg>
-                    Verificar nota
+                    Verificar notas
                 </a>
             </div>
         </div>
@@ -190,7 +190,7 @@
                 @else
                     <div class="px-4 py-8 text-center">
                         <p class="text-sm text-gray-700">Nenhuma verificação ainda.</p>
-                        <a href="/app/clearance/buscar" data-link class="mt-2 inline-flex text-xs text-gray-600 hover:text-gray-900 hover:underline">
+                        <a href="/app/clearance/notas" data-link class="mt-2 inline-flex text-xs text-gray-600 hover:text-gray-900 hover:underline">
                             Verificar a primeira nota →
                         </a>
                     </div>

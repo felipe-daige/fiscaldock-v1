@@ -5,7 +5,8 @@
     $defaultClienteId = $defaultClienteId ?? null;
     $ultimasConsultasDfe = $ultimasConsultasDfe ?? collect();
     $saldoSuficiente = $saldoAtual >= $custoEstimadoCreditos;
-    $possuiClientesDisponiveis = $clientes->isNotEmpty() && !empty($defaultClienteId);
+    $buscaAvulsaHabilitada = (bool) ($buscaAvulsaHabilitada ?? config('clearance.busca_avulsa.habilitada', false));
+    $possuiClientesDisponiveis = $buscaAvulsaHabilitada && $clientes->isNotEmpty() && !empty($defaultClienteId);
 
     $badgeCoresSituacao = [
         'AUTORIZADA' => '#047857',
@@ -91,6 +92,31 @@
                 Verificar notas da base
             </a>
         </div>
+
+        @unless ($buscaAvulsaHabilitada)
+            <div class="mb-4 sm:mb-6 rounded border border-l-4 p-4" style="background-color: #fffbeb; border-color: #fcd34d; border-left-color: #d97706;">
+                <div class="flex items-start gap-3">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white self-start" style="background-color: #d97706;">Em desenvolvimento</span>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-semibold text-gray-900">Busca avulsa por chave indisponível</p>
+                        <p class="text-xs text-gray-700 mt-1 leading-relaxed">
+                            Estamos finalizando a integração com a Receita Federal via InfoSimples. Por enquanto, o clearance acontece exclusivamente sobre as notas que já foram trazidas ao sistema pelas importações de <strong>EFD</strong> e <strong>XML</strong>. Os créditos só são consumidos quando a verificação SEFAZ é executada sobre essas notas, em <a href="/app/clearance/notas" data-link class="underline hover:text-gray-900">Verificar Notas</a>.
+                        </p>
+                        <div class="mt-3 flex flex-col sm:flex-row gap-2">
+                            <a href="/app/importacao/efd" data-link class="inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded text-xs font-medium text-white" style="background-color: #1f2937;">
+                                Importar EFD
+                            </a>
+                            <a href="/app/importacao/xml" data-link class="inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded text-xs font-medium text-white" style="background-color: #1f2937;">
+                                Importar XML
+                            </a>
+                            <a href="/app/clearance/notas" data-link class="inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded text-xs font-medium border border-gray-400 text-gray-800 hover:bg-white">
+                                Verificar notas da base
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endunless
 
         <details class="bg-white rounded border border-gray-300 border-l-4 mb-4 group" style="border-left-color: #2563eb;">
             <summary class="cursor-pointer px-4 py-3 flex items-center justify-between list-none hover:bg-gray-50">
@@ -254,7 +280,7 @@
                         </div>
                     </div>
 
-                    @if(!$possuiClientesDisponiveis)
+                    @if($buscaAvulsaHabilitada && !$possuiClientesDisponiveis)
                         <div class="bg-white rounded border border-gray-300 p-4 border-l-4 border-l-amber-500">
                             <p class="text-sm font-semibold text-gray-900">Cliente obrigatório para consultar</p>
                             <p class="text-xs text-gray-600 mt-1">Esta busca só pode ser executada com um cliente associado. A conta deveria ter a empresa própria criada automaticamente; se ela não estiver disponível, cadastre ou ajuste o cliente antes de continuar.</p>
@@ -307,8 +333,9 @@
                                 class="px-4 py-2 rounded text-sm font-medium text-white disabled:opacity-40 disabled:cursor-not-allowed"
                                 style="background-color: #374151"
                                 disabled
+                                @unless($buscaAvulsaHabilitada) data-busca-desabilitada="true" title="Busca avulsa em desenvolvimento — use as importações EFD/XML por enquanto." @endunless
                             >
-                                Consultar documento
+                                {{ $buscaAvulsaHabilitada ? 'Consultar documento' : 'Em desenvolvimento' }}
                             </button>
                         </div>
                         <div class="mt-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
@@ -526,6 +553,7 @@
         },
         defaultClienteId: @json($defaultClienteId),
         possuiClientesDisponiveis: @json($possuiClientesDisponiveis),
+        buscaAvulsaHabilitada: @json($buscaAvulsaHabilitada),
         cores: @json($badgeCoresSituacao),
     };
 </script>

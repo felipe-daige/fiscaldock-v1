@@ -119,7 +119,7 @@ it('renderiza view só com declarado quando nao ha snapshot SEFAZ', function () 
 
     $r->assertStatus(200);
     $r->assertSee('Sem snapshot SEFAZ');
-    $r->assertSee('Fazer busca avulsa');
+    $r->assertSee('Incluir em lote de clearance');
 });
 
 it('D3 — busca avulsa órfã renderiza com declaradoAusente', function () use (&$testUserIds) {

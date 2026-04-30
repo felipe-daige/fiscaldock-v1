@@ -229,6 +229,7 @@ class ClearanceController extends Controller
                 ->get(['id', 'razao_social', 'documento', 'is_empresa_propria']),
             'defaultClienteId' => Auth::user()->empresaPropria()?->id,
             'ultimasConsultasDfe' => $this->listarUltimasConsultasDfe(Auth::id(), 3),
+            'buscaAvulsaHabilitada' => (bool) config('clearance.busca_avulsa.habilitada', false),
         ];
 
         return $this->render($request, 'buscar', $data);
@@ -277,6 +278,14 @@ class ClearanceController extends Controller
                 'success' => false,
                 'error' => 'Usuário não autenticado.',
             ], Response::HTTP_UNAUTHORIZED);
+        }
+
+        if (! config('clearance.busca_avulsa.habilitada', false)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Busca avulsa indisponível.',
+                'error' => 'A busca avulsa por chave de acesso está em desenvolvimento. Por enquanto, o clearance é executado sobre as notas trazidas pelas importações EFD/XML em /app/clearance/notas.',
+            ], Response::HTTP_SERVICE_UNAVAILABLE);
         }
 
         $user = Auth::user();
