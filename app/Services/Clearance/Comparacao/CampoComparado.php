@@ -11,5 +11,6 @@ final class CampoComparado
         public readonly mixed $sefaz,
         public readonly bool $divergente,
         public readonly ?string $tolerancia = null,
+        public readonly bool $naoComparavel = false,
     ) {}
 }

@@ -430,7 +430,7 @@
                                 $dataEmissao = $n->data_emissao ? \Illuminate\Support\Carbon::parse($n->data_emissao) : null;
                                 $detalheUrl = $isXml
                                     ? "/app/clearance/nota/{$n->id}"
-                                    : "/app/notas-fiscais?chave={$n->chave}";
+                                    : "/app/notas/acervo?chave={$n->chave}";
                                 $modeloLabel = $n->modelo_label ?? 'N/D';
                                 $modeloHex = $n->modelo_hex ?? '#9ca3af';
                                 $participanteCnpjFmt = null;

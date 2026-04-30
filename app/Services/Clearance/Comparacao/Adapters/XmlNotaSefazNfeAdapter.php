@@ -68,6 +68,9 @@ final class XmlNotaSefazNfeAdapter implements SefazSource
             ],
             itens: $this->mapearItens($clearance['produtos'] ?? []),
             origemLabel: $this->origemLabel(),
+            camposNaoRetornados: [
+                'itens' => ['cProd', 'ncm', 'cfop', 'uCom'],
+            ],
         );
     }
 

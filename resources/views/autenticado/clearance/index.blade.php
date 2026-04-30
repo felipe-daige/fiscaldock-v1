@@ -175,9 +175,14 @@
                                         </a>
                                         <p class="text-[11px] text-gray-500 mt-1">{{ $formatarConsultadoEm($consultadoEm) }} · Origem {{ strtoupper($nota['origem']) }}</p>
                                     </div>
-                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white self-start" style="background-color: {{ $situacaoBadge[$situacao] ?? '#374151' }}">
-                                        {{ $situacaoLabel[$situacao] ?? $situacao }}
-                                    </span>
+                                    <div class="flex items-center gap-2 self-start">
+                                        @if (! empty($nota['chave']) && strlen($nota['chave']) === 44)
+                                            <a href="{{ route('app.clearance.nota.comparar', ['chave' => $nota['chave']]) }}" data-link class="text-[11px] text-blue-700 hover:underline">Comparar ↗</a>
+                                        @endif
+                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $situacaoBadge[$situacao] ?? '#374151' }}">
+                                            {{ $situacaoLabel[$situacao] ?? $situacao }}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                         @endforeach

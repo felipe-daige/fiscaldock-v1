@@ -274,7 +274,7 @@ class CatalogoController extends Controller
             $html .= '</tr></thead><tbody class="divide-y divide-gray-100">';
 
             foreach ($notas as $nota) {
-                $url = '/app/notas-fiscais/efd/' . $nota->id;
+                $url = '/app/notas/efd/' . $nota->id;
                 $tipoOp = $nota->tipo_operacao === 'entrada' ? 'Entrada' : 'Saída';
                 $tipoBg = $nota->tipo_operacao === 'entrada' ? '#047857' : '#d97706';
                 $dataFmt = $nota->data_emissao ? date('d/m/Y', strtotime($nota->data_emissao)) : '—';

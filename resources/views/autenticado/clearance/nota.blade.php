@@ -34,6 +34,12 @@
                     <p class="text-xs text-gray-500 mt-1">{{ $nota->emit_razao_social ?? $nota->emit_cnpj }}</p>
                 </div>
                 <div class="flex items-center gap-2">
+                    @if(! empty($nota->nfe_id) && strlen($nota->nfe_id) === 44)
+                        <a href="{{ route('app.clearance.nota.comparar', ['chave' => $nota->nfe_id]) }}"
+                           data-link
+                           class="inline-flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium text-white"
+                           style="background-color: #1d4ed8;">Comparar declarado vs SEFAZ ↗</a>
+                    @endif
                     @if($validacao['preview'] ?? false)
                         <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: #374151">
                             Preview

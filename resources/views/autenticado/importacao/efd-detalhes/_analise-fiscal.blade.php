@@ -87,7 +87,7 @@
  <p class="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Total Entradas</p>
  <p class="text-lg font-bold text-gray-800">R$ {{ number_format(is_array($kpi['total_entradas']) ? ($kpi['total_entradas']['valor'] ?? 0) : $kpi['total_entradas'], 2, ',', '.') }}</p>
  @if(is_array($kpi['total_entradas']) && isset($kpi['total_entradas']['count']))
- <a href="/app/notas-fiscais?tipo_operacao=entrada&importacao_id={{ $importacao->id }}" data-link class="text-[10px] text-gray-500 hover:text-gray-700 hover:underline">{{ $kpi['total_entradas']['count'] }} notas →</a>
+ <a href="/app/notas/acervo?tipo_operacao=entrada&importacao_id={{ $importacao->id }}" data-link class="text-[10px] text-gray-500 hover:text-gray-700 hover:underline">{{ $kpi['total_entradas']['count'] }} notas →</a>
  @endif
  </div>
  @endif
@@ -96,7 +96,7 @@
  <p class="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Total Saídas</p>
  <p class="text-lg font-bold text-gray-800">R$ {{ number_format(is_array($kpi['total_saidas']) ? ($kpi['total_saidas']['valor'] ?? 0) : $kpi['total_saidas'], 2, ',', '.') }}</p>
  @if(is_array($kpi['total_saidas']) && isset($kpi['total_saidas']['count']))
- <a href="/app/notas-fiscais?tipo_operacao=saida&importacao_id={{ $importacao->id }}" data-link class="text-[10px] text-gray-500 hover:text-gray-700 hover:underline">{{ $kpi['total_saidas']['count'] }} notas →</a>
+ <a href="/app/notas/acervo?tipo_operacao=saida&importacao_id={{ $importacao->id }}" data-link class="text-[10px] text-gray-500 hover:text-gray-700 hover:underline">{{ $kpi['total_saidas']['count'] }} notas →</a>
  @endif
  </div>
  @endif
@@ -216,7 +216,7 @@
  <td class="py-2 px-3 text-gray-400 text-xs">{{ $i + 1 }}</td>
  <td class="py-2 px-3 font-mono text-xs">
  @if($fornCnpj)
- <a href="/app/notas-fiscais?participante_cnpj={{ $fornCnpj }}" data-link class="text-gray-600 hover:text-gray-900 hover:underline">{{ $fornCnpj }}</a>
+ <a href="/app/notas/acervo?participante_cnpj={{ $fornCnpj }}" data-link class="text-gray-600 hover:text-gray-900 hover:underline">{{ $fornCnpj }}</a>
  @else — @endif
  </td>
  <td class="py-2 px-3 text-gray-700 truncate max-w-[200px]">{{ $forn['razao_social'] ?? '—' }}</td>
@@ -290,7 +290,7 @@
  <tr>
  <td class="py-1.5 px-2 font-mono">
  @if(!empty($nota['nota_id']))
- <a href="/app/notas-fiscais/efd/{{ $nota['nota_id'] }}" data-link class="text-gray-600 hover:text-gray-900 hover:underline">{{ $nota['num_doc'] ?? $nota['nota_id'] }}</a>
+ <a href="/app/notas/efd/{{ $nota['nota_id'] }}" data-link class="text-gray-600 hover:text-gray-900 hover:underline">{{ $nota['num_doc'] ?? $nota['nota_id'] }}</a>
  @elseif(!empty($nota['num_doc']))
  <span class="text-gray-700">{{ $nota['num_doc'] }}</span>
  @else — @endif
@@ -347,7 +347,7 @@
  <tr>
  <td class="py-1.5 px-2 font-mono">
  @if(!empty($nota['nota_id']))
- <a href="/app/notas-fiscais/efd/{{ $nota['nota_id'] }}" data-link class="text-gray-600 hover:text-gray-900 hover:underline">{{ $nota['num_doc'] ?? $nota['nota_id'] }}</a>
+ <a href="/app/notas/efd/{{ $nota['nota_id'] }}" data-link class="text-gray-600 hover:text-gray-900 hover:underline">{{ $nota['num_doc'] ?? $nota['nota_id'] }}</a>
  @elseif(!empty($nota['num_doc']))
  <span class="text-gray-700">{{ $nota['num_doc'] }}</span>
  @else — @endif

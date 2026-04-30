@@ -764,7 +764,7 @@ class ClearanceController extends Controller
                 'participante_label' => $nota->dest_razao_social ?: $nota->dest_cnpj ?: 'Não informado',
                 'consultado_em' => null,
                 'consultado_em_label' => 'Já no acervo',
-                'detalhe_url' => route('app.notas-fiscais.detalhes', ['origem' => 'xml', 'id' => $nota->id]),
+                'detalhe_url' => route('app.notas.detalhes', ['origem' => 'xml', 'id' => $nota->id]),
                 'origem_acervo_label' => 'XML',
                 'origem_acervo_hex' => '#0f766e',
                 'ordem_lote' => $ordem,
@@ -806,7 +806,7 @@ class ClearanceController extends Controller
             'participante_label' => $destinatario ?: 'Não informado',
             'consultado_em' => null,
             'consultado_em_label' => 'Já no acervo',
-            'detalhe_url' => route('app.notas-fiscais.detalhes', ['origem' => 'efd', 'id' => $nota->id]),
+            'detalhe_url' => route('app.notas.detalhes', ['origem' => 'efd', 'id' => $nota->id]),
             'origem_acervo_label' => 'EFD',
             'origem_acervo_hex' => '#4338ca',
             'ordem_lote' => $ordem,
@@ -2150,8 +2150,8 @@ class ClearanceController extends Controller
                 ?: 'Não informado';
             $chave = trim((string) $resultado->chave_acesso);
             $resultado->detalhe_url = match (true) {
-                $chave !== '' && isset($xmlByChave[$chave]) => route('app.notas-fiscais.detalhes', ['origem' => 'xml', 'id' => $xmlByChave[$chave]]),
-                $chave !== '' && isset($efdByChave[$chave]) => route('app.notas-fiscais.detalhes', ['origem' => 'efd', 'id' => $efdByChave[$chave]]),
+                $chave !== '' && isset($xmlByChave[$chave]) => route('app.notas.detalhes', ['origem' => 'xml', 'id' => $xmlByChave[$chave]]),
+                $chave !== '' && isset($efdByChave[$chave]) => route('app.notas.detalhes', ['origem' => 'efd', 'id' => $efdByChave[$chave]]),
                 default => null,
             };
             $resultado->origem_acervo_label = null;
@@ -2244,7 +2244,7 @@ class ClearanceController extends Controller
             'situacao' => $situacao,
             'situacao_hex' => $this->statusHexConsultaDfe($situacao),
             'consultado_em' => $this->formatarDataConsulta($nota->updated_at ?: $nota->created_at),
-            'detalhe_url' => route('app.notas-fiscais.detalhes', ['origem' => 'xml', 'id' => $nota->id]),
+            'detalhe_url' => route('app.notas.detalhes', ['origem' => 'xml', 'id' => $nota->id]),
         ];
     }
 
@@ -2262,7 +2262,7 @@ class ClearanceController extends Controller
             ->value('id');
 
         if ($xmlNotaId) {
-            return route('app.notas-fiscais.detalhes', ['origem' => 'xml', 'id' => $xmlNotaId]);
+            return route('app.notas.detalhes', ['origem' => 'xml', 'id' => $xmlNotaId]);
         }
 
         $efdNotaId = EfdNota::query()
@@ -2271,7 +2271,7 @@ class ClearanceController extends Controller
             ->value('id');
 
         if ($efdNotaId) {
-            return route('app.notas-fiscais.detalhes', ['origem' => 'efd', 'id' => $efdNotaId]);
+            return route('app.notas.detalhes', ['origem' => 'efd', 'id' => $efdNotaId]);
         }
 
         return null;

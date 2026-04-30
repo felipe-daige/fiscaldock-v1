@@ -32,7 +32,7 @@
                 <h1 class="text-lg sm:text-xl font-bold text-gray-900 uppercase tracking-wide">Catálogo de Produtos</h1>
                 <p class="text-xs text-gray-500 mt-0.5">Registro 0200 do SPED &mdash; painel fiscal consolidado</p>
             </div>
-            <a href="/app/notas-fiscais/dashboard" data-link class="text-xs text-gray-600 hover:text-gray-900 hover:underline hidden sm:inline-flex items-center gap-1">
+            <a href="/app/notas/dashboard" data-link class="text-xs text-gray-600 hover:text-gray-900 hover:underline hidden sm:inline-flex items-center gap-1">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
                 Dashboard
             </a>

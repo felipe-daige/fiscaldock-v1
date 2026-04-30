@@ -42,7 +42,7 @@ class NotaFiscalService
         $items = $merged->slice(($page - 1) * $perPage, $perPage)->values();
 
         return new LengthAwarePaginator($items, $total, $perPage, $page, [
-            'path' => $paginatorPath ?? url('/app/notas-fiscais'),
+            'path' => $paginatorPath ?? url('/app/notas/acervo'),
             'query' => array_filter($filtros),
         ]);
     }

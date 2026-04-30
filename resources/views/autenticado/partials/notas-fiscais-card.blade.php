@@ -10,7 +10,7 @@
             <div class="flex items-center gap-3">
                 <span class="text-[10px] font-semibold text-gray-400 bg-gray-200 px-2 py-0.5 rounded">{{ number_format($totalNotas, 0, ',', '.') }}</span>
                 @if($totalNotas > 0)
-                    <a href="/app/notas-fiscais?{{ $contexto }}_id={{ $entityId }}" data-link
+                    <a href="/app/notas/acervo?{{ $contexto }}_id={{ $entityId }}" data-link
                        class="text-xs text-gray-600 hover:text-gray-900 hover:underline font-medium whitespace-nowrap">
                         Ver todas
                     </a>
@@ -227,7 +227,7 @@
 
         contentEl.innerHTML = '<div class="p-4 text-center text-sm text-gray-500">Carregando...</div>';
 
-        fetch('/app/notas-fiscais/' + origem + '/' + id, {
+        fetch('/app/notas/' + origem + '/' + id, {
             headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'text/html' }
         })
         .then(function(r) { return r.text(); })

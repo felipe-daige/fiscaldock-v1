@@ -683,7 +683,7 @@
                 const notaId = parseInt(actionLink.dataset.notaId, 10);
 
                 if (action === 'nota' && notaId) {
-                    window.location.href = `/app/notas-fiscais/efd/${notaId}`;
+                    window.location.href = `/app/notas/efd/${notaId}`;
                     return;
                 }
 

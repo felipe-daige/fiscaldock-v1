@@ -186,7 +186,7 @@
                             <button type="submit" class="flex-1 sm:flex-none px-4 py-2 bg-gray-800 text-white text-sm font-medium rounded hover:bg-gray-700 transition-colors">
                                 Filtrar
                             </button>
-                            <a href="/app/notas-fiscais" data-link class="flex-1 sm:flex-none px-4 py-2 bg-white border border-gray-300 text-gray-600 text-sm font-medium rounded hover:bg-gray-50 transition-colors text-center">
+                            <a href="/app/notas/acervo" data-link class="flex-1 sm:flex-none px-4 py-2 bg-white border border-gray-300 text-gray-600 text-sm font-medium rounded hover:bg-gray-50 transition-colors text-center">
                                 Limpar
                             </a>
                         </div>
@@ -226,7 +226,7 @@
                                         <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $origemBadge['hex'] }}">{{ $origemBadge['label'] }}</span>
                                     </td>
                                     <td class="px-3 py-3 text-sm font-mono whitespace-nowrap">
-                                        <a href="/app/notas-fiscais/{{ $n['origem'] }}/{{ $n['id'] }}" data-link class="text-gray-900 hover:text-gray-600 hover:underline">{{ $numero }}{{ $serie }}</a>
+                                        <a href="/app/notas/{{ $n['origem'] }}/{{ $n['id'] }}" data-link class="text-gray-900 hover:text-gray-600 hover:underline">{{ $numero }}{{ $serie }}</a>
                                     </td>
                                     <td class="px-3 py-3">
                                         <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: #374151">{{ $n['modelo_label'] }}</span>
@@ -256,11 +256,23 @@
                                         R$ {{ number_format($n['valor_total'], 2, ',', '.') }}
                                     </td>
                                     <td class="px-3 py-3 text-center">
-                                        <button type="button" class="nf-expand-btn text-gray-400 hover:text-gray-700 transition-colors p-1" data-origem="{{ $n['origem'] }}" data-id="{{ $n['id'] }}" title="Ver detalhes">
-                                            <svg class="w-5 h-5 nf-expand-icon transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                                            </svg>
-                                        </button>
+                                        <div class="inline-flex items-center gap-1">
+                                            @if (! empty($n['chave_acesso']) && strlen($n['chave_acesso']) === 44)
+                                                <a href="{{ route('app.clearance.nota.comparar', ['chave' => $n['chave_acesso']]) }}"
+                                                   data-link
+                                                   title="Comparar declarado vs SEFAZ"
+                                                   class="text-blue-600 hover:text-blue-800 transition-colors p-1">
+                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                                                    </svg>
+                                                </a>
+                                            @endif
+                                            <button type="button" class="nf-expand-btn text-gray-400 hover:text-gray-700 transition-colors p-1" data-origem="{{ $n['origem'] }}" data-id="{{ $n['id'] }}" title="Ver detalhes">
+                                                <svg class="w-5 h-5 nf-expand-icon transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                                </svg>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                                 <tr class="nf-detail-row hidden" data-detail-for="{{ $n['origem'] }}-{{ $n['id'] }}">
@@ -296,7 +308,7 @@
                                 </button>
                             </div>
                             <div class="flex items-baseline justify-between gap-2">
-                                <a href="/app/notas-fiscais/{{ $n['origem'] }}/{{ $n['id'] }}" data-link class="text-sm font-mono font-medium text-gray-900 hover:text-gray-600 hover:underline">{{ $numero }}{{ $serie }}</a>
+                                <a href="/app/notas/{{ $n['origem'] }}/{{ $n['id'] }}" data-link class="text-sm font-mono font-medium text-gray-900 hover:text-gray-600 hover:underline">{{ $numero }}{{ $serie }}</a>
                                 <span class="text-sm font-semibold font-mono text-gray-900">R$ {{ number_format($n['valor_total'], 2, ',', '.') }}</span>
                             </div>
                             <div class="mt-1 text-[11px] text-gray-500">{{ $dataFormatada }}</div>
@@ -431,7 +443,7 @@
 
         contentEl.innerHTML = '<div class="px-6 py-4 text-sm text-gray-500">Carregando...</div>';
 
-        fetch('/app/notas-fiscais/' + origem + '/' + id, {
+        fetch('/app/notas/' + origem + '/' + id, {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
         .then(function(r) {
@@ -474,7 +486,7 @@
         formData.forEach(function(value, key) {
             if (value) params.set(key, value);
         });
-        var url = '/app/notas-fiscais' + (params.toString() ? '?' + params.toString() : '');
+        var url = '/app/notas/acervo' + (params.toString() ? '?' + params.toString() : '');
         var link = document.createElement('a');
         link.href = url;
         link.setAttribute('data-link', '');

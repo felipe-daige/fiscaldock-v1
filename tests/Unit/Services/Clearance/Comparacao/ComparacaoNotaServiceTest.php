@@ -325,3 +325,78 @@ it('severidade revisar quando há divergência sub-crítica', function () {
 
     expect($resultado->resumo->severidade)->toBe('revisar');
 });
+
+it('marca campo como naoComparavel quando SEFAZ declara que não retorna a chave', function () {
+    $service = new ComparacaoNotaService;
+    $declarado = notaMinima();
+    $sefazHeader = $declarado->header;
+    $sefazHeader['natureza_operacao'] = null;
+    $sefaz = new \App\Services\Clearance\Comparacao\NotaNormalizada(
+        chave: $declarado->chave, tipoDocumento: 'NFE',
+        header: $sefazHeader, metaSefaz: [], partes: $declarado->partes,
+        totais: $declarado->totais, itens: [], origemLabel: 'sefaz',
+        camposNaoRetornados: ['header' => ['natureza_operacao']],
+    );
+
+    $resultado = $service->comparar($declarado, $sefaz, 'NFE');
+    $natOp = collect($resultado->headerDiff)->firstWhere('chave', 'natureza_operacao');
+
+    expect($natOp->naoComparavel)->toBeTrue();
+    expect($natOp->divergente)->toBeFalse();
+    expect($resultado->resumo->headerDivergencias)->toBe(0);
+    expect($resultado->resumo->severidade)->toBe('ok');
+});
+
+it('null e 0.0 são equivalentes em totais com tolerância (não diverge)', function () {
+    $service = new ComparacaoNotaService;
+    $declarado = notaMinima();
+    $totaisSefaz = $declarado->totais;
+    $totaisSefaz['valor_desconto'] = null;
+    $sefaz = new \App\Services\Clearance\Comparacao\NotaNormalizada(
+        chave: $declarado->chave, tipoDocumento: 'NFE',
+        header: $declarado->header, metaSefaz: [], partes: $declarado->partes,
+        totais: $totaisSefaz, itens: [], origemLabel: 'sefaz',
+    );
+
+    $resultado = $service->comparar($declarado, $sefaz, 'NFE');
+    $desc = collect($resultado->totaisDiff)->firstWhere('chave', 'valor_desconto');
+
+    expect($desc->divergente)->toBeFalse();
+    expect($resultado->resumo->totaisDivergencias)->toBe(0);
+});
+
+it('parea itens por nItem quando SEFAZ declara que não retorna cProd', function () {
+    $service = new ComparacaoNotaService;
+    $declarado = notaMinima();
+    $sefaz = new \App\Services\Clearance\Comparacao\NotaNormalizada(
+        chave: $declarado->chave, tipoDocumento: 'NFE',
+        header: $declarado->header, metaSefaz: [], partes: $declarado->partes,
+        totais: $declarado->totais,
+        itens: [
+            new \App\Services\Clearance\Comparacao\ItemNormalizado(cProd: null, nItem: 1, xProd: 'PROD A', ncm: null, cfop: null, qCom: 1.0, uCom: null, vUnCom: 10.0, vProd: 10.0),
+        ],
+        origemLabel: 'sefaz',
+        camposNaoRetornados: ['itens' => ['cProd', 'ncm', 'cfop', 'uCom']],
+    );
+    $declarado2 = new \App\Services\Clearance\Comparacao\NotaNormalizada(
+        chave: $declarado->chave, tipoDocumento: 'NFE',
+        header: $declarado->header, metaSefaz: [], partes: $declarado->partes,
+        totais: $declarado->totais,
+        itens: [
+            new \App\Services\Clearance\Comparacao\ItemNormalizado(cProd: 'A', nItem: 1, xProd: 'PROD A', ncm: '12345678', cfop: '5102', qCom: 1.0, uCom: 'UN', vUnCom: 10.0, vProd: 10.0),
+        ],
+        origemLabel: 'declarado',
+    );
+
+    $resultado = $service->comparar($declarado2, $sefaz, 'NFE');
+    $par = $resultado->itensPareados[0];
+    $ncm = collect($par->diffs)->firstWhere('chave', 'ncm');
+
+    expect($par->matchType)->toBe('nitem');
+    expect($par->declarado)->not->toBeNull();
+    expect($par->sefaz)->not->toBeNull();
+    expect($ncm->naoComparavel)->toBeTrue();
+    expect($ncm->divergente)->toBeFalse();
+    expect($par->temDivergencia)->toBeFalse();
+    expect($resultado->resumo->severidade)->toBe('ok');
+});

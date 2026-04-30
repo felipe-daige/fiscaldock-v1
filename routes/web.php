@@ -188,19 +188,22 @@ Route::middleware('auth')->group(function () {
     });
 
     // Notas Fiscais (listagem unificada EFD + XML)
-    Route::get('app/notas-fiscais', [NotaFiscalController::class, 'index'])->name('app.notas-fiscais.index');
-    Route::get('app/notas-fiscais/{origem}/{id}', [NotaFiscalController::class, 'detalhes'])
-        ->name('app.notas-fiscais.detalhes')
-        ->where('origem', 'efd|xml');
+    Route::get('app/notas', fn () => redirect()->route('app.notas.acervo'))->name('app.notas.index');
+    Route::get('app/notas/acervo', [NotaFiscalController::class, 'index'])->name('app.notas.acervo');
 
     // Dashboard de Notas Fiscais
-    Route::get('app/notas-fiscais/dashboard', [DashboardNotasFiscaisController::class, 'index'])->name('app.notas-fiscais.dashboard');
-    Route::get('app/notas-fiscais/dashboard/visao-geral', [DashboardNotasFiscaisController::class, 'visaoGeral'])->name('app.notas-fiscais.dashboard.visao-geral');
-    Route::get('app/notas-fiscais/dashboard/cfop', [DashboardNotasFiscaisController::class, 'cfop'])->name('app.notas-fiscais.dashboard.cfop');
-    Route::get('app/notas-fiscais/dashboard/participantes', [DashboardNotasFiscaisController::class, 'participantes'])->name('app.notas-fiscais.dashboard.participantes');
-    Route::get('app/notas-fiscais/dashboard/tributario', [DashboardNotasFiscaisController::class, 'tributario'])->name('app.notas-fiscais.dashboard.tributario');
-    Route::get('app/notas-fiscais/dashboard/alertas', [DashboardNotasFiscaisController::class, 'alertas'])->name('app.notas-fiscais.dashboard.alertas');
-    Route::get('app/notas-fiscais/dashboard/compliance', [DashboardNotasFiscaisController::class, 'compliance'])->name('app.notas-fiscais.dashboard.compliance');
+    Route::get('app/notas/dashboard', [DashboardNotasFiscaisController::class, 'index'])->name('app.notas.dashboard');
+    Route::get('app/notas/dashboard/visao-geral', [DashboardNotasFiscaisController::class, 'visaoGeral'])->name('app.notas.dashboard.visao-geral');
+    Route::get('app/notas/dashboard/cfop', [DashboardNotasFiscaisController::class, 'cfop'])->name('app.notas.dashboard.cfop');
+    Route::get('app/notas/dashboard/participantes', [DashboardNotasFiscaisController::class, 'participantes'])->name('app.notas.dashboard.participantes');
+    Route::get('app/notas/dashboard/tributario', [DashboardNotasFiscaisController::class, 'tributario'])->name('app.notas.dashboard.tributario');
+    Route::get('app/notas/dashboard/alertas', [DashboardNotasFiscaisController::class, 'alertas'])->name('app.notas.dashboard.alertas');
+    Route::get('app/notas/dashboard/compliance', [DashboardNotasFiscaisController::class, 'compliance'])->name('app.notas.dashboard.compliance');
+
+    // Detalhe (route com wildcard {origem} fica DEPOIS das rotas literais pra não conflitar)
+    Route::get('app/notas/{origem}/{id}', [NotaFiscalController::class, 'detalhes'])
+        ->name('app.notas.detalhes')
+        ->where('origem', 'efd|xml');
 
     // Painel Fiscal por Competência
     Route::get('app/resumo-fiscal', [ResumoFiscalController::class, 'index'])->name('app.resumo-fiscal');

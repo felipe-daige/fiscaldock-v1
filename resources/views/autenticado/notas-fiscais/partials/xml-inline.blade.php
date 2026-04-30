@@ -164,7 +164,7 @@
                 <p class="text-xs font-mono text-gray-700 break-all">{{ implode(' ', str_split($nota->chave_referenciada, 4)) }}</p>
                 @php $notaRef = $nota->notaReferenciada(); @endphp
                 @if($notaRef)
-                    <a href="/app/notas-fiscais/xml/{{ $notaRef->id }}" data-link class="inline-flex items-center mt-2 text-xs text-gray-700 hover:text-gray-900 hover:underline">
+                    <a href="/app/notas/xml/{{ $notaRef->id }}" data-link class="inline-flex items-center mt-2 text-xs text-gray-700 hover:text-gray-900 hover:underline">
                         Ver nota original: Nº {{ $notaRef->numero_nota }}{{ $notaRef->serie ? '/' . $notaRef->serie : '' }}
                     </a>
                 @endif
@@ -187,7 +187,7 @@
     @endif
 
     <div class="flex justify-end pt-2 border-t border-gray-200">
-        <a href="/app/notas-fiscais/xml/{{ $nota->id }}" data-link class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 hover:text-gray-900 hover:underline">
+        <a href="/app/notas/xml/{{ $nota->id }}" data-link class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 hover:text-gray-900 hover:underline">
             Ver detalhes completos
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>

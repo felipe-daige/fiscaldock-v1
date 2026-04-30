@@ -63,6 +63,7 @@ class ComparacaoNotaService
             $declarado->header,
             $sefaz->header,
             self::LABELS_HEADER,
+            camposSefSemDado: $sefaz->camposNaoRetornados['header'] ?? [],
         );
 
         $headerDivergencias = collect($headerDiff)->filter(fn ($c) => $c->divergente)->count();
@@ -74,12 +75,13 @@ class ComparacaoNotaService
             $sefaz->totais,
             self::LABELS_TOTAIS,
             tolerancia: (float) config('clearance.comparacao.tolerancia_monetaria', 0.01),
+            camposSefSemDado: $sefaz->camposNaoRetornados['totais'] ?? [],
         );
 
         $totaisDivergencias = collect($totaisDiff)->filter(fn ($c) => $c->divergente)->count();
 
-        $itensPareados = $this->parearItens($declarado->itens, $sefaz->itens);
-        $itensDivergentes = collect($itensPareados)->filter(fn ($p) => $p->temDivergencia && in_array($p->matchType, ['cprod', 'sequencia'], true))->count();
+        $itensPareados = $this->parearItens($declarado->itens, $sefaz->itens, $sefaz->camposNaoRetornados['itens'] ?? []);
+        $itensDivergentes = collect($itensPareados)->filter(fn ($p) => $p->temDivergencia && in_array($p->matchType, ['cprod', 'sequencia', 'nitem'], true))->count();
         $itensFantasmaDeclarado = collect($itensPareados)->filter(fn ($p) => $p->matchType === 'fantasma_declarado')->count();
         $itensFantasmaSefaz = collect($itensPareados)->filter(fn ($p) => $p->matchType === 'fantasma_sefaz')->count();
 
@@ -137,7 +139,7 @@ class ComparacaoNotaService
         }
 
         foreach ($itensPareados as $par) {
-            if (! in_array($par->matchType, ['cprod', 'sequencia'], true)) {
+            if (! in_array($par->matchType, ['cprod', 'sequencia', 'nitem'], true)) {
                 continue;
             }
             $ncm = collect($par->diffs)->firstWhere('chave', 'ncm');
@@ -148,7 +150,7 @@ class ComparacaoNotaService
         }
 
         $totaisDivergencias = collect($totaisDiff)->filter(fn ($c) => $c->divergente)->count();
-        $itensComDiff = collect($itensPareados)->filter(fn ($p) => $p->temDivergencia && in_array($p->matchType, ['cprod', 'sequencia'], true))->count();
+        $itensComDiff = collect($itensPareados)->filter(fn ($p) => $p->temDivergencia && in_array($p->matchType, ['cprod', 'sequencia', 'nitem'], true))->count();
         $fantasmas = collect($itensPareados)->filter(fn ($p) => str_starts_with($p->matchType, 'fantasma_'))->count();
 
         if ($headerDivergencias > 0 || $totaisDivergencias > 0 || $itensComDiff > 0 || $fantasmas > 0) {
@@ -218,9 +220,10 @@ class ComparacaoNotaService
      * @param  array<string, mixed>  $declarado
      * @param  array<string, mixed>  $sefaz
      * @param  array<string, string>  $labels
+     * @param  array<int, string>  $camposSefSemDado  Chaves que a fonte SEFAZ comprovadamente não retorna (ex: InfoSimples NF-e não devolve NCM).
      * @return array<int, CampoComparado>
      */
-    private function compararCampos(array $declarado, array $sefaz, array $labels, ?float $tolerancia = null): array
+    private function compararCampos(array $declarado, array $sefaz, array $labels, ?float $tolerancia = null, array $camposSefSemDado = []): array
     {
         $resultado = [];
 
@@ -228,7 +231,11 @@ class ComparacaoNotaService
             $valorDec = $declarado[$chave] ?? null;
             $valorSef = $sefaz[$chave] ?? null;
 
-            $divergente = $this->valoresDivergem($valorDec, $valorSef, $tolerancia);
+            $naoComparavel = in_array($chave, $camposSefSemDado, true)
+                && $valorSef === null
+                && $valorDec !== null && $valorDec !== '';
+
+            $divergente = $naoComparavel ? false : $this->valoresDivergem($valorDec, $valorSef, $tolerancia);
 
             $resultado[] = new CampoComparado(
                 chave: $chave,
@@ -237,6 +244,7 @@ class ComparacaoNotaService
                 sefaz: $valorSef,
                 divergente: $divergente,
                 tolerancia: null,
+                naoComparavel: $naoComparavel,
             );
         }
 
@@ -246,10 +254,15 @@ class ComparacaoNotaService
     /**
      * @param  array<int, ItemNormalizado>  $declarado
      * @param  array<int, ItemNormalizado>  $sefaz
+     * @param  array<int, string>  $camposSefSemDado
      * @return array<int, ItemPareado>
      */
-    private function parearItens(array $declarado, array $sefaz): array
+    private function parearItens(array $declarado, array $sefaz, array $camposSefSemDado = []): array
     {
+        if (in_array('cProd', $camposSefSemDado, true)) {
+            return $this->parearPorNItem($declarado, $sefaz, $camposSefSemDado);
+        }
+
         $pares = [];
         $gruposDec = $this->agruparPorCProd($declarado);
         $gruposSef = $this->agruparPorCProd($sefaz);
@@ -262,7 +275,7 @@ class ComparacaoNotaService
             $countMin = min(count($itensDec), count($itensSef));
 
             for ($i = 0; $i < $countMin; $i++) {
-                $pares[] = $this->criarParCProd($itensDec[$i], $itensSef[$i]);
+                $pares[] = $this->criarParCProd($itensDec[$i], $itensSef[$i], $camposSefSemDado);
             }
 
             for ($i = $countMin; $i < count($itensDec); $i++) {
@@ -286,7 +299,7 @@ class ComparacaoNotaService
         $countMin = min(count($itensSemCprodDec), count($itensSemCprodSef));
 
         for ($i = 0; $i < $countMin; $i++) {
-            $diffs = $this->compararItensCampos($itensSemCprodDec[$i], $itensSemCprodSef[$i]);
+            $diffs = $this->compararItensCampos($itensSemCprodDec[$i], $itensSemCprodSef[$i], $camposSefSemDado);
             $pares[] = new ItemPareado(
                 declarado: $itensSemCprodDec[$i],
                 sefaz: $itensSemCprodSef[$i],
@@ -315,6 +328,53 @@ class ComparacaoNotaService
     }
 
     /**
+     * @param  array<int, ItemNormalizado>  $declarado
+     * @param  array<int, ItemNormalizado>  $sefaz
+     * @param  array<int, string>  $camposSefSemDado
+     * @return array<int, ItemPareado>
+     */
+    private function parearPorNItem(array $declarado, array $sefaz, array $camposSefSemDado): array
+    {
+        $pares = [];
+        $sefPorNItem = [];
+        foreach ($sefaz as $it) {
+            if ($it->nItem !== null) {
+                $sefPorNItem[$it->nItem] = $it;
+            }
+        }
+
+        foreach ($declarado as $dec) {
+            if ($dec->nItem !== null && isset($sefPorNItem[$dec->nItem])) {
+                $sef = $sefPorNItem[$dec->nItem];
+                unset($sefPorNItem[$dec->nItem]);
+                $diffs = $this->compararItensCampos($dec, $sef, $camposSefSemDado);
+                $pares[] = new ItemPareado(
+                    declarado: $dec, sefaz: $sef,
+                    matchType: 'nitem',
+                    diffs: $diffs,
+                    temDivergencia: collect($diffs)->contains(fn ($c) => $c->divergente),
+                );
+            } else {
+                $pares[] = new ItemPareado(
+                    declarado: $dec, sefaz: null,
+                    matchType: 'fantasma_declarado',
+                    diffs: [], temDivergencia: true,
+                );
+            }
+        }
+
+        foreach ($sefPorNItem as $sef) {
+            $pares[] = new ItemPareado(
+                declarado: null, sefaz: $sef,
+                matchType: 'fantasma_sefaz',
+                diffs: [], temDivergencia: true,
+            );
+        }
+
+        return $pares;
+    }
+
+    /**
      * @param  array<int, ItemNormalizado>  $itens
      * @return array<string, array<int, ItemNormalizado>>
      */
@@ -331,9 +391,12 @@ class ComparacaoNotaService
         return $grupos;
     }
 
-    private function criarParCProd(ItemNormalizado $dec, ItemNormalizado $sef): ItemPareado
+    /**
+     * @param  array<int, string>  $camposSefSemDado
+     */
+    private function criarParCProd(ItemNormalizado $dec, ItemNormalizado $sef, array $camposSefSemDado = []): ItemPareado
     {
-        $diffs = $this->compararItensCampos($dec, $sef);
+        $diffs = $this->compararItensCampos($dec, $sef, $camposSefSemDado);
 
         return new ItemPareado(
             declarado: $dec, sefaz: $sef,
@@ -344,9 +407,10 @@ class ComparacaoNotaService
     }
 
     /**
+     * @param  array<int, string>  $camposSefSemDado
      * @return array<int, CampoComparado>
      */
-    private function compararItensCampos(ItemNormalizado $dec, ItemNormalizado $sef): array
+    private function compararItensCampos(ItemNormalizado $dec, ItemNormalizado $sef, array $camposSefSemDado = []): array
     {
         $declaradoArr = ['cProd' => $dec->cProd, 'xProd' => $dec->xProd, 'ncm' => $dec->ncm, 'cfop' => $dec->cfop, 'qCom' => $dec->qCom, 'vUnCom' => $dec->vUnCom, 'vProd' => $dec->vProd];
         $sefazArr = ['cProd' => $sef->cProd, 'xProd' => $sef->xProd, 'ncm' => $sef->ncm, 'cfop' => $sef->cfop, 'qCom' => $sef->qCom, 'vUnCom' => $sef->vUnCom, 'vProd' => $sef->vProd];
@@ -361,7 +425,7 @@ class ComparacaoNotaService
         ];
         $tolerancia = (float) config('clearance.comparacao.tolerancia_monetaria', 0.01);
 
-        return $this->compararCampos($declaradoArr, $sefazArr, $labels, tolerancia: $tolerancia);
+        return $this->compararCampos($declaradoArr, $sefazArr, $labels, tolerancia: $tolerancia, camposSefSemDado: $camposSefSemDado);
     }
 
     private function valoresDivergem(mixed $a, mixed $b, ?float $tolerancia = null): bool
@@ -370,12 +434,16 @@ class ComparacaoNotaService
             return false;
         }
 
-        if ($a === null || $b === null) {
-            return true;
+        if ($tolerancia !== null) {
+            $aNum = $a === null ? 0.0 : (is_numeric($a) ? (float) $a : null);
+            $bNum = $b === null ? 0.0 : (is_numeric($b) ? (float) $b : null);
+            if ($aNum !== null && $bNum !== null) {
+                return abs($aNum - $bNum) > $tolerancia;
+            }
         }
 
-        if ($tolerancia !== null && is_numeric($a) && is_numeric($b)) {
-            return abs((float) $a - (float) $b) > $tolerancia;
+        if ($a === null || $b === null) {
+            return true;
         }
 
         return (string) $a !== (string) $b;

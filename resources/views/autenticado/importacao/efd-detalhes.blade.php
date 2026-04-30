@@ -151,7 +151,7 @@ function _efdRenderNotas(contentDiv, notas, biHtml, cache, pid) {
                 var tipoHtml = n.tipo_operacao === 'entrada'
                     ? '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: #047857">Entrada</span>'
                     : '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: #d97706">Saída</span>';
-                return '<tr class="hover:bg-gray-50 cursor-pointer" onclick="window.location=\'/app/notas-fiscais/efd/' + n.id + '\'">' +
+                return '<tr class="hover:bg-gray-50 cursor-pointer" onclick="window.location=\'/app/notas/efd/' + n.id + '\'">' +
                     '<td class="px-2 py-1 font-mono text-gray-900">' + (n.numero || '-') + '</td>' +
                     '<td class="px-2 py-1 text-gray-700">' + (n.serie || '-') + '</td>' +
                     '<td class="px-2 py-1 text-gray-700">' + (n.modelo || '-') + '</td>' +

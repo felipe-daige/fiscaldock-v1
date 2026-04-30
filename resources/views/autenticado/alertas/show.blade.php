@@ -114,7 +114,7 @@
                 @if($notaPrincipalId)
                 <div>
                     <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Nota Fiscal Referida</p>
-                    <a href="/app/notas-fiscais/efd/{{ $notaPrincipalId }}" data-link class="inline-flex items-center gap-2 text-sm text-gray-900 hover:text-gray-600 font-medium group transition-colors">
+                    <a href="/app/notas/efd/{{ $notaPrincipalId }}" data-link class="inline-flex items-center gap-2 text-sm text-gray-900 hover:text-gray-600 font-medium group transition-colors">
                         <div class="w-8 h-8 rounded bg-gray-100 flex items-center justify-center text-gray-500 transition-colors">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                         </div>
@@ -466,7 +466,7 @@
                             @endforeach
                             <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-700">
                                 @if(!empty($item['nota_id']))
-                                    <a href="/app/notas-fiscais/efd/{{ $item['nota_id'] }}" data-link class="inline-flex items-center gap-1 text-xs text-gray-700 hover:text-gray-900 hover:underline font-medium">
+                                    <a href="/app/notas/efd/{{ $item['nota_id'] }}" data-link class="inline-flex items-center gap-1 text-xs text-gray-700 hover:text-gray-900 hover:underline font-medium">
                                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                                         Abrir Nota
                                     </a>
@@ -506,7 +506,7 @@
                 </div>
                 @if(!empty($dados['nota_id']))
                 <div class="px-5 pb-5">
-                    <a href="/app/notas-fiscais/efd/{{ $dados['nota_id'] }}" data-link class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 text-gray-700 text-xs font-semibold rounded hover:bg-gray-50 transition-colors">
+                    <a href="/app/notas/efd/{{ $dados['nota_id'] }}" data-link class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 text-gray-700 text-xs font-semibold rounded hover:bg-gray-50 transition-colors">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                         Ir para Nota Fiscal
                     </a>

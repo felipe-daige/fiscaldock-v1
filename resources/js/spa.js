@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
         consultas: '/js/consulta-lote.js',
         consultaLote: '/js/consulta-lote.js',
         bi: null, // Script carregado como tag externa na view — nao tentar recarregar no SPA
-        notasFiscais: null, // Código inline na view
+        notas: null, // Código inline na view (notas/acervo, notas/dashboard, etc)
         alertas: null, // Código inline na view
         clearance: null, // Código inline/script externo por view de clearance
     };
@@ -113,8 +113,8 @@ document.addEventListener('DOMContentLoaded', () => {
         '/app/perfil': 'initPerfil',
         '/app/bi/dashboard': 'initBi',
         '/app/dashboard': 'initDashboard',
-        '/app/notas-fiscais': null, // IIFE inline na view, sem init function
-        '/app/notas-fiscais/dashboard': null, // IIFE inline na view
+        '/app/notas/acervo': null, // IIFE inline na view, sem init function
+        '/app/notas/dashboard': null, // IIFE inline na view
         '/app/alertas': null, // IIFE inline na view
         '/app/clearance/dashboard': null, // Clearance dashboard — IIFE inline
         '/app/clearance/notas': 'initClearanceNotas', // Clearance notas — reinicializa via initClearanceNotas no SPA
