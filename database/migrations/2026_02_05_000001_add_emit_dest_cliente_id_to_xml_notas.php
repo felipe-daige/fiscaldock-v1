@@ -31,8 +31,17 @@ return new class extends Migration
             $table->string('situacao_sefaz', 30)->nullable();
             $table->timestamp('verificado_sefaz_em')->nullable();
 
+            // Resumo persistido da comparação declarado vs SEFAZ.
+            // Populado por XmlNotaSefazSyncObserver quando situacao_sefaz/verificado_sefaz_em mudam.
+            // Permite listagem/dashboard sem rodar ComparacaoNotaService linha a linha.
+            $table->string('divergencia_severidade', 16)->nullable();   // OK | REVISAR | CRITICA
+            $table->unsignedSmallInteger('divergencia_count')->nullable();
+            $table->jsonb('divergencia_resumo')->nullable();
+            $table->timestamp('comparado_em')->nullable();
+
             $table->index('situacao_sefaz');
             $table->index('consulta_lote_id');
+            $table->index('divergencia_severidade');
         });
 
         // Backfill from participantes.cliente_id
@@ -56,7 +65,15 @@ return new class extends Migration
         Schema::table('xml_notas', function (Blueprint $table) {
             $table->dropIndex(['situacao_sefaz']);
             $table->dropIndex(['consulta_lote_id']);
-            $table->dropColumn(['situacao_sefaz', 'verificado_sefaz_em']);
+            $table->dropIndex(['divergencia_severidade']);
+            $table->dropColumn([
+                'situacao_sefaz',
+                'verificado_sefaz_em',
+                'divergencia_severidade',
+                'divergencia_count',
+                'divergencia_resumo',
+                'comparado_em',
+            ]);
             $table->dropConstrainedForeignId('consulta_lote_id');
             $table->dropConstrainedForeignId('emit_cliente_id');
             $table->dropConstrainedForeignId('dest_cliente_id');

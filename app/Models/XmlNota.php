@@ -45,7 +45,17 @@ class XmlNota extends Model
         'consulta_lote_id',
         'situacao_sefaz',
         'verificado_sefaz_em',
+        'divergencia_severidade',
+        'divergencia_count',
+        'divergencia_resumo',
+        'comparado_em',
     ];
+
+    public const DIVERGENCIA_OK = 'OK';
+
+    public const DIVERGENCIA_REVISAR = 'REVISAR';
+
+    public const DIVERGENCIA_CRITICA = 'CRITICA';
 
     protected function casts(): array
     {
@@ -65,6 +75,9 @@ class XmlNota extends Model
             'payload' => 'array',
             'validacao' => 'array',
             'verificado_sefaz_em' => 'datetime',
+            'divergencia_count' => 'integer',
+            'divergencia_resumo' => 'array',
+            'comparado_em' => 'datetime',
         ];
     }
 

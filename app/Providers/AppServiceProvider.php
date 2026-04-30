@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Models\XmlNota;
+use App\Observers\XmlNotaSefazSyncObserver;
 use App\View\Composers\SidebarComposer;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
@@ -29,5 +31,7 @@ class AppServiceProvider extends ServiceProvider
         }
 
         View::composer('autenticado.partials.sidebar', SidebarComposer::class);
+
+        XmlNota::observe(XmlNotaSefazSyncObserver::class);
     }
 }
