@@ -5,13 +5,17 @@ namespace App\Http\Controllers\Dashboard;
 use App\Http\Controllers\Controller;
 use App\Models\Cliente;
 use App\Models\EfdCatalogoItem;
+use App\Services\Catalogo\NotaItemUnificadoService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class CatalogoController extends Controller
 {
     private const AUTH_LAYOUT_VIEW = 'autenticado.layouts.app';
+
+    public function __construct(private readonly NotaItemUnificadoService $itensUnificados) {}
 
     public function index(Request $request)
     {
@@ -37,42 +41,45 @@ class CatalogoController extends Controller
             $baseQuery->where('cliente_id', $filtros['cliente_id']);
         }
 
-        // KPIs
+        // KPIs base do catálogo
         $totalProdutos = (clone $baseQuery)->distinct('cod_item')->count('cod_item');
         $semNcm = (clone $baseQuery)->where(fn ($q) => $q->whereNull('cod_ncm')->orWhere('cod_ncm', ''))->distinct('cod_item')->count('cod_item');
 
-        // Cross-reference with efd_notas_itens
-        $clienteFilter = ! empty($filtros['cliente_id']) ? ' AND ci.cliente_id = ' . ((int) $filtros['cliente_id']) : '';
+        // Movimentação cruzada (XML + EFD com dedup por chave). Evita scan dupla:
+        // pega tudo via service uma vez e indexa por codigo_item.
+        $servicoFiltros = ! empty($filtros['cliente_id']) ? ['cliente_id' => (int) $filtros['cliente_id']] : [];
+        $linhasUnificadas = $this->itensUnificados->itensUnificados($userId, $servicoFiltros);
+        $movimentacaoPorCodigo = $this->indexarMovimentacaoPorCodigo($linhasUnificadas);
 
-        $comMovimentacao = DB::selectOne("
-            SELECT COUNT(DISTINCT ci.cod_item) as total
-            FROM efd_catalogo_itens ci
-            INNER JOIN efd_notas_itens ni ON ni.codigo_item = ci.cod_item AND ni.user_id = ci.user_id
-            WHERE ci.user_id = ?{$clienteFilter}
-        ", [$userId]);
+        // Códigos do catálogo (limitado pelo filtro de cliente_id) pra cruzar com movimentação
+        $codigosCatalogo = (clone $baseQuery)->pluck('cod_item')->unique();
+        $codigosComMovimentacao = $codigosCatalogo->filter(fn ($cod) => isset($movimentacaoPorCodigo[$cod]));
 
-        $valorMovimentado = DB::selectOne("
-            SELECT COALESCE(SUM(ni.valor_total), 0) as total
-            FROM efd_notas_itens ni
-            INNER JOIN efd_catalogo_itens ci ON ci.cod_item = ni.codigo_item AND ci.user_id = ni.user_id
-            WHERE ci.user_id = ?{$clienteFilter}
-        ", [$userId]);
+        $valorMovimentadoTotal = $codigosComMovimentacao->sum(fn ($cod) => $movimentacaoPorCodigo[$cod]['valor_total']);
 
-        $aliqDivergente = DB::selectOne("
-            SELECT COUNT(DISTINCT ci.cod_item) as total
-            FROM efd_catalogo_itens ci
-            INNER JOIN efd_notas_itens ni ON ni.codigo_item = ci.cod_item AND ni.user_id = ci.user_id
-            WHERE ci.user_id = ?
-            AND ci.aliq_icms IS NOT NULL AND ni.aliquota_icms IS NOT NULL
-            AND ABS(ci.aliq_icms - ni.aliquota_icms) > 0.01{$clienteFilter}
-        ", [$userId]);
+        // Alíquota divergente: comparar aliq_icms cadastrada vs média ponderada das notas
+        $aliquotaCadastradaPorCodigo = (clone $baseQuery)
+            ->whereNotNull('aliq_icms')
+            ->select(['cod_item', 'aliq_icms'])
+            ->get()
+            ->groupBy('cod_item')
+            ->map(fn ($linhas) => (float) $linhas->first()->aliq_icms);
+
+        $aliqDivergenteCount = $aliquotaCadastradaPorCodigo->filter(function ($aliqCat, $cod) use ($movimentacaoPorCodigo) {
+            $mov = $movimentacaoPorCodigo[$cod] ?? null;
+            if ($mov === null || $mov['aliq_media'] === null) {
+                return false;
+            }
+
+            return abs($aliqCat - $mov['aliq_media']) > 0.01;
+        })->count();
 
         $kpis = [
             'total_produtos' => $totalProdutos,
-            'com_movimentacao' => (int) ($comMovimentacao->total ?? 0),
-            'sem_movimentacao' => $totalProdutos - (int) ($comMovimentacao->total ?? 0),
-            'valor_movimentado' => (float) ($valorMovimentado->total ?? 0),
-            'aliq_divergente' => (int) ($aliqDivergente->total ?? 0),
+            'com_movimentacao' => $codigosComMovimentacao->count(),
+            'sem_movimentacao' => $totalProdutos - $codigosComMovimentacao->count(),
+            'valor_movimentado' => (float) $valorMovimentadoTotal,
+            'aliq_divergente' => $aliqDivergenteCount,
             'sem_ncm' => $semNcm,
         ];
 
@@ -82,10 +89,7 @@ class CatalogoController extends Controller
             ->groupBy('cod_item');
 
         $itensQuery = EfdCatalogoItem::whereIn('id', $latestIds)
-            ->select('efd_catalogo_itens.*')
-            ->addSelect(DB::raw("(SELECT COUNT(*) FROM efd_notas_itens ni WHERE ni.codigo_item = efd_catalogo_itens.cod_item AND ni.user_id = {$userId}) as total_movimentacoes"))
-            ->addSelect(DB::raw("(SELECT COALESCE(SUM(ni.valor_total), 0) FROM efd_notas_itens ni WHERE ni.codigo_item = efd_catalogo_itens.cod_item AND ni.user_id = {$userId}) as valor_movimentado"))
-            ->addSelect(DB::raw("(SELECT AVG(ni.aliquota_icms) FROM efd_notas_itens ni WHERE ni.codigo_item = efd_catalogo_itens.cod_item AND ni.user_id = {$userId} AND ni.aliquota_icms IS NOT NULL) as aliq_icms_media_notas"));
+            ->select('efd_catalogo_itens.*');
 
         // Filtros
         if (! empty($filtros['tipo_item'])) {
@@ -110,31 +114,47 @@ class CatalogoController extends Controller
             ->limit($perPage)
             ->get();
 
+        // Anota cada item da página com movimentação unificada (XML+EFD)
+        foreach ($itens as $item) {
+            $mov = $movimentacaoPorCodigo[$item->cod_item] ?? null;
+            $item->total_movimentacoes = $mov['total_ocorrencias'] ?? 0;
+            $item->valor_movimentado = $mov['valor_total'] ?? 0.0;
+            $item->aliq_icms_media_notas = $mov['aliq_media'] ?? null;
+            $item->origens_movimentacao = $mov['origens'] ?? [];
+        }
+
         $clientes = Cliente::where('user_id', $userId)
             ->orderBy('razao_social')
             ->get(['id', 'razao_social']);
 
-        // Chart data — Top 10 CFOPs
-        $cfops = DB::select("
-            SELECT ni.cfop, COUNT(*) as total, SUM(ni.valor_total) as valor
-            FROM efd_notas_itens ni
-            INNER JOIN efd_catalogo_itens ci ON ci.cod_item = ni.codigo_item AND ci.user_id = ni.user_id
-            WHERE ci.user_id = ? AND ni.cfop IS NOT NULL{$clienteFilter}
-            GROUP BY ni.cfop
-            ORDER BY total DESC
-            LIMIT 10
-        ", [$userId]);
+        // Charts — top 10 CFOPs/CSTs cruzando catálogo × movimentação unificada
+        $codigosNoCatalogo = $codigosCatalogo->flip(); // O(1) lookup
+        $linhasNoCatalogo = $linhasUnificadas->filter(fn ($l) => $codigosNoCatalogo->has($l->codigo_item));
 
-        // Chart data — Top 10 CSTs ICMS
-        $cstsIcms = DB::select("
-            SELECT ni.cst_icms, COUNT(*) as total
-            FROM efd_notas_itens ni
-            INNER JOIN efd_catalogo_itens ci ON ci.cod_item = ni.codigo_item AND ci.user_id = ni.user_id
-            WHERE ci.user_id = ? AND ni.cst_icms IS NOT NULL AND ni.cst_icms != ''{$clienteFilter}
-            GROUP BY ni.cst_icms
-            ORDER BY total DESC
-            LIMIT 10
-        ", [$userId]);
+        $cfops = $linhasNoCatalogo
+            ->filter(fn ($l) => filled($l->cfop))
+            ->groupBy(fn ($l) => (string) $l->cfop)
+            ->map(fn ($grupo, $cfop) => (object) [
+                'cfop' => (string) $cfop,
+                'total' => $grupo->count(),
+                'valor' => (float) $grupo->sum('valor_total'),
+            ])
+            ->sortByDesc('total')
+            ->take(10)
+            ->values()
+            ->all();
+
+        $cstsIcms = $linhasNoCatalogo
+            ->filter(fn ($l) => filled($l->cst_icms))
+            ->groupBy(fn ($l) => (string) $l->cst_icms)
+            ->map(fn ($grupo, $cst) => (object) [
+                'cst_icms' => (string) $cst,
+                'total' => $grupo->count(),
+            ])
+            ->sortByDesc('total')
+            ->take(10)
+            ->values()
+            ->all();
 
         $data = [
             'itens' => $itens,
@@ -351,6 +371,35 @@ class CatalogoController extends Controller
         $html .= '</div>';
 
         return response($html)->header('Content-Type', 'text/html');
+    }
+
+    /**
+     * Agrega linhas brutas do service unificado em métricas por codigo_item.
+     * Calcula alíquota média ponderada por valor_total (não média simples).
+     *
+     * @return array<string, array{total_ocorrencias: int, valor_total: float, aliq_media: ?float, origens: array<string>}>
+     */
+    private function indexarMovimentacaoPorCodigo(Collection $linhas): array
+    {
+        $resultado = [];
+
+        foreach ($linhas->groupBy('codigo_item') as $codigo => $grupo) {
+            $valorTotal = (float) $grupo->sum('valor_total');
+            $somaPonderada = $grupo
+                ->filter(fn ($l) => $l->aliquota_icms !== null)
+                ->sum(fn ($l) => (float) $l->aliquota_icms * (float) $l->valor_total);
+
+            $resultado[(string) $codigo] = [
+                'total_ocorrencias' => $grupo->count(),
+                'valor_total' => $valorTotal,
+                'aliq_media' => $valorTotal > 0 && $somaPonderada > 0
+                    ? round($somaPonderada / $valorTotal, 4)
+                    : null,
+                'origens' => $grupo->pluck('origem')->unique()->values()->all(),
+            ];
+        }
+
+        return $resultado;
     }
 
     private function isAjaxRequest(Request $request): bool
