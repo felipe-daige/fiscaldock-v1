@@ -9,6 +9,7 @@ use App\Models\ConsultaLote;
 use App\Models\EfdNota;
 use App\Models\XmlImportacao;
 use App\Models\XmlNota;
+use App\Services\Catalogo\AlertasCatalogoService;
 use App\Services\Clearance\DivergenciaService;
 use App\Services\CreditService;
 use App\Services\NotaFiscalService;
@@ -1900,6 +1901,14 @@ class ClearanceController extends Controller
             ->first();
 
         $indicadores = app(\App\Services\Clearance\Comparacao\DivergenciaIndicadoresService::class);
+        $alertasCatalogo = app(AlertasCatalogoService::class);
+        $catalogoAlertasLista = $alertasCatalogo->gerar((int) $userId);
+        $catalogoAlertasResumo = [
+            AlertasCatalogoService::TIPO_SEM_CATALOGO => $catalogoAlertasLista->where('tipo', AlertasCatalogoService::TIPO_SEM_CATALOGO)->count(),
+            AlertasCatalogoService::TIPO_NCM_DIVERGENTE => $catalogoAlertasLista->where('tipo', AlertasCatalogoService::TIPO_NCM_DIVERGENTE)->count(),
+            AlertasCatalogoService::TIPO_UNIDADE_DIVERGENTE => $catalogoAlertasLista->where('tipo', AlertasCatalogoService::TIPO_UNIDADE_DIVERGENTE)->count(),
+            AlertasCatalogoService::TIPO_ALIQUOTA_INCOMPATIVEL => $catalogoAlertasLista->where('tipo', AlertasCatalogoService::TIPO_ALIQUOTA_INCOMPATIVEL)->count(),
+        ];
 
         $data = [
             'notas' => $notas,
@@ -1913,6 +1922,11 @@ class ClearanceController extends Controller
             'categorias' => $this->validacaoService->getCategorias(),
             'divergenciaResumo' => $indicadores->resumo($userId),
             'notasCriticasDivergencia' => $indicadores->notasCriticas($userId, 10),
+            'catalogoAlertasResumo' => $catalogoAlertasResumo,
+            'catalogoAlertasTop' => $catalogoAlertasLista
+                ->sortByDesc('valor_movimentado')
+                ->take(10)
+                ->values(),
         ];
 
         return $this->render($request, 'alertas', $data);

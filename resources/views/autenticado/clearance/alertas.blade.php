@@ -6,11 +6,34 @@
     $categorias = $categorias ?? [];
     $divergenciaResumo = $divergenciaResumo ?? ['critica' => 0, 'revisar' => 0, 'valor_exposto' => 0];
     $notasCriticasDivergencia = $notasCriticasDivergencia ?? [];
+    $catalogoAlertasResumo = $catalogoAlertasResumo ?? [
+        'sem_catalogo' => 0,
+        'ncm_divergente' => 0,
+        'unidade_divergente' => 0,
+        'aliquota_incompativel' => 0,
+    ];
+    $catalogoAlertasTop = $catalogoAlertasTop ?? collect();
 
     $cards = [
         'bloqueante' => ['label' => 'Bloqueantes', 'hex' => '#dc2626', 'valor' => $contadores['bloqueante'] ?? 0],
         'atencao' => ['label' => 'Atenção', 'hex' => '#d97706', 'valor' => $contadores['atencao'] ?? 0],
         'info' => ['label' => 'Informativos', 'hex' => '#374151', 'valor' => $contadores['info'] ?? 0],
+    ];
+
+    $catalogoCards = [
+        'sem_catalogo' => ['label' => 'Sem catálogo', 'hex' => '#dc2626', 'descricao' => 'Itens declarados em notas sem registro no 0200'],
+        'ncm_divergente' => ['label' => 'NCM divergente', 'hex' => '#d97706', 'descricao' => 'NCM cadastrado ≠ NCM declarado'],
+        'unidade_divergente' => ['label' => 'Unidade divergente', 'hex' => '#d97706', 'descricao' => 'Unidade catalogada ≠ unidade da nota'],
+        'aliquota_incompativel' => ['label' => 'Alíquota incompatível', 'hex' => '#b45309', 'descricao' => 'Cadastrado vs ponderado das notas (tol. 0,5pp)'],
+    ];
+
+    $catalogoTotalAlertas = array_sum($catalogoAlertasResumo);
+
+    $tipoAlertaLabel = [
+        'sem_catalogo' => ['label' => 'Sem catálogo', 'hex' => '#dc2626'],
+        'ncm_divergente' => ['label' => 'NCM', 'hex' => '#d97706'],
+        'unidade_divergente' => ['label' => 'Unidade', 'hex' => '#d97706'],
+        'aliquota_incompativel' => ['label' => 'Alíquota', 'hex' => '#b45309'],
     ];
 
     $classificacaoHex = [
@@ -93,6 +116,59 @@
                                         @if(! empty($nc['chave']) && strlen($nc['chave']) === 44)
                                             <a href="{{ route('app.clearance.nota.comparar', ['chave' => $nc['chave']]) }}" data-link class="text-[11px] text-blue-700 hover:underline">Comparar ↗</a>
                                         @endif
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+            </div>
+        @endif
+
+        @if($catalogoTotalAlertas > 0)
+            <div class="bg-white rounded border border-gray-300 overflow-hidden mb-6">
+                <div class="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
+                    <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Catálogo × Notas</span>
+                    <span class="text-[10px] font-semibold text-gray-400">XML + EFD com dedup por chave</span>
+                </div>
+                <div class="grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-gray-200">
+                    @foreach($catalogoCards as $tipo => $card)
+                        <div class="block p-4">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">{{ $card['label'] }}</span>
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $card['hex'] }}">{{ number_format($catalogoAlertasResumo[$tipo] ?? 0, 0, ',', '.') }}</span>
+                            </div>
+                            <p class="text-lg font-bold text-gray-900">{{ number_format($catalogoAlertasResumo[$tipo] ?? 0, 0, ',', '.') }}</p>
+                            <p class="text-[11px] text-gray-500 mt-1">{{ $card['descricao'] }}</p>
+                        </div>
+                    @endforeach
+                </div>
+
+                @if(count($catalogoAlertasTop) > 0)
+                    <div class="border-t border-gray-200">
+                        <div class="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
+                            <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Top itens em risco (por valor movimentado)</span>
+                            <span class="text-[10px] font-semibold text-gray-400">Top {{ count($catalogoAlertasTop) }}</span>
+                        </div>
+                        <div class="divide-y divide-gray-100">
+                            @foreach($catalogoAlertasTop as $alerta)
+                                @php
+                                    $tag = $tipoAlertaLabel[$alerta['tipo']] ?? ['label' => $alerta['tipo'], 'hex' => '#374151'];
+                                @endphp
+                                <div class="px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between hover:bg-gray-50/50">
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-sm text-gray-900 truncate">
+                                            <span class="font-mono">{{ $alerta['codigo_item'] }}</span>
+                                            @if(! empty($alerta['descricao']))
+                                                — <span class="text-gray-700">{{ $alerta['descricao'] }}</span>
+                                            @endif
+                                        </p>
+                                        <p class="text-[11px] text-gray-500 mt-0.5">{{ $alerta['detalhe'] }}</p>
+                                    </div>
+                                    <div class="flex items-center gap-2 self-start whitespace-nowrap">
+                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $tag['hex'] }}">{{ $tag['label'] }}</span>
+                                        <span class="text-xs text-gray-700 font-mono">{{ $alerta['total_notas'] }} nota(s)</span>
+                                        <span class="text-xs text-gray-700 font-mono">R$ {{ number_format($alerta['valor_movimentado'], 2, ',', '.') }}</span>
                                     </div>
                                 </div>
                             @endforeach
