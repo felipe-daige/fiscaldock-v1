@@ -242,6 +242,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/notas/todos-ids', [ClearanceController::class, 'todosIds'])->name('todos-ids');
         Route::post('/notas/validar', [ClearanceController::class, 'validarNotas'])->name('validar');
         Route::get('/notas/resultado/{consultaLoteId}', [ClearanceController::class, 'resultadoNotas'])->name('notas.resultado');
+        Route::get('/notas/resultado/{consultaLoteId}/pendentes', [ClearanceController::class, 'pendentesLote'])->name('notas.pendentes');
+        Route::post('/notas/resultado/{consultaLoteId}/retentar', [ClearanceController::class, 'retentarLote'])->name('notas.retentar');
         Route::get('/buscar', [ClearanceController::class, 'buscarNfe'])->name('buscar');
         Route::post('/buscar/consultar', [ClearanceController::class, 'consultarNfe'])->name('buscar.consultar');
         Route::get('/buscar/resultado/{consultaLoteId}', [ClearanceController::class, 'resultadoUltimaConsulta'])->name('buscar.resultado');
@@ -304,6 +306,10 @@ Route::middleware('auth')->group(function () {
 
         // Resultados de um lote (para exibição inline)
         Route::get('/lote/{id}/resultados', [ConsultaController::class, 'resultadosLote'])->name('lote.resultados');
+
+        // Retry de pendentes (Compliance)
+        Route::get('/lote/{id}/pendentes', [ConsultaController::class, 'pendentesLote'])->name('lote.pendentes');
+        Route::post('/lote/{id}/retentar', [ConsultaController::class, 'retentarLote'])->name('lote.retentar');
 
     });
 

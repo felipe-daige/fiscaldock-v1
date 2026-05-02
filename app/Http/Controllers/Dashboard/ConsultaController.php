@@ -1301,7 +1301,8 @@ class ConsultaController extends Controller
         // Lotes de consultas (excluindo lotes associados à empresa própria)
         $baseQuery = ConsultaLote::where('user_id', $user->id)
             ->whereDoesntHave('cliente', fn ($q) => $q->where('is_empresa_propria', true))
-            ->with('plano');
+            ->with('plano')
+            ->withCount('retryLotes');
 
         if (! empty($validated['busca'])) {
             $busca = trim($validated['busca']);
@@ -1783,6 +1784,297 @@ class ConsultaController extends Controller
         }
 
         return $etapa;
+    }
+
+    /**
+     * Lista participantes pendentes de um lote (não consultados ou que falharam).
+     * Usado pelo modal "Retentar pendentes".
+     */
+    public function pendentesLote(Request $request, int $id): JsonResponse
+    {
+        if (! Auth::check()) {
+            return response()->json(['success' => false, 'error' => 'Não autenticado.'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $user = Auth::user();
+
+        $lote = ConsultaLote::with('plano')
+            ->where('id', $id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (! $lote) {
+            return response()->json(['success' => false, 'error' => 'Lote não encontrado.'], Response::HTTP_NOT_FOUND);
+        }
+
+        $pendentes = $this->buildPendentesLote($lote);
+
+        $custoUnitario = $lote->plano
+            ? $this->pricingCatalogService->getProductCreditsByPlan($lote->plano, $user)
+            : 0;
+        $custoTotal = $pendentes->count() * $custoUnitario;
+
+        return response()->json([
+            'success' => true,
+            'lote_id' => $lote->id,
+            'plano' => $lote->plano?->nome,
+            'pendentes' => $pendentes->values(),
+            'custo_unitario' => $custoUnitario,
+            'custo_total' => $custoTotal,
+            'saldo_atual' => $this->creditService->getBalance($user),
+            'is_gratuito' => $lote->plano?->is_gratuito ?? false,
+        ]);
+    }
+
+    /**
+     * Cria um novo lote (retry) com os participantes pendentes selecionados.
+     * Cobra como uma nova consulta; preserva referência ao lote pai via parent_lote_id.
+     */
+    public function retentarLote(Request $request, int $id): JsonResponse
+    {
+        if (! Auth::check()) {
+            return response()->json(['success' => false, 'error' => 'Não autenticado.'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $user = Auth::user();
+
+        $validated = $request->validate([
+            'participante_ids' => 'required|array|min:1|max:1000',
+            'participante_ids.*' => 'integer|exists:participantes,id',
+            'tab_id' => 'required|string|max:36',
+        ]);
+
+        $loteOriginal = ConsultaLote::with('plano')
+            ->where('id', $id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (! $loteOriginal) {
+            return response()->json(['success' => false, 'error' => 'Lote não encontrado.'], Response::HTTP_NOT_FOUND);
+        }
+
+        $plano = $loteOriginal->plano;
+
+        if (! $plano || ! $plano->is_active) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Plano original não está mais disponível para retry.',
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        $pendentesIds = $this->buildPendentesLote($loteOriginal)->pluck('id')->all();
+
+        if (empty($pendentesIds)) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Nenhum pendente para retentar neste lote.',
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $idsValidos = array_values(array_intersect($validated['participante_ids'], $pendentesIds));
+
+        if (empty($idsValidos)) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Os participantes selecionados não estão pendentes neste lote.',
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $participantes = Participante::where('user_id', $user->id)
+            ->whereIn('id', $idsValidos)
+            ->get(['id', 'documento', 'razao_social', 'uf', 'crt']);
+
+        if ($participantes->count() !== count($idsValidos)) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Participantes inválidos para retry.',
+            ], Response::HTTP_FORBIDDEN);
+        }
+
+        $custoUnitario = $this->pricingCatalogService->getProductCreditsByPlan($plano, $user);
+        $custoTotal = $participantes->count() * $custoUnitario;
+
+        if (! $plano->is_gratuito && ! $this->creditService->hasEnough($user, $custoTotal)) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Créditos insuficientes para retry.',
+                'creditos_necessarios' => $custoTotal,
+                'creditos_disponiveis' => $this->creditService->getBalance($user),
+            ], Response::HTTP_PAYMENT_REQUIRED);
+        }
+
+        $webhookUrl = config('services.webhook.consultas_cnpj_url');
+
+        if (empty($webhookUrl)) {
+            Log::error('Retry consulta: webhook não configurado');
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Configuração de webhook ausente.',
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        try {
+            if (! $plano->is_gratuito) {
+                $debitado = $this->creditService->deduct($user, $custoTotal);
+                if (! $debitado) {
+                    return response()->json([
+                        'success' => false,
+                        'error' => 'Falha ao debitar créditos.',
+                    ], Response::HTTP_INTERNAL_SERVER_ERROR);
+                }
+            }
+
+            $loteRetry = ConsultaLote::create([
+                'user_id' => $user->id,
+                'cliente_id' => $loteOriginal->cliente_id,
+                'plano_id' => $plano->id,
+                'status' => ConsultaLote::STATUS_PROCESSANDO,
+                'total_participantes' => $participantes->count(),
+                'creditos_cobrados' => $custoTotal,
+                'tab_id' => $validated['tab_id'],
+                'parent_lote_id' => $loteOriginal->id,
+            ]);
+
+            $loteRetry->participantes()->attach($participantes->pluck('id')->all());
+
+            Log::info('Retry consulta: lote criado', [
+                'consulta_lote_id' => $loteRetry->id,
+                'parent_lote_id' => $loteOriginal->id,
+                'user_id' => $user->id,
+                'plano' => $plano->codigo,
+                'total_participantes' => $participantes->count(),
+                'creditos_cobrados' => $custoTotal,
+            ]);
+
+            $payload = [
+                'user_id' => $user->id,
+                'consulta_lote_id' => $loteRetry->id,
+                'parent_lote_id' => $loteOriginal->id,
+                'tab_id' => $validated['tab_id'],
+                'plano_codigo' => $plano->codigo,
+                'consultas_incluidas' => $plano->resolvedConsultasIncluidas(),
+                'etapas' => $plano->resolvedEtapas(),
+                'total_etapas' => $plano->resolvedTotalEtapas(),
+                'participantes' => $participantes->map(fn ($p) => [
+                    'id' => $p->id,
+                    'cnpj' => preg_replace('/[^0-9]/', '', $p->documento),
+                    'razao_social' => $p->razao_social,
+                    'uf' => $p->uf,
+                    'crt' => $p->crt,
+                ])->toArray(),
+                'progress_url' => url('/api/consultas/progresso'),
+                'is_retry' => true,
+            ];
+
+            $response = Http::timeout(15)
+                ->withHeaders([
+                    'X-API-Token' => config('services.api.token'),
+                    'Content-Type' => 'application/json',
+                ])
+                ->post($webhookUrl, $payload);
+
+            if ($response->successful()) {
+                return response()->json([
+                    'success' => true,
+                    'consulta_lote_id' => $loteRetry->id,
+                    'parent_lote_id' => $loteOriginal->id,
+                    'redirect_url' => route('app.consulta.lote.show', ['id' => $loteRetry->id]),
+                    'creditos_cobrados' => $custoTotal,
+                    'novo_saldo' => $this->creditService->getBalance($user),
+                ]);
+            }
+
+            if (! $plano->is_gratuito) {
+                $this->creditService->add($user, $custoTotal);
+            }
+
+            $loteRetry->update([
+                'status' => ConsultaLote::STATUS_ERRO,
+                'error_code' => 'WEBHOOK_ERROR',
+                'error_message' => 'Erro ao enviar retry para processamento: '.$response->status(),
+            ]);
+
+            Log::error('Retry consulta: erro na resposta do n8n', [
+                'consulta_lote_id' => $loteRetry->id,
+                'response_status' => $response->status(),
+                'response_body' => $response->body(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Erro ao iniciar retry. Créditos foram estornados.',
+            ], Response::HTTP_BAD_GATEWAY);
+        } catch (\Exception $e) {
+            Log::error('Retry consulta: exceção', [
+                'parent_lote_id' => $loteOriginal->id,
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            if (isset($loteRetry)) {
+                $loteRetry->update([
+                    'status' => ConsultaLote::STATUS_ERRO,
+                    'error_code' => 'INTERNAL_ERROR',
+                    'error_message' => $e->getMessage(),
+                ]);
+
+                if (! $plano->is_gratuito && $custoTotal > 0) {
+                    $this->creditService->add($user, $custoTotal);
+                }
+            }
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Erro interno ao processar retry.',
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Identifica participantes do lote sem resultado de sucesso.
+     * Pendente = sem `consulta_resultado` OU status em (pendente, erro, timeout).
+     */
+    private function buildPendentesLote(ConsultaLote $lote): Collection
+    {
+        $statusNaoConcluidos = [
+            ConsultaResultado::STATUS_PENDENTE,
+            ConsultaResultado::STATUS_ERRO,
+            ConsultaResultado::STATUS_TIMEOUT,
+        ];
+
+        $resultadosPorParticipante = ConsultaResultado::query()
+            ->where('consulta_lote_id', $lote->id)
+            ->get(['participante_id', 'status', 'error_message'])
+            ->keyBy('participante_id');
+
+        return $lote->participantes()
+            ->select('participantes.id', 'participantes.documento', 'participantes.razao_social', 'participantes.uf')
+            ->get()
+            ->map(function ($p) use ($resultadosPorParticipante, $statusNaoConcluidos) {
+                $resultado = $resultadosPorParticipante->get($p->id);
+
+                if ($resultado && $resultado->status === ConsultaResultado::STATUS_SUCESSO) {
+                    return null;
+                }
+
+                $statusEfetivo = $resultado?->status ?? ConsultaResultado::STATUS_PENDENTE;
+
+                if (! in_array($statusEfetivo, $statusNaoConcluidos, true)) {
+                    return null;
+                }
+
+                return [
+                    'id' => $p->id,
+                    'cnpj' => $p->documento,
+                    'razao_social' => $p->razao_social,
+                    'uf' => $p->uf,
+                    'status' => $statusEfetivo,
+                    'error_message' => $resultado?->error_message,
+                ];
+            })
+            ->filter()
+            ->values();
     }
 
     /**

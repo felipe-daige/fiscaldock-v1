@@ -2312,4 +2312,325 @@ class ClearanceController extends Controller
 
         return redirect('/login');
     }
+
+    /**
+     * Lista notas pendentes (sem snapshot SEFAZ) de um lote de clearance.
+     * Pendente = xml_notas.consulta_lote_id = lote AND verificado_sefaz_em IS NULL.
+     */
+    public function pendentesLote(Request $request, int $consultaLoteId)
+    {
+        if (! Auth::check()) {
+            return response()->json(['success' => false, 'error' => 'Não autenticado.'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $userId = Auth::id();
+        $user = Auth::user();
+
+        $lote = ConsultaLote::where('id', $consultaLoteId)
+            ->where('user_id', $userId)
+            ->first();
+
+        if (! $lote) {
+            return response()->json(['success' => false, 'error' => 'Lote não encontrado.'], Response::HTTP_NOT_FOUND);
+        }
+
+        $pendentes = $this->buildPendentesClearance($lote);
+
+        $custoUnitario = $this->custoUnitarioRetryClearance($lote);
+        $custoTotal = $pendentes->count() * $custoUnitario;
+
+        return response()->json([
+            'success' => true,
+            'lote_id' => $lote->id,
+            'pendentes' => $pendentes->values(),
+            'custo_unitario' => $custoUnitario,
+            'custo_total' => $custoTotal,
+            'saldo_atual' => $this->creditService->getBalance($user),
+        ]);
+    }
+
+    /**
+     * Cria novo lote de clearance a partir das notas pendentes selecionadas.
+     */
+    public function retentarLote(Request $request, int $consultaLoteId)
+    {
+        if (! Auth::check()) {
+            return response()->json(['success' => false, 'error' => 'Não autenticado.'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $userId = Auth::id();
+        $user = Auth::user();
+
+        $validated = $request->validate([
+            'nota_ids' => 'required|array|min:1|max:1000',
+            'nota_ids.*' => 'integer',
+            'tab_id' => 'required|string|max:36',
+            'tipo' => 'nullable|in:basico,full,completa,deep,local',
+        ]);
+
+        $loteOriginal = ConsultaLote::where('id', $consultaLoteId)
+            ->where('user_id', $userId)
+            ->first();
+
+        if (! $loteOriginal) {
+            return response()->json(['success' => false, 'error' => 'Lote não encontrado.'], Response::HTTP_NOT_FOUND);
+        }
+
+        $pendentesIds = $this->buildPendentesClearance($loteOriginal)->pluck('id')->all();
+
+        if (empty($pendentesIds)) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Nenhum pendente para retentar neste lote.',
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $idsValidos = array_values(array_intersect($validated['nota_ids'], $pendentesIds));
+
+        if (empty($idsValidos)) {
+            return response()->json([
+                'success' => false,
+                'error' => 'As notas selecionadas não estão pendentes neste lote.',
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $tipo = $this->normalizarTier($validated['tipo'] ?? 'basico');
+        $tabId = $validated['tab_id'];
+
+        $custo = $this->validacaoService->calcularCusto(
+            $idsValidos,
+            array_fill_keys($idsValidos, 'xml'),
+            $userId,
+            $tipo
+        );
+
+        if ($custo['custo_total'] > 0 && ! $this->creditService->hasEnough($user, $custo['custo_total'])) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Créditos insuficientes para retry.',
+                'custo_necessario' => $custo['custo_total'],
+                'saldo_atual' => $this->creditService->getBalance($user),
+            ], Response::HTTP_PAYMENT_REQUIRED);
+        }
+
+        $webhookUrl = config('services.webhook.consultas_notas_url');
+
+        if (empty($webhookUrl)) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Webhook de clearance não configurado.',
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        $notasPayload = $this->montarPayloadNotasClearance(
+            $idsValidos,
+            array_fill_keys($idsValidos, 'xml'),
+            $userId
+        );
+
+        if (empty($notasPayload)) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Falha ao montar payload do retry.',
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        $loteRetry = null;
+
+        try {
+            if ($custo['custo_total'] > 0) {
+                $this->creditService->deduct($user, $custo['custo_total']);
+            }
+
+            $loteRetry = ConsultaLote::create([
+                'user_id' => $userId,
+                'cliente_id' => $loteOriginal->cliente_id,
+                'plano_id' => $loteOriginal->plano_id,
+                'status' => ConsultaLote::STATUS_PROCESSANDO,
+                'total_participantes' => count($notasPayload),
+                'creditos_cobrados' => $custo['custo_total'],
+                'tab_id' => $tabId,
+                'parent_lote_id' => $loteOriginal->id,
+            ]);
+
+            $totalNfe = collect($notasPayload)
+                ->filter(fn (array $nota) => ($nota['tipo_documento'] ?? null) === 'NFE')
+                ->count();
+            $totalCte = collect($notasPayload)
+                ->filter(fn (array $nota) => ($nota['tipo_documento'] ?? null) === 'CTE')
+                ->count();
+
+            $payload = [
+                'user_id' => $userId,
+                'consulta_lote_id' => $loteRetry->id,
+                'parent_lote_id' => $loteOriginal->id,
+                'tab_id' => $tabId,
+                'tipo_validacao' => $tipo,
+                'total_notas' => count($notasPayload),
+                'total_nfe' => $totalNfe,
+                'total_cte' => $totalCte,
+                'notas' => $notasPayload,
+                'progress_url' => url('/api/consultas/progresso'),
+                'is_retry' => true,
+            ];
+
+            if (! empty($tabId)) {
+                Cache::put(
+                    "progresso:{$userId}:{$tabId}",
+                    $this->buildClearanceNotasInitialProgressCache(
+                        $userId,
+                        $tabId,
+                        $loteRetry->id,
+                        $tipo,
+                        $totalNfe,
+                        $totalCte
+                    ),
+                    600
+                );
+            }
+
+            $response = Http::timeout(15)
+                ->withHeaders([
+                    'X-API-Token' => config('services.api.token'),
+                    'Content-Type' => 'application/json',
+                ])
+                ->post($webhookUrl, $payload);
+
+            if (! $response->successful()) {
+                if ($custo['custo_total'] > 0) {
+                    $this->creditService->add(
+                        $user,
+                        $custo['custo_total'],
+                        'clearance_retry_refund',
+                        'Estorno - webhook clearance retry indisponível'
+                    );
+                }
+
+                $loteRetry->update([
+                    'status' => ConsultaLote::STATUS_ERRO,
+                    'error_code' => 'WEBHOOK_ERROR',
+                    'error_message' => 'Webhook n8n respondeu '.$response->status(),
+                ]);
+
+                Log::error('Clearance retry: webhook retornou erro', [
+                    'consulta_lote_id' => $loteRetry->id,
+                    'parent_lote_id' => $loteOriginal->id,
+                    'response_status' => $response->status(),
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Erro ao iniciar retry. Créditos foram estornados.',
+                ], Response::HTTP_BAD_GATEWAY);
+            }
+
+            Log::info('Clearance retry: lote criado e despachado', [
+                'consulta_lote_id' => $loteRetry->id,
+                'parent_lote_id' => $loteOriginal->id,
+                'user_id' => $userId,
+                'total_notas' => count($notasPayload),
+                'creditos_cobrados' => $custo['custo_total'],
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'consulta_lote_id' => $loteRetry->id,
+                'parent_lote_id' => $loteOriginal->id,
+                'redirect_url' => route('app.clearance.notas.resultado', [
+                    'consultaLoteId' => $loteRetry->id,
+                    'tipo_validacao' => $tipo,
+                ]),
+                'creditos_cobrados' => $custo['custo_total'],
+                'novo_saldo' => $this->creditService->getBalance($user),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Clearance retry: exceção', [
+                'parent_lote_id' => $loteOriginal->id,
+                'user_id' => $userId,
+                'error' => $e->getMessage(),
+            ]);
+
+            if ($loteRetry) {
+                $loteRetry->update([
+                    'status' => ConsultaLote::STATUS_ERRO,
+                    'error_code' => 'INTERNAL_ERROR',
+                    'error_message' => $e->getMessage(),
+                ]);
+            }
+
+            if ($custo['custo_total'] > 0) {
+                $this->creditService->add(
+                    $user,
+                    $custo['custo_total'],
+                    'clearance_retry_refund',
+                    'Estorno - exceção ao despachar clearance retry'
+                );
+            }
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Erro interno ao processar retry.',
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Identifica notas do lote sem snapshot SEFAZ persistido.
+     * Pendente = xml_notas vinculada ao lote com verificado_sefaz_em IS NULL.
+     */
+    private function buildPendentesClearance(ConsultaLote $lote): Collection
+    {
+        return XmlNota::query()
+            ->where('user_id', $lote->user_id)
+            ->where('consulta_lote_id', $lote->id)
+            ->whereNull('verificado_sefaz_em')
+            ->orderBy('id')
+            ->get([
+                'id',
+                'nfe_id',
+                'tipo_documento',
+                'numero_nota',
+                'serie',
+                'data_emissao',
+                'valor_total',
+                'emit_cnpj',
+                'emit_razao_social',
+                'emit_uf',
+                'situacao_sefaz',
+            ])
+            ->map(function (XmlNota $nota) {
+                $chave = (string) ($nota->nfe_id ?? '');
+                $sufixo = strlen($chave) >= 8 ? substr($chave, -8) : $chave;
+
+                return [
+                    'id' => $nota->id,
+                    'chave_acesso' => $chave,
+                    'chave_sufixo' => $sufixo,
+                    'tipo_documento' => strtoupper((string) ($nota->tipo_documento ?: 'NFE')),
+                    'numero' => $nota->numero_nota,
+                    'serie' => $nota->serie,
+                    'data_emissao' => $nota->data_emissao?->format('Y-m-d'),
+                    'valor_total' => $nota->valor_total !== null ? (float) $nota->valor_total : null,
+                    'emit_cnpj' => $nota->emit_cnpj,
+                    'emit_razao_social' => $nota->emit_razao_social,
+                    'emit_uf' => $nota->emit_uf,
+                    'status' => $nota->situacao_sefaz ?: 'pendente',
+                ];
+            });
+    }
+
+    /**
+     * Custo unitário (por nota) para retry de clearance — replica do plano original.
+     */
+    private function custoUnitarioRetryClearance(ConsultaLote $lote): int
+    {
+        $creditos = (int) ($lote->creditos_cobrados ?? 0);
+        $total = (int) ($lote->total_participantes ?? 0);
+
+        if ($total <= 0 || $creditos <= 0) {
+            return (int) config('clearance.custo_unitario_padrao', 1);
+        }
+
+        return (int) ceil($creditos / max(1, $total));
+    }
 }

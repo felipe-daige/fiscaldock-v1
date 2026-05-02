@@ -162,7 +162,15 @@
                                 @endphp
                                 <tr class="hover:bg-gray-50/50 transition-colors">
                                     <td class="px-3 py-3">
-                                        <div class="text-sm text-gray-900 font-medium">Lote #{{ $lote->id }}</div>
+                                        <div class="text-sm text-gray-900 font-medium flex items-center flex-wrap gap-1.5">
+                                            Lote #{{ $lote->id }}
+                                            @if($lote->parent_lote_id)
+                                                <a href="/app/consulta/lote/{{ $lote->parent_lote_id }}" data-link class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide text-white hover:opacity-80" style="background-color: #6366f1" title="Lote derivado de #{{ $lote->parent_lote_id }}">↺ Retry de #{{ $lote->parent_lote_id }}</a>
+                                            @endif
+                                            @if(($lote->retry_lotes_count ?? 0) > 0)
+                                                <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide text-white" style="background-color: #0891b2" title="Este lote teve {{ $lote->retry_lotes_count }} retry(s)">+{{ $lote->retry_lotes_count }} retry</span>
+                                            @endif
+                                        </div>
                                         <div class="text-[11px] text-gray-500 mt-1">{{ $lote->created_at->format('d/m/Y H:i') }}</div>
                                     </td>
                                     <td class="px-3 py-3 text-sm text-gray-700">
@@ -225,6 +233,16 @@
                                 <div class="min-w-0">
                                     <p class="text-[10px] text-gray-400 uppercase">Lote</p>
                                     <p class="text-sm text-gray-900 font-medium">#{{ $lote->id }} · {{ $lote->plano?->nome ?? 'Sem plano' }}</p>
+                                    @if($lote->parent_lote_id || ($lote->retry_lotes_count ?? 0) > 0)
+                                        <div class="flex items-center flex-wrap gap-1 mt-1">
+                                            @if($lote->parent_lote_id)
+                                                <a href="/app/consulta/lote/{{ $lote->parent_lote_id }}" data-link class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide text-white" style="background-color: #6366f1">↺ Retry de #{{ $lote->parent_lote_id }}</a>
+                                            @endif
+                                            @if(($lote->retry_lotes_count ?? 0) > 0)
+                                                <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide text-white" style="background-color: #0891b2">+{{ $lote->retry_lotes_count }} retry</span>
+                                            @endif
+                                        </div>
+                                    @endif
                                 </div>
                                 <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $statusMeta['hex'] }}">{{ $statusMeta['label'] }}</span>
                             </div>

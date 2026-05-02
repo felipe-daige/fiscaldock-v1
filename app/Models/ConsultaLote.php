@@ -37,6 +37,7 @@ class ConsultaLote extends Model
         'error_code',
         'error_message',
         'processado_em',
+        'parent_lote_id',
     ];
 
     protected $casts = [
@@ -85,6 +86,22 @@ class ConsultaLote extends Model
     public function resultados(): HasMany
     {
         return $this->hasMany(ConsultaResultado::class, 'consulta_lote_id');
+    }
+
+    /**
+     * Lote pai quando este é uma retentativa.
+     */
+    public function parentLote(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_lote_id');
+    }
+
+    /**
+     * Lotes derivados (retries) deste lote.
+     */
+    public function retryLotes(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_lote_id');
     }
 
     /**

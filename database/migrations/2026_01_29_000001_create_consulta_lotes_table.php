@@ -24,10 +24,12 @@ return new class extends Migration
             $table->string('error_code', 50)->nullable();
             $table->text('error_message')->nullable();
             $table->timestamp('processado_em')->nullable();
+            $table->foreignId('parent_lote_id')->nullable()->constrained('consulta_lotes')->onDelete('set null');
             $table->timestamps();
 
             $table->index(['user_id', 'status']);
             $table->index('tab_id');
+            $table->index('parent_lote_id');
         });
 
         Schema::create('consulta_lote_participantes', function (Blueprint $table) {

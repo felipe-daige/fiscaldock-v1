@@ -33,6 +33,17 @@
                 </a>
                 <h1 class="text-lg sm:text-xl font-bold text-gray-900 uppercase tracking-wide">Detalhe da Consulta</h1>
                 <p class="text-xs text-gray-500 mt-1">O lote abre nesta página e acompanha o processamento até a disponibilidade do resultado final.</p>
+                @if($lote->parent_lote_id || $lote->retryLotes()->count() > 0)
+                    <div class="flex items-center flex-wrap gap-1.5 mt-2">
+                        @if($lote->parent_lote_id)
+                            <a href="/app/consulta/lote/{{ $lote->parent_lote_id }}" data-link class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white hover:opacity-80" style="background-color: #6366f1">↺ Retry do lote #{{ $lote->parent_lote_id }}</a>
+                        @endif
+                        @php $countRetries = $lote->retryLotes()->count(); @endphp
+                        @if($countRetries > 0)
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: #0891b2">{{ $countRetries }} retry{{ $countRetries === 1 ? '' : 's' }} derivado{{ $countRetries === 1 ? '' : 's' }}</span>
+                        @endif
+                    </div>
+                @endif
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 @if($statusLote === 'finalizado')
@@ -40,6 +51,11 @@
                     @if($lote->hasResultados())
                         <a href="/app/consulta/lote/{{ $lote->id }}/baixar?formato=pdf" class="px-3 py-1.5 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 rounded text-xs font-medium">PDF</a>
                     @endif
+                @endif
+                @if(in_array($statusLote, ['finalizado', 'erro'], true))
+                    <button type="button" data-retry-trigger="{{ $lote->id }}" class="px-3 py-1.5 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 rounded text-xs font-medium hidden">
+                        Retentar pendentes
+                    </button>
                 @endif
                 <a href="/app/consulta/nova" data-link class="px-3 py-1.5 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 rounded text-xs font-medium">Nova consulta</a>
                 <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $statusMeta['hex'] }}">
@@ -347,6 +363,58 @@
     </div>
 </div>
 
+@if(in_array($statusLote, ['finalizado', 'erro'], true))
+    <div id="retry-pendentes-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 px-4">
+        <div class="bg-white rounded shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
+            <div class="px-5 py-3 border-b border-gray-200 flex items-center justify-between">
+                <div>
+                    <h2 class="text-sm font-bold text-gray-900 uppercase tracking-wide">Retentar pendentes do lote #{{ $lote->id }}</h2>
+                    <p class="text-[11px] text-gray-500 mt-0.5" data-retry-summary>Carregando pendentes...</p>
+                </div>
+                <button type="button" data-retry-close class="text-gray-400 hover:text-gray-700 text-xl leading-none">&times;</button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto px-5 py-3" data-retry-body>
+                <div class="text-center py-8 text-sm text-gray-500" data-retry-loading>Carregando...</div>
+                <div class="hidden" data-retry-empty>
+                    <p class="text-sm text-gray-700">Não há participantes pendentes neste lote.</p>
+                </div>
+                <div class="hidden" data-retry-error>
+                    <p class="text-sm text-red-600" data-retry-error-msg></p>
+                </div>
+                <div class="hidden" data-retry-list>
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="inline-flex items-center gap-2 text-xs text-gray-700">
+                            <input type="checkbox" data-retry-toggle-all checked class="rounded border-gray-300">
+                            Selecionar todos
+                        </label>
+                        <span class="text-[10px] text-gray-500 uppercase tracking-wide" data-retry-selected-count>0 selecionados</span>
+                    </div>
+                    <div class="border border-gray-200 rounded divide-y divide-gray-100" data-retry-items></div>
+                </div>
+            </div>
+
+            <div class="px-5 py-3 border-t border-gray-200 bg-gray-50">
+                <div class="grid grid-cols-2 gap-3 mb-3 text-xs">
+                    <div>
+                        <p class="text-[10px] text-gray-400 uppercase tracking-wide">Custo do retry</p>
+                        <p class="text-sm font-bold text-gray-900" data-retry-custo>—</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[10px] text-gray-400 uppercase tracking-wide">Saldo atual</p>
+                        <p class="text-sm font-bold text-gray-900" data-retry-saldo>—</p>
+                    </div>
+                </div>
+                <p class="text-[11px] text-red-600 hidden mb-2" data-retry-saldo-aviso>Saldo insuficiente para esse retry.</p>
+                <div class="flex items-center justify-end gap-2">
+                    <button type="button" data-retry-close class="px-3 py-1.5 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 rounded text-xs font-medium">Cancelar</button>
+                    <button type="button" data-retry-confirm class="px-4 py-1.5 bg-gray-900 text-white hover:bg-gray-700 rounded text-xs font-medium disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>Confirmar retry</button>
+                </div>
+            </div>
+        </div>
+    </div>
+@endif
+
 <script src="/js/consulta-lote-detalhe.js?v={{ $jsVersion }}"></script>
 <script>
 (function() {
@@ -397,3 +465,233 @@
     tryInit(0);
 })();
 </script>
+
+@if(in_array($statusLote, ['finalizado', 'erro'], true))
+<script>
+(function() {
+    const trigger = document.querySelector('[data-retry-trigger="{{ $lote->id }}"]');
+    const modal = document.getElementById('retry-pendentes-modal');
+    if (!trigger || !modal) return;
+
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}';
+    const pendentesUrl = "{{ route('app.consulta.lote.pendentes', ['id' => $lote->id]) }}";
+    const retentarUrl = "{{ route('app.consulta.lote.retentar', ['id' => $lote->id]) }}";
+
+    const summary = modal.querySelector('[data-retry-summary]');
+    const loading = modal.querySelector('[data-retry-loading]');
+    const empty = modal.querySelector('[data-retry-empty]');
+    const errorBox = modal.querySelector('[data-retry-error]');
+    const errorMsg = modal.querySelector('[data-retry-error-msg]');
+    const list = modal.querySelector('[data-retry-list]');
+    const itemsContainer = modal.querySelector('[data-retry-items]');
+    const toggleAll = modal.querySelector('[data-retry-toggle-all]');
+    const selectedCount = modal.querySelector('[data-retry-selected-count]');
+    const custoEl = modal.querySelector('[data-retry-custo]');
+    const saldoEl = modal.querySelector('[data-retry-saldo]');
+    const saldoAviso = modal.querySelector('[data-retry-saldo-aviso]');
+    const confirmBtn = modal.querySelector('[data-retry-confirm]');
+    const closeBtns = modal.querySelectorAll('[data-retry-close]');
+
+    let pendentesData = [];
+    let custoUnitario = 0;
+    let saldoAtual = 0;
+
+    function open() {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.body.classList.add('overflow-hidden');
+        loadPendentes();
+    }
+
+    function close() {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        document.body.classList.remove('overflow-hidden');
+    }
+
+    function showState(state) {
+        loading.classList.toggle('hidden', state !== 'loading');
+        empty.classList.toggle('hidden', state !== 'empty');
+        errorBox.classList.toggle('hidden', state !== 'error');
+        list.classList.toggle('hidden', state !== 'list');
+    }
+
+    function formatBRL(creditos) {
+        const reais = (creditos * 0.20).toFixed(2).replace('.', ',');
+        return `${creditos} créditos (R$ ${reais})`;
+    }
+
+    function loadPendentes() {
+        showState('loading');
+        confirmBtn.disabled = true;
+        custoEl.textContent = '—';
+        saldoEl.textContent = '—';
+        saldoAviso.classList.add('hidden');
+
+        fetch(pendentesUrl, {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin',
+        })
+            .then(function(r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+            })
+            .then(function(data) {
+                pendentesData = data.pendentes || [];
+                custoUnitario = data.custo_unitario || 0;
+                saldoAtual = data.saldo_atual || 0;
+                saldoEl.textContent = `${saldoAtual} créditos`;
+
+                if (pendentesData.length === 0) {
+                    summary.textContent = 'Sem pendentes.';
+                    showState('empty');
+                    return;
+                }
+
+                summary.textContent = `${pendentesData.length} participante${pendentesData.length === 1 ? '' : 's'} pendente${pendentesData.length === 1 ? '' : 's'} ou com falha`;
+                renderList();
+                showState('list');
+            })
+            .catch(function(err) {
+                summary.textContent = 'Erro ao carregar.';
+                errorMsg.textContent = 'Não foi possível carregar os pendentes. Tente novamente.';
+                showState('error');
+            });
+    }
+
+    function statusMeta(status) {
+        const map = {
+            'pendente': { label: 'Pendente', hex: '#9ca3af' },
+            'erro': { label: 'Erro', hex: '#dc2626' },
+            'timeout': { label: 'Timeout', hex: '#f59e0b' },
+        };
+        return map[status] || { label: status || '—', hex: '#6b7280' };
+    }
+
+    function formatCnpj(raw) {
+        if (!raw) return '—';
+        const digits = String(raw).replace(/\D/g, '');
+        if (digits.length !== 14) return raw;
+        return digits.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+    }
+
+    function renderList() {
+        itemsContainer.innerHTML = '';
+        pendentesData.forEach(function(p) {
+            const meta = statusMeta(p.status);
+            const row = document.createElement('label');
+            row.className = 'flex items-start gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer';
+            row.innerHTML = `
+                <input type="checkbox" data-retry-item="${p.id}" checked class="mt-1 rounded border-gray-300">
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm text-gray-900 truncate">${escapeHtml(p.razao_social || 'Sem razão social')}</p>
+                    <p class="text-[11px] text-gray-500 font-mono">${escapeHtml(formatCnpj(p.cnpj))}${p.uf ? ' · ' + escapeHtml(p.uf) : ''}</p>
+                    ${p.error_message ? `<p class="text-[11px] text-red-600 mt-0.5">${escapeHtml(p.error_message)}</p>` : ''}
+                </div>
+                <span class="text-[10px] font-bold uppercase tracking-wide text-white px-2 py-0.5 rounded shrink-0" style="background-color: ${meta.hex}">${escapeHtml(meta.label)}</span>
+            `;
+            itemsContainer.appendChild(row);
+        });
+
+        itemsContainer.querySelectorAll('[data-retry-item]').forEach(function(cb) {
+            cb.addEventListener('change', updateCusto);
+        });
+        updateCusto();
+    }
+
+    function escapeHtml(str) {
+        return String(str).replace(/[&<>"']/g, function(c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+
+    function getSelectedIds() {
+        return Array.from(itemsContainer.querySelectorAll('[data-retry-item]:checked'))
+            .map(function(cb) { return parseInt(cb.dataset.retryItem, 10); })
+            .filter(function(v) { return !isNaN(v); });
+    }
+
+    function updateCusto() {
+        const selected = getSelectedIds();
+        const custo = selected.length * custoUnitario;
+        selectedCount.textContent = `${selected.length} selecionado${selected.length === 1 ? '' : 's'}`;
+        custoEl.textContent = selected.length === 0 ? '—' : formatBRL(custo);
+
+        const insufficient = selected.length > 0 && custo > saldoAtual;
+        saldoAviso.classList.toggle('hidden', !insufficient);
+        confirmBtn.disabled = selected.length === 0 || insufficient;
+    }
+
+    toggleAll.addEventListener('change', function() {
+        itemsContainer.querySelectorAll('[data-retry-item]').forEach(function(cb) {
+            cb.checked = toggleAll.checked;
+        });
+        updateCusto();
+    });
+
+    confirmBtn.addEventListener('click', function() {
+        const selected = getSelectedIds();
+        if (selected.length === 0) return;
+
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'Disparando...';
+
+        fetch(retentarUrl, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                participante_ids: selected,
+                tab_id: (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2, 10),
+            }),
+        })
+            .then(function(r) {
+                return r.json().then(function(data) { return { ok: r.ok, data: data }; });
+            })
+            .then(function(res) {
+                if (!res.ok || res.data?.success === false) {
+                    throw new Error(res.data?.error || res.data?.message || 'Falha ao disparar retry.');
+                }
+                if (res.data.redirect_url) {
+                    window.location.href = res.data.redirect_url;
+                } else {
+                    window.location.reload();
+                }
+            })
+            .catch(function(err) {
+                errorMsg.textContent = err.message || 'Erro ao disparar retry.';
+                showState('error');
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = 'Confirmar retry';
+            });
+    });
+
+    trigger.addEventListener('click', open);
+    closeBtns.forEach(function(btn) { btn.addEventListener('click', close); });
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) close();
+    });
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && !modal.classList.contains('hidden')) close();
+    });
+
+    // Reveal trigger only if there are pendentes
+    fetch(pendentesUrl, {
+        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin',
+    })
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(data) {
+            if (data && Array.isArray(data.pendentes) && data.pendentes.length > 0) {
+                trigger.classList.remove('hidden');
+            }
+        })
+        .catch(function() {});
+})();
+</script>
+@endif
