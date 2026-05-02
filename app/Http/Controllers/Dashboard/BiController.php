@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Dashboard;
 use App\Http\Controllers\Controller;
 use App\Models\Cliente;
 use App\Services\BiService;
+use App\Services\Catalogo\BiCatalogoItensService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -15,7 +16,8 @@ class BiController extends Controller
     private const AUTH_LAYOUT_VIEW = 'autenticado.layouts.app';
 
     public function __construct(
-        protected BiService $biService
+        protected BiService $biService,
+        protected BiCatalogoItensService $biCatalogoItensService,
     ) {}
 
     /**
@@ -248,6 +250,41 @@ class BiController extends Controller
             'aliquota' => $this->biService->getAliquotaEfetivaEfd($userId, $dataInicio, $dataFim),
             'por_regime' => $this->biService->getTributarioPorRegime($userId, $dataInicio, $dataFim),
         ]);
+    }
+
+    /**
+     * BI cross-source catálogo × itens (XML+EFD com dedup por chave).
+     * Render server-side (sem JSON-only) — view consome direto.
+     */
+    public function catalogoItens(Request $request)
+    {
+        if (! Auth::check()) {
+            return $this->redirectToLogin($request);
+        }
+
+        $userId = (int) Auth::id();
+        $filtros = array_filter([
+            'data_inicio' => $request->get('data_inicio'),
+            'data_fim' => $request->get('data_fim'),
+            'cliente_id' => $request->get('cliente_id'),
+        ], fn ($v) => $v !== null && $v !== '');
+
+        $clientes = Cliente::where('user_id', $userId)
+            ->where('ativo', true)
+            ->orderByDesc('is_empresa_propria')
+            ->orderBy('nome')
+            ->get(['id', 'nome', 'documento', 'is_empresa_propria']);
+
+        $data = [
+            'clientes' => $clientes,
+            'filtros' => $filtros,
+            'topNcms' => $this->biCatalogoItensService->topNcms($userId, 10, $filtros),
+            'cfopsPorNcm' => $this->biCatalogoItensService->cfopsPorNcm($userId, 5, $filtros),
+            'dispersaoAliquota' => $this->biCatalogoItensService->dispersaoAliquota($userId, 10, $filtros),
+            'itensSaidaSemCatalogo' => $this->biCatalogoItensService->itensSaidaSemCatalogo($userId, 10, $filtros),
+        ];
+
+        return $this->render($request, 'catalogo-itens', $data);
     }
 
     /**
