@@ -58,10 +58,64 @@ return new class extends Migration
             WHERE xml_notas.dest_participante_id = p.id
               AND p.cliente_id IS NOT NULL
         ');
+
+        // Itens tipados das notas XML — espelha efd_notas_itens pra permitir
+        // catálogo unificado (UNION com dedup por chave de acesso, EFD vence).
+        // Campos exclusivos do XML (cest, ean, comb, med, infAdProd, etc.) vão
+        // pra colunas próprias ou pra metadados jsonb.
+        Schema::create('xml_notas_itens', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('xml_nota_id')->constrained('xml_notas')->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+
+            $table->smallInteger('numero_item');               // nItem
+            $table->string('codigo_item', 60);                 // cProd
+            $table->string('ean', 14)->nullable();             // cEAN ('SEM' → null)
+            $table->text('descricao');                         // xProd
+
+            $table->string('ncm', 10)->nullable();
+            $table->string('cest', 10)->nullable();            // exclusivo XML
+            $table->string('cfop', 4);
+            $table->string('unidade_medida', 6)->nullable();   // uCom
+
+            $table->decimal('quantidade', 15, 4);              // qCom
+            $table->decimal('valor_unitario', 15, 10)->nullable(); // vUnCom (10 casas)
+            $table->decimal('valor_total', 15, 2);             // vProd
+
+            $table->string('cst_icms', 3)->nullable();         // aceita CST (regime normal) ou CSOSN (Simples)
+            $table->decimal('aliquota_icms', 5, 2)->nullable();
+            $table->decimal('valor_icms', 15, 2)->nullable();
+            $table->decimal('aliquota_icms_st', 5, 2)->nullable();
+            $table->decimal('valor_icms_st', 15, 2)->nullable();
+
+            $table->string('cst_pis', 2)->nullable();
+            $table->decimal('aliquota_pis', 7, 4)->nullable();
+            $table->decimal('valor_pis', 15, 2)->nullable();
+
+            $table->string('cst_cofins', 2)->nullable();
+            $table->decimal('aliquota_cofins', 7, 4)->nullable();
+            $table->decimal('valor_cofins', 15, 2)->nullable();
+
+            $table->string('cst_ipi', 2)->nullable();
+            $table->decimal('aliquota_ipi', 5, 2)->nullable();
+            $table->decimal('valor_ipi', 15, 2)->nullable();
+
+            // paraquedas pra exóticos do <det>: comb, med, arma, infAdProd, DI, rastro, ICMSST por UF
+            $table->jsonb('metadados')->nullable();
+
+            $table->timestamps();
+
+            $table->unique(['xml_nota_id', 'numero_item']);
+            $table->index(['user_id', 'codigo_item']);
+            $table->index('ncm');
+            $table->index('cfop');
+        });
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('xml_notas_itens');
+
         Schema::table('xml_notas', function (Blueprint $table) {
             $table->dropIndex(['situacao_sefaz']);
             $table->dropIndex(['consulta_lote_id']);

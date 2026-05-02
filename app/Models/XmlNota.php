@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class XmlNota extends Model
 {
@@ -138,6 +139,11 @@ class XmlNota extends Model
     public function destCliente(): BelongsTo
     {
         return $this->belongsTo(Cliente::class, 'dest_cliente_id');
+    }
+
+    public function itens(): HasMany
+    {
+        return $this->hasMany(XmlNotaItem::class);
     }
 
     /**
