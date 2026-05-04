@@ -48,12 +48,13 @@ function painelCriarUser(array &$ids): User
 
 function criarSnapshotNfeBaseline(array $attrs): void
 {
-    DB::table('nfe_consultas')->insert(array_merge([
+    DB::table('xml_notas')->insert(array_merge([
+        'origem' => 'xml_upload',
         'tipo_documento' => 'NFE',
-        'modelo' => '55',
         'serie' => 1,
-        'status' => 'AUTORIZADA',
-        'consultado_em' => now(),
+        'tipo_nota' => 1,
+        'data_emissao' => now(),
+        'verificado_sefaz_em' => now(),
         'created_at' => now(),
         'updated_at' => now(),
     ], $attrs));
@@ -108,14 +109,30 @@ it('renderiza painel Declarado vs SEFAZ com veredito crítico', function () use 
     ]);
 
     criarSnapshotNfeBaseline([
-        'user_id' => $user->id, 'consulta_lote_id' => $lote->id,
-        'chave_acesso' => $chaveCritica, 'numero' => '1747',
-        'valor_total' => 1135.00, 'emit_nome' => 'SOTRACTOR', 'emit_cnpj' => '46088921000159',
+        'user_id' => $user->id,
+        'cliente_id' => $cliente->id,
+        'consulta_lote_id' => $lote->id,
+        'nfe_id' => $chaveCritica,
+        'numero_nota' => 1747,
+        'valor_total' => 1135.00,
+        'emit_razao_social' => 'SOTRACTOR',
+        'emit_cnpj' => '46088921000159',
+        'dest_razao_social' => 'DEST',
+        'dest_cnpj' => '99999999000199',
+        'situacao_sefaz' => 'CANCELADA',
     ]);
     criarSnapshotNfeBaseline([
-        'user_id' => $user->id, 'consulta_lote_id' => $lote->id,
-        'chave_acesso' => $chaveMatch, 'numero' => '111720',
-        'valor_total' => 4957.52, 'emit_nome' => 'WURTH', 'emit_cnpj' => '43648971004576',
+        'user_id' => $user->id,
+        'cliente_id' => $cliente->id,
+        'consulta_lote_id' => $lote->id,
+        'nfe_id' => $chaveMatch,
+        'numero_nota' => 111720,
+        'valor_total' => 4957.52,
+        'emit_razao_social' => 'WURTH',
+        'emit_cnpj' => '43648971004576',
+        'dest_razao_social' => 'DEST',
+        'dest_cnpj' => '99999999000199',
+        'situacao_sefaz' => 'AUTORIZADA',
     ]);
 
     actingAs($user)
@@ -161,19 +178,32 @@ it('renderiza veredito "tudo certo" quando nao ha divergencia', function () use 
         'origem_arquivo' => 'fiscal', 'valor_total' => 114.98,
     ]);
 
-    DB::table('cte_consultas')->insert([
+    DB::table('xml_notas')->insert([
         'user_id' => $user->id,
+        'cliente_id' => $cliente->id,
         'consulta_lote_id' => $lote->id,
-        'chave_acesso' => $chave,
+        'nfe_id' => $chave,
+        'origem' => 'xml_upload',
         'tipo_documento' => 'CTE',
-        'modelo' => '57',
-        'numero' => '43238',
+        'numero_nota' => 43238,
         'serie' => 1,
-        'status' => 'AUTORIZADA',
-        'valor_prestacao' => 114.98,
-        'emit_nome' => 'PANTANAL',
+        'tipo_nota' => 1,
+        'situacao_sefaz' => 'AUTORIZADA',
+        'valor_total' => 114.98,
+        'emit_razao_social' => 'PANTANAL',
         'emit_cnpj' => '46970030000202',
-        'consultado_em' => now(),
+        'dest_razao_social' => 'DEST',
+        'dest_cnpj' => '99999999000199',
+        'data_emissao' => now(),
+        'verificado_sefaz_em' => now(),
+        'payload' => json_encode([
+            'cte_clearance' => [
+                'status' => 'AUTORIZADA',
+                'numero' => '43238',
+                'modelo' => '57',
+                'valor_prestacao' => 114.98,
+            ],
+        ]),
         'created_at' => now(),
         'updated_at' => now(),
     ]);

@@ -10,6 +10,7 @@ use App\Models\EfdNota;
 use App\Models\XmlImportacao;
 use App\Models\XmlNota;
 use App\Services\Catalogo\AlertasCatalogoService;
+use App\Services\Clearance\ClearanceNotaDetalheService;
 use App\Services\Clearance\DivergenciaService;
 use App\Services\CreditService;
 use App\Services\NotaFiscalService;
@@ -41,7 +42,8 @@ class ClearanceController extends Controller
     public function __construct(
         protected ValidacaoContabilService $validacaoService,
         protected CreditService $creditService,
-        protected NotaFiscalService $notaFiscalService
+        protected NotaFiscalService $notaFiscalService,
+        protected ClearanceNotaDetalheService $notaDetalheService,
     ) {}
 
     /**
@@ -1090,6 +1092,7 @@ class ClearanceController extends Controller
             'periodo_ate' => $request->input('periodo_ate'),
             'cliente_id' => $request->input('cliente_id'),
             'participante_cnpj' => $request->input('participante_cnpj'),
+            'origem' => $request->input('origem'),
             'tipo_nota' => $request->input('tipo_nota'),
             'status_validacao' => $request->input('status_validacao', 'todos'),
             'situacao_receita' => $request->input('situacao_receita'),
@@ -1250,6 +1253,10 @@ class ClearanceController extends Controller
 
     private function applyCommonFiltersXml(\Illuminate\Database\Query\Builder $q, array $f): void
     {
+        if (($f['origem'] ?? null) === 'efd') {
+            $q->whereRaw('1 = 0');
+        }
+
         if (! empty($f['periodo_de']) && ! empty($f['periodo_ate'])) {
             $q->whereBetween('xml_notas.data_emissao', [$f['periodo_de'].' 00:00:00', $f['periodo_ate'].' 23:59:59']);
         } elseif (! empty($f['periodo_de'])) {
@@ -1285,6 +1292,10 @@ class ClearanceController extends Controller
 
     private function applyCommonFiltersEfd(\Illuminate\Database\Query\Builder $q, array $f): void
     {
+        if (($f['origem'] ?? null) === 'xml') {
+            $q->whereRaw('1 = 0');
+        }
+
         if (! empty($f['periodo_de']) && ! empty($f['periodo_ate'])) {
             $q->whereBetween('efd_notas.data_emissao', [$f['periodo_de'], $f['periodo_ate']]);
         } elseif (! empty($f['periodo_de'])) {
@@ -1854,6 +1865,7 @@ class ClearanceController extends Controller
             'nota' => $nota,
             'validacao' => $validacao,
             'categorias' => $categorias,
+            'clearanceResumo' => $this->notaDetalheService->montarResumo($nota),
         ];
 
         return $this->render($request, 'nota', $data);
@@ -2040,114 +2052,61 @@ class ClearanceController extends Controller
 
     private function listarConsultasDfePorLote(int $userId, int $consultaLoteId): Collection
     {
-        $nfe = DB::table('nfe_consultas as consulta')
-            ->leftJoin('clientes as cliente', 'cliente.id', '=', 'consulta.cliente_id')
-            ->selectRaw("
-                consulta.id,
-                consulta.consulta_lote_id,
-                consulta.chave_acesso,
-                UPPER(COALESCE(consulta.tipo_documento, 'NFE')) as tipo_documento,
-                COALESCE(consulta.modelo, '55') as modelo,
-                consulta.numero,
-                consulta.serie,
-                consulta.status,
-                consulta.valor_total,
-                consulta.data_emissao,
-                consulta.emit_nome,
-                consulta.emit_cnpj,
-                consulta.dest_nome,
-                consulta.dest_cnpj,
-                NULL::varchar as tomador_nome,
-                NULL::varchar as tomador_cnpj,
-                cliente.razao_social as cliente_nome,
-                consulta.consultado_em,
-                consulta.created_at
-            ")
-            ->where('consulta.user_id', $userId)
-            ->where('consulta.consulta_lote_id', $consultaLoteId);
-
-        $cte = DB::table('cte_consultas as consulta')
-            ->leftJoin('clientes as cliente', 'cliente.id', '=', 'consulta.cliente_id')
-            ->selectRaw("
-                consulta.id,
-                consulta.consulta_lote_id,
-                consulta.chave_acesso,
-                UPPER(COALESCE(consulta.tipo_documento, 'CTE')) as tipo_documento,
-                COALESCE(consulta.modelo, '57') as modelo,
-                consulta.numero,
-                consulta.serie,
-                consulta.status,
-                consulta.valor_prestacao as valor_total,
-                consulta.data_emissao,
-                consulta.emit_nome,
-                consulta.emit_cnpj,
-                consulta.dest_nome,
-                consulta.dest_cnpj,
-                consulta.tomador_nome,
-                consulta.tomador_cnpj,
-                cliente.razao_social as cliente_nome,
-                consulta.consultado_em,
-                consulta.created_at
-            ")
-            ->where('consulta.user_id', $userId)
-            ->where('consulta.consulta_lote_id', $consultaLoteId);
-
-        $resultados = DB::query()
-            ->fromSub($nfe->unionAll($cte), 'consultas')
-            ->orderByRaw('COALESCE(consultado_em, created_at) DESC')
+        return XmlNota::query()
+            ->with('cliente')
+            ->where('user_id', $userId)
+            ->where('consulta_lote_id', $consultaLoteId)
+            ->whereNotNull('situacao_sefaz')
+            ->orderByRaw('COALESCE(verificado_sefaz_em, updated_at, created_at) DESC')
             ->orderByDesc('id')
-            ->get();
+            ->get()
+            ->map(function (XmlNota $nota) {
+                $payload = is_array($nota->payload) ? $nota->payload : [];
+                $tipoDocumento = strtoupper((string) ($nota->tipo_documento ?: 'NFE'));
+                $status = strtoupper((string) ($nota->situacao_sefaz ?: 'INDETERMINADO'));
+                $modelo = $this->inferirModeloDocumento($tipoDocumento, (string) $nota->nfe_id);
+                $tomador = $tipoDocumento === 'CTE'
+                    ? (data_get($payload, 'cte_clearance.tomador') ?? [])
+                    : [];
 
-        $chaves = $resultados->pluck('chave_acesso')->filter()->unique()->values();
-        $xmlByChave = XmlNota::query()
-            ->where('user_id', $userId)
-            ->whereIn('nfe_id', $chaves)
-            ->pluck('id', 'nfe_id')
-            ->all();
-        $efdByChave = EfdNota::query()
-            ->where('user_id', $userId)
-            ->whereIn('chave_acesso', $chaves)
-            ->pluck('id', 'chave_acesso')
-            ->all();
+                $resultado = (object) [
+                    'id' => $nota->id,
+                    'consulta_lote_id' => $nota->consulta_lote_id,
+                    'chave_acesso' => $nota->nfe_id,
+                    'tipo_documento' => $tipoDocumento,
+                    'modelo' => $modelo,
+                    'numero' => $nota->numero_nota,
+                    'serie' => $nota->serie,
+                    'status' => $status,
+                    'status_label' => $status,
+                    'status_hex' => $this->statusHexConsultaDfe($status),
+                    'valor_total' => $nota->valor_total !== null ? (float) $nota->valor_total : null,
+                    'valor_total_label' => $nota->valor_total !== null
+                        ? 'R$ '.number_format((float) $nota->valor_total, 2, ',', '.')
+                        : '—',
+                    'data_emissao' => $nota->data_emissao,
+                    'data_emissao_label' => $this->formatarDataCurta($nota->data_emissao),
+                    'emit_nome' => $nota->emit_razao_social,
+                    'emit_cnpj' => $nota->emit_cnpj,
+                    'dest_nome' => $nota->dest_razao_social,
+                    'dest_cnpj' => $nota->dest_cnpj,
+                    'tomador_nome' => $tomador['nome'] ?? null,
+                    'tomador_cnpj' => $tomador['cnpj'] ?? $tomador['cpf'] ?? null,
+                    'cliente_nome' => $nota->cliente?->razao_social,
+                    'consultado_em' => $nota->verificado_sefaz_em ?: $nota->updated_at ?: $nota->created_at,
+                    'consultado_em_label' => $this->formatarDataConsulta($nota->verificado_sefaz_em ?: $nota->updated_at ?: $nota->created_at),
+                    'participante_label' => $nota->dest_razao_social
+                        ?: ($tomador['nome'] ?? null)
+                        ?: $nota->dest_cnpj
+                        ?: ($tomador['cnpj'] ?? $tomador['cpf'] ?? null)
+                        ?: 'Não informado',
+                    'detalhe_url' => route('app.clearance.nota', ['id' => $nota->id]),
+                    'origem_acervo_label' => strtoupper((string) ($nota->origem ?: 'XML')),
+                    'origem_acervo_hex' => $nota->origem === 'busca_avulsa' ? '#4338ca' : '#374151',
+                    'ordem_lote' => null,
+                ];
 
-        $resultadosPersistidos = $resultados->map(function ($resultado) use ($xmlByChave, $efdByChave) {
-            $status = strtoupper((string) ($resultado->status ?? 'INDETERMINADO'));
-            $resultado->status_label = $status;
-            $resultado->status_hex = $this->statusHexConsultaDfe($status);
-            $resultado->valor_total_label = $resultado->valor_total !== null
-                ? 'R$ '.number_format((float) $resultado->valor_total, 2, ',', '.')
-                : '—';
-            $resultado->data_emissao_label = $this->formatarDataCurta($resultado->data_emissao);
-            $resultado->consultado_em_label = $this->formatarDataConsulta($resultado->consultado_em ?: $resultado->created_at);
-            $resultado->participante_label = $resultado->dest_nome
-                ?: $resultado->tomador_nome
-                ?: $resultado->dest_cnpj
-                ?: $resultado->tomador_cnpj
-                ?: 'Não informado';
-            $chave = trim((string) $resultado->chave_acesso);
-            $resultado->detalhe_url = match (true) {
-                $chave !== '' && isset($xmlByChave[$chave]) => route('app.notas.detalhes', ['origem' => 'xml', 'id' => $xmlByChave[$chave]]),
-                $chave !== '' && isset($efdByChave[$chave]) => route('app.notas.detalhes', ['origem' => 'efd', 'id' => $efdByChave[$chave]]),
-                default => null,
-            };
-            $resultado->origem_acervo_label = null;
-            $resultado->origem_acervo_hex = null;
-            $resultado->ordem_lote = null;
-
-            return $resultado;
-        });
-
-        $precheck = $this->getBuscaAcervoPrecheck($userId, $consultaLoteId);
-        $resultadosAcervo = collect($precheck['resultados'] ?? [])
-            ->map(fn ($resultado) => (object) $resultado);
-        $ordemPorChave = collect($precheck['ordem_por_chave'] ?? []);
-
-        return $resultadosPersistidos
-            ->concat($resultadosAcervo)
-            ->sortBy(function ($resultado) use ($ordemPorChave) {
-                $chave = trim((string) ($resultado->chave_acesso ?? ''));
-
-                return $ordemPorChave->get($chave, PHP_INT_MAX);
+                return $resultado;
             })
             ->values();
     }

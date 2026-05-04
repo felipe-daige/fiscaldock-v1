@@ -1,6 +1,7 @@
 @php
     $validacao = $validacao ?? [];
     $categorias = $categorias ?? [];
+    $clearanceResumo = $clearanceResumo ?? null;
 
     $scoreTotal = (int) ($validacao['score_total'] ?? 0);
     $scoreHex = match (true) {
@@ -17,6 +18,21 @@
         'critico' => '#dc2626',
         default => '#374151',
     };
+
+    $formatMoney = fn ($value) => $value !== null ? 'R$ '.number_format((float) $value, 2, ',', '.') : '—';
+    $formatDelta = function ($delta, $pct) use ($formatMoney) {
+        if ($delta === null) {
+            return '—';
+        }
+
+        $texto = $formatMoney($delta);
+        if ($pct !== null) {
+            $texto .= ' ('.number_format((float) $pct, 1, ',', '.').'%)';
+        }
+
+        return $texto;
+    };
+    $isCte = strtoupper((string) ($clearanceResumo['tipo_documento'] ?? $nota->tipo_documento ?? 'NFE')) === 'CTE';
 @endphp
 
 <div class="min-h-screen bg-gray-100" id="validacao-nota-container">
@@ -57,6 +73,109 @@
         </div>
 
         <div id="validacao-nota-error-region" class="mb-6"></div>
+
+        @if($clearanceResumo)
+            <div class="bg-white rounded border border-gray-300 overflow-hidden mb-6">
+                <div class="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between gap-3">
+                    <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Declarado × SEFAZ</span>
+                    <div class="flex items-center gap-2">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $clearanceResumo['status_sefaz']['hex'] }}">
+                            {{ $clearanceResumo['status_sefaz']['label'] }}
+                        </span>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $clearanceResumo['severidade']['hex'] }}">
+                            {{ $clearanceResumo['severidade']['label'] }}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="p-4">
+                    <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between mb-4">
+                        <div>
+                            <p class="text-sm font-semibold text-gray-900">{{ $clearanceResumo['tipo_documento_label'] }} confrontada com snapshot persistido</p>
+                            <p class="text-[11px] text-gray-500 mt-1">
+                                @if($clearanceResumo['possui_snapshot'])
+                                    Snapshot SEFAZ persistido
+                                    @if(! empty($clearanceResumo['verificado_em']))
+                                        em {{ \Illuminate\Support\Carbon::parse($clearanceResumo['verificado_em'])->format('d/m/Y H:i') }}
+                                    @endif
+                                @else
+                                    Sem snapshot SEFAZ persistido até o momento.
+                                @endif
+                            </p>
+                            @if(! empty($clearanceResumo['motivo_indisponivel']))
+                                <p class="text-[11px] text-gray-500 mt-1">{{ $clearanceResumo['motivo_indisponivel'] }}</p>
+                            @endif
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            @if(! empty($clearanceResumo['comparacao_url']))
+                                <a href="{{ $clearanceResumo['comparacao_url'] }}"
+                                   data-link
+                                   class="inline-flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium text-white"
+                                   style="background-color: #1d4ed8;">Abrir comparação completa ↗</a>
+                            @endif
+                            @if(! $clearanceResumo['possui_snapshot'])
+                                <a href="{{ route('app.clearance.notas') }}?selecionar={{ $nota->nfe_id }}"
+                                   data-link
+                                   class="inline-flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium border border-gray-300 text-gray-700 hover:bg-gray-50">Incluir em lote de clearance</a>
+                            @endif
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 lg:grid-cols-4 divide-x divide-y lg:divide-y-0 divide-gray-200 border border-gray-200 rounded overflow-hidden">
+                        <div class="px-4 py-3">
+                            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Declarado</p>
+                            <p class="text-lg font-bold text-gray-900 font-mono">{{ $formatMoney($clearanceResumo['totais']['declarado']) }}</p>
+                            <p class="text-[11px] text-gray-500 mt-1">{{ $clearanceResumo['origens']['declarado'] ?? 'Sem origem declarada' }}</p>
+                        </div>
+                        <div class="px-4 py-3">
+                            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">SEFAZ</p>
+                            <p class="text-lg font-bold text-gray-900 font-mono">{{ $formatMoney($clearanceResumo['totais']['sefaz']) }}</p>
+                            <p class="text-[11px] text-gray-500 mt-1">{{ $clearanceResumo['origens']['sefaz'] ?? 'Sem snapshot SEFAZ' }}</p>
+                        </div>
+                        <div class="px-4 py-3">
+                            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Delta</p>
+                            <p class="text-lg font-bold text-gray-900 font-mono">{{ $formatDelta($clearanceResumo['totais']['delta'], $clearanceResumo['totais']['delta_percentual']) }}</p>
+                            <p class="text-[11px] text-gray-500 mt-1">{{ $isCte ? 'Valor da prestação' : 'Valor total da nota' }}</p>
+                        </div>
+                        <div class="px-4 py-3">
+                            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Divergências</p>
+                            <p class="text-lg font-bold text-gray-900">{{ number_format($clearanceResumo['resumo']['total_divergencias'] ?? 0, 0, ',', '.') }}</p>
+                            <p class="text-[11px] text-gray-500 mt-1">Header, totais e itens</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 mt-4">
+                        <div class="border border-gray-200 rounded p-3">
+                            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Cabeçalho</p>
+                            <p class="text-lg font-bold text-gray-900">{{ number_format($clearanceResumo['resumo']['header_divergencias'] ?? 0, 0, ',', '.') }}</p>
+                        </div>
+                        <div class="border border-gray-200 rounded p-3">
+                            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Totais</p>
+                            <p class="text-lg font-bold text-gray-900">{{ number_format($clearanceResumo['resumo']['totais_divergencias'] ?? 0, 0, ',', '.') }}</p>
+                        </div>
+                        <div class="border border-gray-200 rounded p-3">
+                            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">{{ $isCte ? 'Componentes' : 'Itens' }}</p>
+                            <p class="text-lg font-bold text-gray-900">{{ number_format($clearanceResumo['resumo']['itens_divergentes'] ?? 0, 0, ',', '.') }}</p>
+                        </div>
+                        <div class="border border-gray-200 rounded p-3">
+                            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Fantasma decl.</p>
+                            <p class="text-lg font-bold text-gray-900">{{ number_format($clearanceResumo['resumo']['itens_fantasma_declarado'] ?? 0, 0, ',', '.') }}</p>
+                        </div>
+                        <div class="border border-gray-200 rounded p-3">
+                            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Fantasma SEFAZ</p>
+                            <p class="text-lg font-bold text-gray-900">{{ number_format($clearanceResumo['resumo']['itens_fantasma_sefaz'] ?? 0, 0, ',', '.') }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endif
+
+        <div class="bg-white rounded border border-gray-300 overflow-hidden mb-6">
+            <div class="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between gap-3">
+                <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Validação Local</span>
+                <span class="text-[10px] font-semibold text-gray-400">Mantida como apoio à análise</span>
+            </div>
+        </div>
 
         <div class="bg-white rounded border border-gray-300 overflow-hidden mb-6">
             <div class="bg-gray-50 px-4 py-2 border-b border-gray-200">

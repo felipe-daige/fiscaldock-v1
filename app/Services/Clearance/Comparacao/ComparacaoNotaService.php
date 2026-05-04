@@ -81,7 +81,7 @@ class ComparacaoNotaService
         $totaisDivergencias = collect($totaisDiff)->filter(fn ($c) => $c->divergente)->count();
 
         $itensPareados = $this->parearItens($declarado->itens, $sefaz->itens, $sefaz->camposNaoRetornados['itens'] ?? []);
-        $itensDivergentes = collect($itensPareados)->filter(fn ($p) => $p->temDivergencia && in_array($p->matchType, ['cprod', 'sequencia', 'nitem'], true))->count();
+        $itensDivergentes = collect($itensPareados)->filter(fn ($p) => $p->temDivergencia && in_array($p->matchType, ['cprod', 'sequencia', 'nitem', 'componente'], true))->count();
         $itensFantasmaDeclarado = collect($itensPareados)->filter(fn ($p) => $p->matchType === 'fantasma_declarado')->count();
         $itensFantasmaSefaz = collect($itensPareados)->filter(fn ($p) => $p->matchType === 'fantasma_sefaz')->count();
 
@@ -139,7 +139,7 @@ class ComparacaoNotaService
         }
 
         foreach ($itensPareados as $par) {
-            if (! in_array($par->matchType, ['cprod', 'sequencia', 'nitem'], true)) {
+            if (! in_array($par->matchType, ['cprod', 'sequencia', 'nitem', 'componente'], true)) {
                 continue;
             }
             $ncm = collect($par->diffs)->firstWhere('chave', 'ncm');
@@ -150,7 +150,7 @@ class ComparacaoNotaService
         }
 
         $totaisDivergencias = collect($totaisDiff)->filter(fn ($c) => $c->divergente)->count();
-        $itensComDiff = collect($itensPareados)->filter(fn ($p) => $p->temDivergencia && in_array($p->matchType, ['cprod', 'sequencia', 'nitem'], true))->count();
+        $itensComDiff = collect($itensPareados)->filter(fn ($p) => $p->temDivergencia && in_array($p->matchType, ['cprod', 'sequencia', 'nitem', 'componente'], true))->count();
         $fantasmas = collect($itensPareados)->filter(fn ($p) => str_starts_with($p->matchType, 'fantasma_'))->count();
 
         if ($headerDivergencias > 0 || $totaisDivergencias > 0 || $itensComDiff > 0 || $fantasmas > 0) {
@@ -252,13 +252,17 @@ class ComparacaoNotaService
     }
 
     /**
-     * @param  array<int, ItemNormalizado>  $declarado
-     * @param  array<int, ItemNormalizado>  $sefaz
+     * @param  array<int, ItemNormalizado|ComponenteCte>  $declarado
+     * @param  array<int, ItemNormalizado|ComponenteCte>  $sefaz
      * @param  array<int, string>  $camposSefSemDado
      * @return array<int, ItemPareado>
      */
     private function parearItens(array $declarado, array $sefaz, array $camposSefSemDado = []): array
     {
+        if ($this->contemComponentesCte($declarado, $sefaz)) {
+            return $this->parearComponentesCte($declarado, $sefaz);
+        }
+
         if (in_array('cProd', $camposSefSemDado, true)) {
             return $this->parearPorNItem($declarado, $sefaz, $camposSefSemDado);
         }
@@ -322,6 +326,51 @@ class ComparacaoNotaService
                 matchType: 'fantasma_sefaz',
                 diffs: [], temDivergencia: true,
             );
+        }
+
+        return $pares;
+    }
+
+    /**
+     * @param  array<int, ItemNormalizado|ComponenteCte>  $declarado
+     * @param  array<int, ItemNormalizado|ComponenteCte>  $sefaz
+     * @return array<int, ItemPareado>
+     */
+    private function parearComponentesCte(array $declarado, array $sefaz): array
+    {
+        $pares = [];
+        $gruposDec = $this->agruparComponentesPorNome($declarado);
+        $gruposSef = $this->agruparComponentesPorNome($sefaz);
+        $nomes = collect(array_keys($gruposDec))->concat(array_keys($gruposSef))->unique()->filter()->values();
+
+        foreach ($nomes as $nome) {
+            $itensDec = $gruposDec[$nome] ?? [];
+            $itensSef = $gruposSef[$nome] ?? [];
+            $countMin = min(count($itensDec), count($itensSef));
+
+            for ($i = 0; $i < $countMin; $i++) {
+                $pares[] = $this->criarParComponente($itensDec[$i], $itensSef[$i]);
+            }
+
+            for ($i = $countMin; $i < count($itensDec); $i++) {
+                $pares[] = new ItemPareado(
+                    declarado: $itensDec[$i],
+                    sefaz: null,
+                    matchType: 'fantasma_declarado',
+                    diffs: [],
+                    temDivergencia: true,
+                );
+            }
+
+            for ($i = $countMin; $i < count($itensSef); $i++) {
+                $pares[] = new ItemPareado(
+                    declarado: null,
+                    sefaz: $itensSef[$i],
+                    matchType: 'fantasma_sefaz',
+                    diffs: [],
+                    temDivergencia: true,
+                );
+            }
         }
 
         return $pares;
@@ -392,6 +441,30 @@ class ComparacaoNotaService
     }
 
     /**
+     * @param  array<int, ItemNormalizado|ComponenteCte>  $itens
+     * @return array<string, array<int, ComponenteCte>>
+     */
+    private function agruparComponentesPorNome(array $itens): array
+    {
+        $grupos = [];
+
+        foreach ($itens as $item) {
+            if (! $item instanceof ComponenteCte) {
+                continue;
+            }
+
+            $nome = trim($item->nome);
+            if ($nome === '') {
+                continue;
+            }
+
+            $grupos[mb_strtoupper($nome)][] = $item;
+        }
+
+        return $grupos;
+    }
+
+    /**
      * @param  array<int, string>  $camposSefSemDado
      */
     private function criarParCProd(ItemNormalizado $dec, ItemNormalizado $sef, array $camposSefSemDado = []): ItemPareado
@@ -401,6 +474,19 @@ class ComparacaoNotaService
         return new ItemPareado(
             declarado: $dec, sefaz: $sef,
             matchType: 'cprod',
+            diffs: $diffs,
+            temDivergencia: collect($diffs)->contains(fn ($c) => $c->divergente),
+        );
+    }
+
+    private function criarParComponente(ComponenteCte $dec, ComponenteCte $sef): ItemPareado
+    {
+        $diffs = $this->compararComponentesCampos($dec, $sef);
+
+        return new ItemPareado(
+            declarado: $dec,
+            sefaz: $sef,
+            matchType: 'componente',
             diffs: $diffs,
             temDivergencia: collect($diffs)->contains(fn ($c) => $c->divergente),
         );
@@ -426,6 +512,34 @@ class ComparacaoNotaService
         $tolerancia = (float) config('clearance.comparacao.tolerancia_monetaria', 0.01);
 
         return $this->compararCampos($declaradoArr, $sefazArr, $labels, tolerancia: $tolerancia, camposSefSemDado: $camposSefSemDado);
+    }
+
+    /**
+     * @return array<int, CampoComparado>
+     */
+    private function compararComponentesCampos(ComponenteCte $dec, ComponenteCte $sef): array
+    {
+        return $this->compararCampos(
+            ['nome' => $dec->nome, 'valor' => $dec->valor],
+            ['nome' => $sef->nome, 'valor' => $sef->valor],
+            ['nome' => 'Componente', 'valor' => 'Valor'],
+            tolerancia: (float) config('clearance.comparacao.tolerancia_monetaria', 0.01),
+        );
+    }
+
+    /**
+     * @param  array<int, ItemNormalizado|ComponenteCte>  $declarado
+     * @param  array<int, ItemNormalizado|ComponenteCte>  $sefaz
+     */
+    private function contemComponentesCte(array $declarado, array $sefaz): bool
+    {
+        foreach (array_merge($declarado, $sefaz) as $item) {
+            if ($item instanceof ComponenteCte) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function valoresDivergem(mixed $a, mixed $b, ?float $tolerancia = null): bool

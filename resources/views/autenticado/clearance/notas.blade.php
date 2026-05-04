@@ -252,7 +252,7 @@
             <div class="bg-gray-50 px-4 py-2 border-b border-gray-200">
                 <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Filtros</span>
             </div>
-            <div class="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+            <div class="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-8 gap-3">
                 <div>
                     <label class="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">De</label>
                     <input type="date" name="periodo_de" value="{{ $filtros['periodo_de'] ?? '' }}" class="mt-1 w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
@@ -273,6 +273,14 @@
                 <div>
                     <label class="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">CNPJ Participante</label>
                     <input type="text" name="participante_cnpj" value="{{ $filtros['participante_cnpj'] ?? '' }}" placeholder="00.000.000/0000-00" class="mt-1 w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+                </div>
+                <div>
+                    <label class="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Origem</label>
+                    <select name="origem" class="mt-1 w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+                        <option value="">Todas</option>
+                        <option value="xml" {{ ($filtros['origem'] ?? '') === 'xml' ? 'selected' : '' }}>XML</option>
+                        <option value="efd" {{ ($filtros['origem'] ?? '') === 'efd' ? 'selected' : '' }}>EFD</option>
+                    </select>
                 </div>
                 <div>
                     <label class="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Tipo</label>
@@ -434,22 +442,22 @@
                             <th class="px-3 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
                                 <a href="{{ $buildSortUrl('dest_razao_social') }}" data-link data-clearance-preserve-scroll class="inline-flex items-center gap-1 hover:text-gray-700">Destinatário {!! $sortArrow('dest_razao_social') !!}</a>
                             </th>
-                            <th class="px-3 py-2 text-right text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
+                            <th class="px-2 py-2 text-right text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
                                 <a href="{{ $buildSortUrl('valor_total') }}" data-link data-clearance-preserve-scroll class="inline-flex items-center gap-1 hover:text-gray-700 justify-end w-full">Valor {!! $sortArrow('valor_total') !!}</a>
                             </th>
-                            <th class="px-3 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
+                            <th class="px-2 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
                                 <a href="{{ $buildSortUrl('modelo') }}" data-link data-clearance-preserve-scroll class="inline-flex items-center gap-1 hover:text-gray-700">Modelo {!! $sortArrow('modelo') !!}</a>
                             </th>
-                            <th class="px-3 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
+                            <th class="px-2 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
                                 <a href="{{ $buildSortUrl('tipo_nota') }}" data-link data-clearance-preserve-scroll class="inline-flex items-center gap-1 hover:text-gray-700">Tipo {!! $sortArrow('tipo_nota') !!}</a>
                             </th>
-                            <th class="px-3 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
+                            <th class="px-2 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
                                 <a href="{{ $buildSortUrl('status') }}" data-link data-clearance-preserve-scroll class="inline-flex items-center gap-1 hover:text-gray-700">Status {!! $sortArrow('status') !!}</a>
                             </th>
-                            <th class="px-3 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
+                            <th class="px-2 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
                                 <a href="{{ $buildSortUrl('divergencia') }}" data-link data-clearance-preserve-scroll class="inline-flex items-center gap-1 hover:text-gray-700" title="Divergência declarado vs SEFAZ">Divergência {!! $sortArrow('divergencia') !!}</a>
                             </th>
-                            <th class="px-3 py-2 text-right text-[10px] font-semibold text-gray-500 uppercase tracking-wide"></th>
+                            <th class="px-2 py-2 text-right text-[10px] font-semibold text-gray-500 uppercase tracking-wide"></th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200" id="tbody-notas">
@@ -461,7 +469,9 @@
                                 $dataEmissao = $n->data_emissao ? \Illuminate\Support\Carbon::parse($n->data_emissao) : null;
                                 $detalheUrl = $isXml
                                     ? "/app/clearance/nota/{$n->id}"
-                                    : "/app/notas/acervo?chave={$n->chave}";
+                                    : (! empty($n->situacao_sefaz) && ! empty($n->chave) && strlen((string) $n->chave) === 44
+                                        ? route('app.clearance.nota.comparar', ['chave' => $n->chave])
+                                        : route('app.notas.detalhes', ['origem' => 'efd', 'id' => $n->id]));
                                 $modeloLabel = $n->modelo_label ?? 'N/D';
                                 $modeloHex = $n->modelo_hex ?? '#9ca3af';
                                 $participanteCnpjFmt = null;
@@ -498,23 +508,23 @@
                                 </td>
                                 <td class="px-3 py-2 font-mono text-xs">{{ $n->numero }}/{{ $n->serie }}</td>
                                 <td class="px-3 py-2 text-xs">{{ $dataEmissao?->format('d/m/Y') }}</td>
-                                <td class="px-3 py-2 text-xs text-gray-700 truncate max-w-[180px]">{{ $n->emit_razao_social }}</td>
-                                <td class="px-3 py-2 text-xs text-gray-700 truncate max-w-[180px]">{{ $n->dest_razao_social }}</td>
-                                <td class="px-3 py-2 text-xs text-right font-mono">R$ {{ number_format((float) $n->valor_total, 2, ',', '.') }}</td>
-                                <td class="px-3 py-2 text-xs">
+                                <td class="px-3 py-2 text-[11px] text-gray-700 truncate max-w-[150px]">{{ $n->emit_razao_social }}</td>
+                                <td class="px-3 py-2 text-[11px] text-gray-700 truncate max-w-[104px]">{{ $n->dest_razao_social }}</td>
+                                <td class="px-2 py-2 text-xs text-right font-mono whitespace-nowrap">R$ {{ number_format((float) $n->valor_total, 2, ',', '.') }}</td>
+                                <td class="px-2 py-2 text-xs">
                                     <span class="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $modeloHex }}">
                                         {{ $modeloLabel }}
                                     </span>
                                 </td>
-                                <td class="px-3 py-2 text-xs">
+                                <td class="px-2 py-2 text-xs">
                                     <span class="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $n->tipo_nota === 'entrada' ? '#047857' : '#d97706' }}">
                                         {{ ucfirst($n->tipo_nota) }}
                                     </span>
                                 </td>
-                                <td class="px-3 py-2 text-xs">
-                                    <span class="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide text-white td-status" style="background-color: {{ $s['hex'] }}">{{ $s['label'] }}</span>
+                                <td class="px-2 py-2 text-xs">
+                                    <span class="inline-block whitespace-nowrap px-1.5 py-[1px] rounded text-[8px] font-bold uppercase tracking-normal text-white td-status" style="background-color: {{ $s['hex'] }}">{{ $s['label'] }}</span>
                                 </td>
-                                <td class="px-3 py-2 text-xs">
+                                <td class="px-2 py-2 text-xs">
                                     @php $div = $divergenciaBadge($n); @endphp
                                     @if ($n->chave && strlen($n->chave) === 44 && ! empty($n->situacao_sefaz))
                                         <a href="{{ route('app.clearance.nota.comparar', ['chave' => $n->chave]) }}" data-link
@@ -527,10 +537,11 @@
                                               title="{{ $div['tooltip'] }}">{{ $div['label'] }}</span>
                                     @endif
                                 </td>
-                                <td class="px-3 py-2 text-right">
+                                <td class="px-2 py-2 text-right whitespace-nowrap">
                                     <button type="button" class="nota-details-toggle inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-900" data-nota-id="{{ $n->id }}" aria-expanded="false">
-                                        <span>Detalhes</span>
-                                        <svg class="w-3.5 h-3.5 nota-details-chevron transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <span class="hidden xl:inline">Detalhes</span>
+                                        <span class="xl:hidden">Ver</span>
+                                        <svg class="w-3.5 h-3.5 flex-shrink-0 nota-details-chevron transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/>
                                         </svg>
                                     </button>
@@ -558,7 +569,7 @@
                                         <div class="rounded border border-gray-200 bg-white px-3 py-2.5">
                                             <p class="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Status clearance</p>
                                             <p class="mt-1">
-                                                <span class="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $s['hex'] }}">{{ $s['label'] }}</span>
+                                                <span class="inline-block whitespace-nowrap px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $s['hex'] }}">{{ $s['label'] }}</span>
                                             </p>
                                             @if ($motivo)
                                                 <p class="text-[11px] text-gray-600 mt-1">{{ $motivo }}</p>

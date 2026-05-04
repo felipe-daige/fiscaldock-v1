@@ -79,7 +79,7 @@ it('happy path: valida local, despacha webhook com payload das notas e retorna c
         'n8n.test/*' => Http::response(['ok' => true], 200),
     ]);
 
-    $response = actingAs($user)->postJson('/app/validacao/notas/validar', [
+    $response = actingAs($user)->postJson('/app/clearance/notas/validar', [
         'nota_ids' => [$nota1->id, $nota2->id],
         'origens' => [$nota1->id => 'efd', $nota2->id => 'efd'],
         'tipo' => 'basico',
@@ -139,7 +139,7 @@ it('estorna créditos e retorna 502 quando webhook responde com erro', function 
         'n8n.test/*' => Http::response(['error' => 'boom'], 500),
     ]);
 
-    $response = actingAs($user)->postJson('/app/validacao/notas/validar', [
+    $response = actingAs($user)->postJson('/app/clearance/notas/validar', [
         'nota_ids' => [$nota->id],
         'origens' => [$nota->id => 'efd'],
         'tipo' => 'basico',
@@ -165,7 +165,7 @@ it('retorna 402 e não dispara webhook quando saldo é insuficiente', function (
         'n8n.test/*' => Http::response(['ok' => true], 200),
     ]);
 
-    $response = actingAs($user)->postJson('/app/validacao/notas/validar', [
+    $response = actingAs($user)->postJson('/app/clearance/notas/validar', [
         'nota_ids' => [$nota->id],
         'origens' => [$nota->id => 'efd'],
         'tipo' => 'basico',
@@ -191,15 +191,16 @@ it('retorna webhook_disparado=false quando WEBHOOK_CONSULTAS_NOTAS_URL não est�
 
     Http::fake();
 
-    $response = actingAs($user)->postJson('/app/validacao/notas/validar', [
+    $response = actingAs($user)->postJson('/app/clearance/notas/validar', [
         'nota_ids' => [$nota->id],
         'origens' => [$nota->id => 'efd'],
         'tipo' => 'basico',
         'tab_id' => 'tab-bulk-sem-webhook',
     ]);
 
-    $response->assertOk()
-        ->assertJsonPath('webhook_disparado', false);
+    $response->assertStatus(503)
+        ->assertJsonPath('refund_aplicado', true)
+        ->assertJsonPath('novo_saldo', 100);
 
     expect(ConsultaLote::count())->toBe(0);
     Http::assertNothingSent();
@@ -243,9 +244,9 @@ it('resultado de notas em processamento hidrata snapshot inicial de progresso do
         ->get("/app/clearance/notas/resultado/{$lote->id}?tipo_validacao=basico")
         ->assertOk()
         ->assertSee('data-progress-snapshot', false)
-        ->assertSee('Preparando consulta concluída.', false)
+        ->assertSee('Preparando consulta', false)
         ->assertSee('clearance-resultado-progresso', false)
-        ->assertDontSee('Resultado Consolidado', false);
+        ->assertDontSee('Veredito do lote', false);
 });
 
 it('resultado de notas só exibe resumo consolidado quando lote está finalizado', function () {
@@ -264,7 +265,7 @@ it('resultado de notas só exibe resumo consolidado quando lote está finalizado
     actingAs($user)
         ->get("/app/clearance/notas/resultado/{$lote->id}?tipo_validacao=basico")
         ->assertOk()
-        ->assertSee('Resultado Consolidado', false)
+        ->assertSee('Indicadores operacionais', false)
         ->assertDontSee('clearance-resultado-progresso', false);
 });
 
@@ -281,17 +282,24 @@ it('resultado de notas ajax informa quando o resumo final está pronto', functio
         'processado_em' => now(),
     ]);
 
-    \Illuminate\Support\Facades\DB::table('nfe_consultas')->insert([
+    \Illuminate\Support\Facades\DB::table('xml_notas')->insert([
         'user_id' => $user->id,
+        'cliente_id' => bulkDispatchClientePropria($user)->id,
         'consulta_lote_id' => $lote->id,
-        'chave_acesso' => '35240413305697000150550000000404041953940992',
+        'nfe_id' => '35240413305697000150550000000404041953940992',
+        'origem' => 'xml_upload',
         'tipo_documento' => 'NFE',
-        'modelo' => '55',
-        'numero' => '40404',
+        'numero_nota' => 40404,
         'serie' => 1,
-        'status' => 'AUTORIZADA',
+        'tipo_nota' => 1,
+        'situacao_sefaz' => 'AUTORIZADA',
         'valor_total' => 1000,
-        'consultado_em' => now(),
+        'emit_razao_social' => 'Emitente',
+        'emit_cnpj' => '12345678000190',
+        'dest_razao_social' => 'Dest',
+        'dest_cnpj' => '98765432000110',
+        'data_emissao' => now(),
+        'verificado_sefaz_em' => now(),
         'created_at' => now(),
         'updated_at' => now(),
     ]);
