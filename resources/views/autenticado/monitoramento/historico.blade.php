@@ -17,13 +17,6 @@
             </a>
         </div>
 
-        {{-- Sub-abas Tipo --}}
-        @include('autenticado.monitoramento._sub-tabs-tipo', [
-            'tipoAtivo' => $tipoAtivo ?? 'tudo',
-            'contagens' => $contagens ?? ['tudo' => 0, 'cliente' => 0, 'participante' => 0],
-            'rota' => 'app.monitoramento.historico',
-        ])
-
         {{-- KPIs --}}
         <div class="bg-white rounded border border-gray-300 overflow-hidden mb-6">
             <div class="bg-gray-50 px-4 py-2 border-b border-gray-200">
@@ -47,6 +40,13 @@
                 </div>
             </div>
         </div>
+
+        {{-- Sub-abas Tipo --}}
+        @include('autenticado.monitoramento._sub-tabs-tipo', [
+            'tipoAtivo' => $tipoAtivo ?? 'tudo',
+            'contagens' => $contagens ?? ['tudo' => 0, 'cliente' => 0, 'participante' => 0],
+            'rota' => 'app.monitoramento.historico',
+        ])
 
         {{-- Filtros --}}
         <div class="bg-white rounded border border-gray-300 overflow-hidden mb-6">
