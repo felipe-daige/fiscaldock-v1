@@ -144,6 +144,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/consulta/stream', [MonitoramentoController::class, 'streamConsultas'])->name('consulta.stream');
         Route::get('/consulta/{id}', [MonitoramentoController::class, 'consultaDetalhes'])->name('consulta');
 
+        Route::get('/buscar-alvo', [MonitoramentoController::class, 'buscarAlvo'])->name('buscar-alvo');
+
         // Acoes
         Route::post('/adicionar-cnpj', [MonitoramentoController::class, 'adicionarCnpj'])->name('adicionar-cnpj');
 

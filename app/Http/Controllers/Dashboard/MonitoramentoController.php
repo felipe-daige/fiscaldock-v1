@@ -186,6 +186,41 @@ class MonitoramentoController extends Controller
     }
 
     /**
+     * Busca alvos (clientes ou participantes) para o modal de assinatura.
+     */
+    public function buscarAlvo(Request $request)
+    {
+        if (! Auth::check()) {
+            return response()->json(['message' => 'Não autenticado.'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $validated = $request->validate([
+            'tipo' => ['required', 'in:cliente,participante'],
+            'q' => ['nullable', 'string', 'max:120'],
+        ]);
+
+        $userId = (int) Auth::id();
+        $q = trim($validated['q'] ?? '');
+        $modelo = $validated['tipo'] === 'cliente' ? \App\Models\Cliente::class : \App\Models\Participante::class;
+
+        $documento = preg_replace('/\D/', '', $q);
+
+        $resultados = $modelo::where('user_id', $userId)
+            ->when($q !== '', function ($query) use ($q, $documento) {
+                $query->where(function ($sub) use ($q, $documento) {
+                    $sub->where('razao_social', 'ilike', "%{$q}%");
+                    if ($documento !== '') {
+                        $sub->orWhere('documento', 'like', "%{$documento}%");
+                    }
+                });
+            })
+            ->limit(10)
+            ->get(['id', 'documento', 'razao_social']);
+
+        return response()->json(['resultados' => $resultados]);
+    }
+
+    /**
      * Adiciona CNPJs avulsos para monitoramento.
      */
     public function adicionarCnpj(Request $request)
