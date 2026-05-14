@@ -5,11 +5,11 @@ namespace App\Http\Controllers\Dashboard;
 use App\Http\Controllers\Controller;
 use App\Models\Alerta;
 use App\Models\Cliente;
+use App\Models\ConsultaLote;
+use App\Models\ConsultaResultado;
+use App\Models\CreditTransaction;
 use App\Models\MonitoramentoAssinatura;
 use App\Models\MonitoramentoPlano;
-use App\Models\ConsultaResultado;
-use App\Models\ConsultaLote;
-use App\Models\CreditTransaction;
 use App\Models\Participante;
 use App\Services\AlertaCentralService;
 use App\Services\Dashboard\DashboardDataService;
@@ -660,18 +660,19 @@ class DashboardController extends Controller
             if ($this->isAjaxRequest($request)) {
                 return response()->json(['success' => false, 'redirect' => '/login']);
             }
+
             return redirect('/login');
         }
 
         $userId = Auth::id();
-        
+
         $alerta = Alerta::where('id', $id)
             ->where('user_id', $userId)
             ->with(['cliente', 'participante'])
             ->firstOrFail();
 
         $data = ['alerta' => $alerta];
-        $viewName = self::AUTH_VIEW_PREFIX . 'alertas.show';
+        $viewName = self::AUTH_VIEW_PREFIX.'alertas.show';
 
         if ($this->isAjaxRequest($request)) {
             return view($viewName, $data);

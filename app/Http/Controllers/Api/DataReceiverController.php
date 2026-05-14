@@ -5,12 +5,11 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Cliente;
 use App\Models\ConsultaLote;
-use App\Models\ConsultaResultado;
 use App\Models\EfdImportacao;
-use App\Models\XmlImportacao;
 use App\Models\MonitoramentoConsulta;
 use App\Models\Participante;
 use App\Models\User;
+use App\Models\XmlImportacao;
 use App\Services\CreditService;
 use App\Support\SystemCriticalError;
 use Illuminate\Http\JsonResponse;
@@ -39,7 +38,7 @@ class DataReceiverController extends Controller
         return response()->json([
             'status' => 'ok',
             'api_token_configured' => ! empty($sanitized),
-            'token_prefix' => $sanitized ? substr($sanitized, 0, 8) . '...' : '(vazio)',
+            'token_prefix' => $sanitized ? substr($sanitized, 0, 8).'...' : '(vazio)',
             'token_length' => strlen($sanitized),
             'raw_length' => strlen($token ?? ''),
             'had_quotes_or_whitespace' => strlen($token ?? '') !== strlen($sanitized),
@@ -65,8 +64,8 @@ class DataReceiverController extends Controller
         $isValid = ! empty($apiToken) && ! empty($expectedToken) && hash_equals($expectedToken, $apiToken);
 
         $debug = [
-            'received_prefix' => $apiToken ? substr($apiToken, 0, 8) . '...' : '(vazio)',
-            'expected_prefix' => $expectedToken ? substr($expectedToken, 0, 8) . '...' : '(vazio)',
+            'received_prefix' => $apiToken ? substr($apiToken, 0, 8).'...' : '(vazio)',
+            'expected_prefix' => $expectedToken ? substr($expectedToken, 0, 8).'...' : '(vazio)',
             'received_length' => strlen($apiToken),
             'expected_length' => strlen($expectedToken),
         ];
@@ -208,22 +207,22 @@ class DataReceiverController extends Controller
         }
 
         $data = $request->validate([
-            'user_id'              => 'required|integer',
-            'tab_id'               => 'required|string|max:36',
-            'status'               => 'required|in:inicio,processando,concluido,skip,erro',
-            'bloco'                => 'nullable|in:participantes,notas_servicos,notas_mercadorias,notas_transportes,catalogo,apuracao_icms,retencoes_fonte,apuracao_pis_cofins',
-            'progresso'            => 'nullable|integer|min:0|max:100',
-            'mensagem'             => 'nullable|string|max:255',
-            'importacao_id'        => 'nullable|integer',
-            'error_code'           => 'nullable|string|max:50',
-            'error_message'        => 'nullable|string|max:500',
-            'resumo_final'         => 'nullable|array',
-            'notas_blocos'         => 'nullable|array',
-            'blocos'               => 'nullable|array',
-            'estatisticas'         => 'nullable|array',
-            'totais'               => 'nullable|array',
+            'user_id' => 'required|integer',
+            'tab_id' => 'required|string|max:36',
+            'status' => 'required|in:inicio,processando,concluido,skip,erro',
+            'bloco' => 'nullable|in:participantes,notas_servicos,notas_mercadorias,notas_transportes,catalogo,apuracao_icms,retencoes_fonte,apuracao_pis_cofins',
+            'progresso' => 'nullable|integer|min:0|max:100',
+            'mensagem' => 'nullable|string|max:255',
+            'importacao_id' => 'nullable|integer',
+            'error_code' => 'nullable|string|max:50',
+            'error_message' => 'nullable|string|max:500',
+            'resumo_final' => 'nullable|array',
+            'notas_blocos' => 'nullable|array',
+            'blocos' => 'nullable|array',
+            'estatisticas' => 'nullable|array',
+            'totais' => 'nullable|array',
             'participantes_resumo' => 'nullable|array',
-            'dados'                => 'nullable',
+            'dados' => 'nullable',
         ]);
 
         // Default progresso=0 quando não enviado (ex: payloads de erro)
@@ -244,17 +243,17 @@ class DataReceiverController extends Controller
             );
 
             $cachePayload = array_merge($existing, [
-                'user_id'       => $data['user_id'],
-                'tab_id'        => $data['tab_id'],
-                'status'        => 'erro',
-                'progresso'     => $data['progresso'],
-                'mensagem'      => $uiError['message'],
-                'error_code'    => $data['error_code'] ?? null,
+                'user_id' => $data['user_id'],
+                'tab_id' => $data['tab_id'],
+                'status' => 'erro',
+                'progresso' => $data['progresso'],
+                'mensagem' => $uiError['message'],
+                'error_code' => $data['error_code'] ?? null,
                 'error_message' => $uiError['message'],
-                'ui_error'      => $uiError,
-                'updated_at'    => now()->toIso8601String(),
+                'ui_error' => $uiError,
+                'updated_at' => now()->toIso8601String(),
             ]);
-            if (!empty($importacaoId)) {
+            if (! empty($importacaoId)) {
                 $cachePayload['importacao_id'] = $importacaoId;
 
                 EfdImportacao::where('id', $importacaoId)
@@ -271,11 +270,11 @@ class DataReceiverController extends Controller
         // Se os 4 campos chegaram separados, montar resumo_final internamente.
         // Mantém compatibilidade: se resumo_final já vier pronto, usa direto.
         if (empty($data['resumo_final'])
-            && (!empty($data['blocos']) || !empty($data['estatisticas']) || !empty($data['totais']))) {
+            && (! empty($data['blocos']) || ! empty($data['estatisticas']) || ! empty($data['totais']))) {
             $data['resumo_final'] = [
-                'blocos'               => $data['blocos']               ?? [],
-                'estatisticas'         => $data['estatisticas']         ?? [],
-                'totais'               => $data['totais']               ?? [],
+                'blocos' => $data['blocos'] ?? [],
+                'estatisticas' => $data['estatisticas'] ?? [],
+                'totais' => $data['totais'] ?? [],
                 'participantes_resumo' => $data['participantes_resumo'] ?? [],
             ];
         }
@@ -288,11 +287,11 @@ class DataReceiverController extends Controller
         $importacaoId = $data['importacao_id'] ?? ($existing['importacao_id'] ?? null);
 
         // Persiste resumo_final no banco se presente, junto com colunas de stats
-        if (!empty($data['resumo_final']) && !empty($importacaoId)) {
+        if (! empty($data['resumo_final']) && ! empty($importacaoId)) {
             $rfUpdate = ['resumo_final' => $data['resumo_final']];
 
             if ($data['status'] === 'concluido') {
-                $rfUpdate['status']       = 'concluido';
+                $rfUpdate['status'] = 'concluido';
                 $rfUpdate['concluido_em'] = now();
 
                 $imp = EfdImportacao::find($importacaoId);
@@ -302,7 +301,7 @@ class DataReceiverController extends Controller
             }
 
             $est = $data['resumo_final']['estatisticas'] ?? [];
-            if (!empty($est['total_participantes_processados'])) {
+            if (! empty($est['total_participantes_processados'])) {
                 $rfUpdate['total_participantes'] = (int) $est['total_participantes_processados'];
             }
             if (isset($est['participantes_novos'])) {
@@ -311,10 +310,10 @@ class DataReceiverController extends Controller
             if (isset($est['participantes_repetidos'])) {
                 $rfUpdate['duplicados'] = (int) $est['participantes_repetidos'];
             }
-            if (!empty($est['total_cnpjs_unicos'])) {
+            if (! empty($est['total_cnpjs_unicos'])) {
                 $rfUpdate['total_cnpjs_unicos'] = (int) $est['total_cnpjs_unicos'];
             }
-            if (!empty($est['total_cpfs_unicos'])) {
+            if (! empty($est['total_cpfs_unicos'])) {
                 $rfUpdate['total_cpfs_unicos'] = (int) $est['total_cpfs_unicos'];
             }
 
@@ -324,7 +323,7 @@ class DataReceiverController extends Controller
         }
 
         // Recalcular alertas após importação concluída
-        if ($data['status'] === 'concluido' && !empty($importacaoId)) {
+        if ($data['status'] === 'concluido' && ! empty($importacaoId)) {
             dispatch(function () use ($data) {
                 app(\App\Services\AlertaCentralService::class)->recalcular((int) $data['user_id']);
             })->afterResponse();
@@ -340,33 +339,33 @@ class DataReceiverController extends Controller
             : $incomingStatus;
 
         $cachePayload = array_merge($existing, [
-            'user_id'    => $data['user_id'],
-            'tab_id'     => $data['tab_id'],
-            'status'     => $statusFinal,
-            'progresso'  => $existingStatus === 'concluido' ? ($existing['progresso'] ?? 100) : $data['progresso'],
-            'mensagem'   => $existingStatus === 'concluido' ? ($existing['mensagem'] ?? $data['mensagem']) : ($data['mensagem'] ?? null),
-            'bloco'      => $data['bloco'] ?? null,
+            'user_id' => $data['user_id'],
+            'tab_id' => $data['tab_id'],
+            'status' => $statusFinal,
+            'progresso' => $existingStatus === 'concluido' ? ($existing['progresso'] ?? 100) : $data['progresso'],
+            'mensagem' => $existingStatus === 'concluido' ? ($existing['mensagem'] ?? $data['mensagem']) : ($data['mensagem'] ?? null),
+            'bloco' => $data['bloco'] ?? null,
             'updated_at' => now()->toIso8601String(),
         ]);
         // Preservar importacao_id no cache (do payload ou do existente)
-        if (!empty($importacaoId)) {
+        if (! empty($importacaoId)) {
             $cachePayload['importacao_id'] = $importacaoId;
         }
-        if (!empty($data['resumo_final'])) {
+        if (! empty($data['resumo_final'])) {
             $cachePayload['resumo_final'] = $data['resumo_final'];
         }
-        if (!empty($data['notas_blocos'])) {
+        if (! empty($data['notas_blocos'])) {
             $cachePayload['notas_blocos'] = $data['notas_blocos'];
         }
         $dadosRaw = $data['dados'] ?? null;
-        if (is_string($dadosRaw) && !empty($dadosRaw)) {
+        if (is_string($dadosRaw) && ! empty($dadosRaw)) {
             $dadosParsed = json_decode($dadosRaw, true) ?? [];
         } elseif (is_array($dadosRaw)) {
             $dadosParsed = $dadosRaw;
         } else {
             $dadosParsed = [];
         }
-        if (!empty($dadosParsed)) {
+        if (! empty($dadosParsed)) {
             $cachePayload['dados'] = $dadosParsed;
         }
         Cache::put($mainKey, $cachePayload, 600);
@@ -375,10 +374,10 @@ class DataReceiverController extends Controller
         if (! empty($data['bloco'])) {
             $blocoKey = "efd_notas_progress:{$data['user_id']}:{$data['tab_id']}:{$data['bloco']}";
             Cache::put($blocoKey, [
-                'bloco'      => $data['bloco'],
-                'status'     => $data['status'],
-                'progresso'  => $data['progresso'],
-                'mensagem'   => $data['mensagem'] ?? null,
+                'bloco' => $data['bloco'],
+                'status' => $data['status'],
+                'progresso' => $data['progresso'],
+                'mensagem' => $data['mensagem'] ?? null,
                 'updated_at' => now()->toIso8601String(),
             ], 600);
 
@@ -390,7 +389,7 @@ class DataReceiverController extends Controller
                 for ($i = 0; $i < $currentIdx; $i++) {
                     $priorKey = "efd_notas_progress:{$data['user_id']}:{$data['tab_id']}:{$ordemBlocos[$i]}";
                     $priorData = Cache::get($priorKey);
-                    if ($priorData && !in_array($priorData['status'], ['concluido', 'skip'])) {
+                    if ($priorData && ! in_array($priorData['status'], ['concluido', 'skip'])) {
                         $priorData['status'] = 'concluido';
                         $priorData['progresso'] = 100;
                         Cache::put($priorKey, $priorData, 600);
@@ -413,18 +412,18 @@ class DataReceiverController extends Controller
     private function handleNewProgressFormat(Request $request)
     {
         $validated = $request->validate([
-            'user_id'       => 'required|integer',
-            'tab_id'        => 'required|string|max:36',
-            'progresso'     => 'nullable|integer|min:0|max:100',
-            'mensagem'      => 'nullable|string|max:255',
-            'status'        => 'required|in:iniciando,processando,concluido,erro',
-            'error_code'    => 'nullable|string|max:50',
+            'user_id' => 'required|integer',
+            'tab_id' => 'required|string|max:36',
+            'progresso' => 'nullable|integer|min:0|max:100',
+            'mensagem' => 'nullable|string|max:255',
+            'status' => 'required|in:iniciando,processando,concluido,erro',
+            'error_code' => 'nullable|string|max:50',
             'error_message' => 'nullable|string|max:500',
-            'dados'         => 'nullable',
-            'cliente_id'    => 'nullable|integer',
+            'dados' => 'nullable',
+            'cliente_id' => 'nullable|integer',
             'importacao_id' => 'nullable|integer',
-            'resumo_final'     => 'nullable|array',
-            'notas_blocos'     => 'nullable|array',
+            'resumo_final' => 'nullable|array',
+            'notas_blocos' => 'nullable|array',
             'participante_ids' => 'nullable|array',
         ]);
 
@@ -452,11 +451,11 @@ class DataReceiverController extends Controller
 
         // Merge com cache existente para preservar importacao_id e outros campos anteriores
         $cacheData = array_merge($existing, [
-            'user_id'    => $validated['user_id'],
-            'tab_id'     => $validated['tab_id'],
-            'progresso'  => $validated['progresso'] ?? 0,
-            'mensagem'   => $validated['mensagem'] ?? null,
-            'status'     => $validated['status'],
+            'user_id' => $validated['user_id'],
+            'tab_id' => $validated['tab_id'],
+            'progresso' => $validated['progresso'] ?? 0,
+            'mensagem' => $validated['mensagem'] ?? null,
+            'status' => $validated['status'],
             'updated_at' => now()->toIso8601String(),
         ]);
 
@@ -464,31 +463,31 @@ class DataReceiverController extends Controller
         // o progresso com o valor do endpoint principal — o endpoint de notas controla.
         if (isset($existing['bloco']) && $existing['bloco'] !== '' && $validated['status'] !== 'concluido' && $validated['status'] !== 'erro') {
             $cacheData['progresso'] = $existing['progresso'] ?? $cacheData['progresso'];
-            $cacheData['mensagem']  = $existing['mensagem']  ?? $cacheData['mensagem'];
+            $cacheData['mensagem'] = $existing['mensagem'] ?? $cacheData['mensagem'];
         }
 
         // Preservar importacao_id do cache inicial se n8n não reenviar
         $importacaoIdTop = $validated['importacao_id'] ?? ($existing['importacao_id'] ?? null);
-        if (!empty($importacaoIdTop)) {
+        if (! empty($importacaoIdTop)) {
             $cacheData['importacao_id'] = $importacaoIdTop;
         }
 
         // Propagar resumo_final e notas_blocos ao cache
-        if (!empty($validated['resumo_final'])) {
+        if (! empty($validated['resumo_final'])) {
             $resumoFinal = $validated['resumo_final'];
-            
+
             // Enriquecer resumo_final com apurações do DB para os Resumos Inteligentes
             $importacaoId = $validated['importacao_id'] ?? ($existing['importacao_id'] ?? null);
             if ($importacaoId) {
                 // Buscamos a importacao e as obrigações que foram extraídas na fase anterior do workflow
                 $importacao = \App\Models\EfdImportacao::with(['apuracaoIcms', 'apuracaoContribuicao', 'retencoesFonte'])
                     ->find($importacaoId);
-                    
+
                 if ($importacao) {
-                    if (!isset($resumoFinal['blocos'])) {
+                    if (! isset($resumoFinal['blocos'])) {
                         $resumoFinal['blocos'] = [];
                     }
-                    
+
                     if ($importacao->apuracaoIcms) {
                         $resumoFinal['blocos']['apuracao_icms'] = [
                             'total_notas' => 1,
@@ -512,15 +511,15 @@ class DataReceiverController extends Controller
                             'label_count' => $totalRet > 1 ? 'retenções' : 'retenção',
                         ];
                     }
-                    
+
                     // Atualiza o registro no BD caso ele não propague de outra forma
                     $importacao->update(['resumo_final' => $resumoFinal]);
                 }
             }
-            
+
             $cacheData['resumo_final'] = $resumoFinal;
         }
-        if (!empty($validated['notas_blocos'])) {
+        if (! empty($validated['notas_blocos'])) {
             $cacheData['notas_blocos'] = $validated['notas_blocos'];
         }
 
@@ -534,7 +533,7 @@ class DataReceiverController extends Controller
 
         // n8n pode enviar dados como string JSON (via JSON.stringify) — fazer parse aqui
         $dadosRaw = $validated['dados'] ?? null;
-        if (is_string($dadosRaw) && !empty($dadosRaw)) {
+        if (is_string($dadosRaw) && ! empty($dadosRaw)) {
             $dadosParsed = json_decode($dadosRaw, true) ?? [];
         } elseif (is_array($dadosRaw)) {
             $dadosParsed = $dadosRaw;
@@ -549,11 +548,11 @@ class DataReceiverController extends Controller
             if ($cliente) {
                 $dados = $cacheData['dados'];
                 if (is_array($dados)) {
-                    $dados['cliente_id']          = $validated['cliente_id'];
-                    $dados['cliente_nome']        = $cliente->razao_social ?: $cliente->nome;
-                    $dados['cliente_documento']   = $cliente->documento_formatado ?? $cliente->documento;
+                    $dados['cliente_id'] = $validated['cliente_id'];
+                    $dados['cliente_nome'] = $cliente->razao_social ?: $cliente->nome;
+                    $dados['cliente_documento'] = $cliente->documento_formatado ?? $cliente->documento;
                     $dados['cliente_tipo_pessoa'] = $cliente->tipo_pessoa;
-                    $cacheData['dados']           = $dados;
+                    $cacheData['dados'] = $dados;
                 }
             }
         }
@@ -567,15 +566,15 @@ class DataReceiverController extends Controller
         Cache::put($cacheKey, $cacheData, 600);
 
         Log::info('Progresso armazenado em cache (novo formato)', [
-            'cache_key'         => $cacheKey,
-            'user_id'           => $validated['user_id'],
-            'tab_id'            => $validated['tab_id'],
-            'progresso'         => $validated['progresso'],
-            'status'            => $validated['status'],
-            'has_error'         => ! empty($validated['error_code']),
-            'has_dados'         => ! empty($validated['dados']),
-            'has_resumo_final'  => ! empty($validated['resumo_final']),
-            'importacao_id'     => $importacaoIdTop,
+            'cache_key' => $cacheKey,
+            'user_id' => $validated['user_id'],
+            'tab_id' => $validated['tab_id'],
+            'progresso' => $validated['progresso'],
+            'status' => $validated['status'],
+            'has_error' => ! empty($validated['error_code']),
+            'has_dados' => ! empty($validated['dados']),
+            'has_resumo_final' => ! empty($validated['resumo_final']),
+            'importacao_id' => $importacaoIdTop,
         ]);
 
         return response()->json([
@@ -956,17 +955,21 @@ class DataReceiverController extends Controller
             ?? $dados['importacoes_efd_id']
             ?? null;
 
-        if (!$importacaoId) return;
+        if (! $importacaoId) {
+            return;
+        }
 
         try {
             $importacao = EfdImportacao::where('id', $importacaoId)
                 ->where('user_id', $validated['user_id'])
                 ->first();
 
-            if (!$importacao) return;
+            if (! $importacao) {
+                return;
+            }
 
             $updateData = [
-                'status'       => 'concluido',
+                'status' => 'concluido',
                 'concluido_em' => now(),
             ];
 
@@ -974,7 +977,7 @@ class DataReceiverController extends Controller
                 $updateData['tempo_processamento_segundos'] = (int) $importacao->iniciado_em->diffInSeconds(now());
             }
 
-            if (!empty($dados['total_processados'])) {
+            if (! empty($dados['total_processados'])) {
                 $updateData['total_participantes'] = (int) $dados['total_processados'];
             }
             if (isset($dados['novos_salvos'])) {
@@ -992,7 +995,7 @@ class DataReceiverController extends Controller
 
             // participante_ids: preferir array top-level (n8n via Execute Query), fallback para string CSV
             $ids = [];
-            if (!empty($validated['participante_ids']) && is_array($validated['participante_ids'])) {
+            if (! empty($validated['participante_ids']) && is_array($validated['participante_ids'])) {
                 $ids = array_values(array_filter(array_map('intval', $validated['participante_ids'])));
                 $updateData['participante_ids'] = $ids;
             } else {
@@ -1000,28 +1003,28 @@ class DataReceiverController extends Controller
                 $idsStr = $dados['participante_lita_geral_ids']
                     ?? $dados['participante_lista_geral_ids']
                     ?? '';
-                if (!empty($idsStr)) {
+                if (! empty($idsStr)) {
                     $ids = array_values(array_filter(array_map('intval', explode(',', $idsStr))));
                     $updateData['participante_ids'] = $ids;
                 }
             }
 
             // Persistir resumo_final: prioridade para o campo top-level, fallback para dados
-            if (!empty($validated['resumo_final'])) {
+            if (! empty($validated['resumo_final'])) {
                 $updateData['resumo_final'] = $validated['resumo_final'];
-            } elseif (!empty($dados['estatisticas']) || !empty($dados['blocos'])) {
+            } elseif (! empty($dados['estatisticas']) || ! empty($dados['blocos'])) {
                 $updateData['resumo_final'] = $dados;
             }
             // Enriquecer contadores a partir de estatisticas (se não vieram nos campos legados)
-            if (!empty($dados['estatisticas'])) {
+            if (! empty($dados['estatisticas'])) {
                 $est = $dados['estatisticas'];
-                if (empty($updateData['total_participantes']) && !empty($est['total_participantes_processados'])) {
+                if (empty($updateData['total_participantes']) && ! empty($est['total_participantes_processados'])) {
                     $updateData['total_participantes'] = (int) $est['total_participantes_processados'];
                 }
-                if (!isset($updateData['novos']) && isset($est['participantes_novos'])) {
+                if (! isset($updateData['novos']) && isset($est['participantes_novos'])) {
                     $updateData['novos'] = (int) $est['participantes_novos'];
                 }
-                if (!isset($updateData['duplicados']) && isset($est['participantes_repetidos'])) {
+                if (! isset($updateData['duplicados']) && isset($est['participantes_repetidos'])) {
                     $updateData['duplicados'] = (int) $est['participantes_repetidos'];
                 }
             }
@@ -1029,7 +1032,7 @@ class DataReceiverController extends Controller
             $importacao->update($updateData);
 
             // Vincular participantes ao cliente
-            if ($clienteId && !empty($ids)) {
+            if ($clienteId && ! empty($ids)) {
                 Participante::whereIn('id', $ids)
                     ->where('user_id', $validated['user_id'])
                     ->whereNull('cliente_id')
@@ -1149,7 +1152,6 @@ class DataReceiverController extends Controller
         }
     }
 
-
     /**
      * Endpoint unificado de progresso, etapas concluídas e finalização de consulta em lote.
      *
@@ -1181,20 +1183,20 @@ class DataReceiverController extends Controller
             }
 
             $validated = $request->validate([
-                'user_id'          => 'required|integer|exists:users,id',
-                'tab_id'           => 'required|string|max:36',
-                'status'           => 'required|in:processando,concluido,finalizado,erro',
-                'progresso'        => 'nullable|integer|min:0|max:100',
-                'mensagem'         => 'nullable|string|max:255',
-                'etapa'            => 'nullable|integer|min:0',
-                'total_etapas'     => 'nullable|integer|min:1',
-                'etapa_label'      => 'nullable|string|max:50',
+                'user_id' => 'required|integer|exists:users,id',
+                'tab_id' => 'required|string|max:36',
+                'status' => 'required|in:processando,concluido,finalizado,erro',
+                'progresso' => 'nullable|integer|min:0|max:100',
+                'mensagem' => 'nullable|string|max:255',
+                'etapa' => 'nullable|integer|min:0',
+                'total_etapas' => 'nullable|integer|min:1',
+                'etapa_label' => 'nullable|string|max:50',
                 'consulta_lote_id' => 'required_if:status,finalizado|required_if:status,erro|nullable|integer|exists:consulta_lotes,id',
                 'resultado_resumo' => 'nullable|array',
-                'error_code'       => 'required_if:status,erro|nullable|string|max:50',
-                'error_message'    => 'required_if:status,erro|nullable|string|max:500',
-                'refund_credits'   => 'nullable|boolean',
-                'refund_amount'    => 'nullable|integer|min:1',
+                'error_code' => 'required_if:status,erro|nullable|string|max:50',
+                'error_message' => 'required_if:status,erro|nullable|string|max:500',
+                'refund_credits' => 'nullable|boolean',
+                'refund_amount' => 'nullable|integer|min:1',
             ]);
 
             $cacheKey = "progresso:{$validated['user_id']}:{$validated['tab_id']}";
@@ -1220,7 +1222,7 @@ class DataReceiverController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Erro de validação.',
-                    'errors'  => ['etapa' => ['O número da etapa não pode ser maior que total_etapas.']],
+                    'errors' => ['etapa' => ['O número da etapa não pode ser maior que total_etapas.']],
                 ], Response::HTTP_UNPROCESSABLE_ENTITY);
             }
 
@@ -1268,34 +1270,34 @@ class DataReceiverController extends Controller
                 }
 
                 $cacheData = array_merge($progressContext, [
-                    'user_id'      => $validated['user_id'],
-                    'tab_id'       => $validated['tab_id'],
+                    'user_id' => $validated['user_id'],
+                    'tab_id' => $validated['tab_id'],
                     'consulta_lote_id' => $consultaLoteId,
-                    'progresso'    => $progressoAtual,
-                    'mensagem'     => $mensagemProcessando,
-                    'etapa'        => $etapaAtual,
+                    'progresso' => $progressoAtual,
+                    'mensagem' => $mensagemProcessando,
+                    'etapa' => $etapaAtual,
                     'total_etapas' => $totalEtapas,
-                    'etapa_label'  => $etapaLabelProcessando,
+                    'etapa_label' => $etapaLabelProcessando,
                     'etapas_concluidas' => $etapasConcluidas,
                     'etapas_puladas' => $etapasPuladas,
                     'ultima_etapa_concluida' => $ultimaEtapaConcluida,
                     'trilha_etapas' => $trilhaEtapas,
-                    'status'       => 'processando',
-                    'updated_at'   => now()->toIso8601String(),
+                    'status' => 'processando',
+                    'updated_at' => now()->toIso8601String(),
                 ]);
 
                 Cache::put($cacheKey, $cacheData, 600);
 
                 Log::info('Progresso consulta armazenado em cache', [
                     'cache_key' => $cacheKey,
-                    'user_id'   => $validated['user_id'],
-                    'tab_id'    => $validated['tab_id'],
+                    'user_id' => $validated['user_id'],
+                    'tab_id' => $validated['tab_id'],
                     'progresso' => $progressoAtual,
                 ]);
 
                 return response()->json([
-                    'success'   => true,
-                    'message'   => 'Progresso atualizado.',
+                    'success' => true,
+                    'message' => 'Progresso atualizado.',
                     'progresso' => $progressoAtual,
                 ], Response::HTTP_OK);
             }
@@ -1314,20 +1316,20 @@ class DataReceiverController extends Controller
                 );
 
                 Cache::put($cacheKey, array_merge($progressContext, [
-                    'user_id'          => $validated['user_id'],
-                    'tab_id'           => $validated['tab_id'],
+                    'user_id' => $validated['user_id'],
+                    'tab_id' => $validated['tab_id'],
                     'consulta_lote_id' => $consultaLoteId,
-                    'progresso'        => $progressoAtual,
-                    'mensagem'         => $mensagemConcluido,
-                    'etapa'            => $etapaAtual,
-                    'total_etapas'     => $totalEtapas,
-                    'etapa_label'      => $etapaLabelConcluido,
+                    'progresso' => $progressoAtual,
+                    'mensagem' => $mensagemConcluido,
+                    'etapa' => $etapaAtual,
+                    'total_etapas' => $totalEtapas,
+                    'etapa_label' => $etapaLabelConcluido,
                     'etapas_concluidas' => $etapasConcluidas,
                     'etapas_puladas' => $etapasPuladas,
                     'ultima_etapa_concluida' => $ultimaEtapaConcluida,
                     'trilha_etapas' => $trilhaEtapas,
-                    'status'           => 'concluido',
-                    'updated_at'       => now()->toIso8601String(),
+                    'status' => 'concluido',
+                    'updated_at' => now()->toIso8601String(),
                 ]), 600);
 
                 Log::info('Etapa da consulta marcada como concluída', [
@@ -1353,7 +1355,7 @@ class DataReceiverController extends Controller
             if (! $lote) {
                 Log::warning('receiveConsultasProgresso: lote não encontrado', [
                     'consulta_lote_id' => $validated['consulta_lote_id'],
-                    'user_id'          => $validated['user_id'],
+                    'user_id' => $validated['user_id'],
                 ]);
 
                 return response()->json([
@@ -1364,7 +1366,7 @@ class DataReceiverController extends Controller
 
             if ($status === 'finalizado') {
                 $updateData = [
-                    'status'        => ConsultaLote::STATUS_FINALIZADO,
+                    'status' => ConsultaLote::STATUS_FINALIZADO,
                     'processado_em' => now(),
                 ];
 
@@ -1384,20 +1386,20 @@ class DataReceiverController extends Controller
                 }
 
                 Cache::put($cacheKey, array_merge($progressContext, [
-                    'user_id'          => $validated['user_id'],
-                    'tab_id'           => $validated['tab_id'],
+                    'user_id' => $validated['user_id'],
+                    'tab_id' => $validated['tab_id'],
                     'consulta_lote_id' => $lote->id,
-                    'progresso'        => 100,
-                    'mensagem'         => $mensagemFinal,
-                    'etapa'            => $etapaFinal,
-                    'total_etapas'     => $totalEtapas,
-                    'etapa_label'      => $etapaLabelFinal,
+                    'progresso' => 100,
+                    'mensagem' => $mensagemFinal,
+                    'etapa' => $etapaFinal,
+                    'total_etapas' => $totalEtapas,
+                    'etapa_label' => $etapaLabelFinal,
                     'etapas_concluidas' => $etapasConcluidas,
                     'etapas_puladas' => $etapasPuladas,
                     'ultima_etapa_concluida' => $ultimaEtapaConcluida,
                     'trilha_etapas' => $trilhaEtapas,
-                    'status'           => ConsultaLote::STATUS_FINALIZADO,
-                    'updated_at'       => now()->toIso8601String(),
+                    'status' => ConsultaLote::STATUS_FINALIZADO,
+                    'updated_at' => now()->toIso8601String(),
                 ]), 600);
 
                 Log::info('ConsultaLote finalizado', [
@@ -1412,8 +1414,8 @@ class DataReceiverController extends Controller
 
             // ── status === 'erro' ──
             $lote->update([
-                'status'        => 'erro',
-                'error_code'    => $validated['error_code'] ?? 'UNKNOWN_ERROR',
+                'status' => 'erro',
+                'error_code' => $validated['error_code'] ?? 'UNKNOWN_ERROR',
                 'error_message' => $validated['error_message'] ?? 'Erro desconhecido',
                 'processado_em' => now(),
             ]);
@@ -1433,30 +1435,30 @@ class DataReceiverController extends Controller
             }
 
             Cache::put($cacheKey, array_merge($progressContext, [
-                'user_id'          => $validated['user_id'],
-                'tab_id'           => $validated['tab_id'],
+                'user_id' => $validated['user_id'],
+                'tab_id' => $validated['tab_id'],
                 'consulta_lote_id' => $lote->id,
-                'progresso'        => $validated['progresso'] ?? 0,
-                'mensagem'         => $uiError['message'],
-                'etapa'            => $etapaAtual,
-                'total_etapas'     => $totalEtapas,
-                'etapa_label'      => $validated['etapa_label'] ?? null,
+                'progresso' => $validated['progresso'] ?? 0,
+                'mensagem' => $uiError['message'],
+                'etapa' => $etapaAtual,
+                'total_etapas' => $totalEtapas,
+                'etapa_label' => $validated['etapa_label'] ?? null,
                 'etapas_concluidas' => $etapasConcluidas,
                 'etapas_puladas' => $etapasPuladas,
                 'ultima_etapa_concluida' => $ultimaEtapaConcluida,
                 'trilha_etapas' => $trilhaEtapas,
-                'status'           => 'erro',
-                'error_code'       => $validated['error_code'] ?? 'UNKNOWN_ERROR',
-                'error_message'    => $uiError['message'],
-                'ui_error'         => $uiError,
-                'updated_at'       => now()->toIso8601String(),
+                'status' => 'erro',
+                'error_code' => $validated['error_code'] ?? 'UNKNOWN_ERROR',
+                'error_message' => $uiError['message'],
+                'ui_error' => $uiError,
+                'updated_at' => now()->toIso8601String(),
             ]), 600);
 
             Log::info('ConsultaLote marcado como erro', [
                 'consulta_lote_id' => $lote->id,
-                'error_code'       => $validated['error_code'] ?? 'UNKNOWN_ERROR',
-                'refund_credits'   => $validated['refund_credits'] ?? false,
-                'refund_amount'    => $validated['refund_amount'] ?? null,
+                'error_code' => $validated['error_code'] ?? 'UNKNOWN_ERROR',
+                'refund_credits' => $validated['refund_credits'] ?? false,
+                'refund_amount' => $validated['refund_amount'] ?? null,
             ]);
 
             return response()->json([
@@ -1466,20 +1468,20 @@ class DataReceiverController extends Controller
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             Log::warning('Erro de validação em receiveConsultasProgresso', [
-                'errors'       => $e->errors(),
+                'errors' => $e->errors(),
                 'request_data' => $request->except(['resultado_resumo']),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Erro de validação.',
-                'errors'  => $e->errors(),
+                'errors' => $e->errors(),
             ], Response::HTTP_UNPROCESSABLE_ENTITY);
 
         } catch (\Exception $e) {
             Log::error('Erro inesperado em receiveConsultasProgresso', [
-                'message'      => $e->getMessage(),
-                'trace'        => $e->getTraceAsString(),
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
                 'request_data' => $request->except(['resultado_resumo']),
             ]);
 
@@ -1691,6 +1693,7 @@ class DataReceiverController extends Controller
         foreach (['fluxo', 'tipo_validacao', 'total_nfe', 'total_cte'] as $field) {
             if (array_key_exists($field, $validated)) {
                 $context[$field] = $validated[$field];
+
                 continue;
             }
 
@@ -1874,18 +1877,17 @@ class DataReceiverController extends Controller
             if ($user) {
                 $this->creditService->add($user, $amount);
                 Log::info('Créditos estornados para consulta lote com erro', [
-                    'consulta_lote_id'   => $lote->id,
-                    'user_id'            => $lote->user_id,
+                    'consulta_lote_id' => $lote->id,
+                    'user_id' => $lote->user_id,
                     'creditos_estornados' => $amount,
-                    'tipo_refund'        => $refundAmount ? 'parcial' : 'total',
+                    'tipo_refund' => $refundAmount ? 'parcial' : 'total',
                 ]);
             }
         } catch (\Exception $e) {
             Log::error('Erro ao estornar créditos do consulta lote', [
                 'consulta_lote_id' => $lote->id,
-                'error'            => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
         }
     }
-
 }

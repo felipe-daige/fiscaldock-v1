@@ -1,7 +1,6 @@
 <?php
 
 use App\Models\Alerta;
-use App\Models\Cliente;
 use App\Models\MonitoramentoAssinatura;
 use App\Models\MonitoramentoConsulta;
 use App\Models\MonitoramentoPlano;

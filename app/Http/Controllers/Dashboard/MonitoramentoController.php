@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
+use App\Models\Cliente;
 use App\Models\MonitoramentoAssinatura;
 use App\Models\MonitoramentoConsulta;
 use App\Models\MonitoramentoPlano;
-use App\Models\Cliente;
 use App\Models\Participante;
 use App\Services\CreditService;
 use App\Services\PricingCatalogService;
