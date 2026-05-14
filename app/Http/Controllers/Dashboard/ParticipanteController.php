@@ -624,6 +624,15 @@ class ParticipanteController extends Controller
             ->with('plano')
             ->first();
 
+        $custoMensalEstimado = $assinaturaAtiva
+            ? (int) round((($assinaturaAtiva->plano->custo_creditos ?? 0) * 30) / max(1, $assinaturaAtiva->frequencia_dias))
+            : null;
+
+        $totalConsumido = (int) MonitoramentoConsulta::where('participante_id', $participante->id)
+            ->where('user_id', $userId)
+            ->where('status', '!=', 'erro')
+            ->sum('creditos_cobrados');
+
         // Notas fiscais unificadas (EFD + XML) do participante
         $notasFiscais = $this->notaFiscalService->listarUnificadas(
             $userId,
@@ -741,6 +750,8 @@ class ParticipanteController extends Controller
             'participante' => $participante,
             'consultas' => $consultas,
             'assinaturaAtiva' => $assinaturaAtiva,
+            'custoMensalEstimado' => $custoMensalEstimado,
+            'totalConsumido' => $totalConsumido,
             'planos' => $planos,
             'estatisticas' => $estatisticas,
             'credits' => $credits,
