@@ -115,6 +115,19 @@
             <x-sidebar.group-item href="/app/consulta/planos">Planos</x-sidebar.group-item>
         </x-sidebar.group>
 
+        <x-sidebar.group title="Monitoramento" :open="request()->is('app/monitoramento/*') || request()->is('app/monitoramento')">
+            <x-slot:icon>
+                <svg class="sidebar__item-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h18M3 12h18M3 19h18"></path>
+                </svg>
+            </x-slot:icon>
+
+            <x-sidebar.group-item href="/app/monitoramento">Painel</x-sidebar.group-item>
+            <x-sidebar.group-item href="/app/monitoramento/historico">Histórico</x-sidebar.group-item>
+            <x-sidebar.group-item href="/app/monitoramento/alertas">Alertas</x-sidebar.group-item>
+            <x-sidebar.group-item href="/app/monitoramento/grupos">Grupos</x-sidebar.group-item>
+        </x-sidebar.group>
+
         <x-sidebar.item href="/app/score-fiscal">
             <x-slot:icon>
                 <svg class="sidebar__item-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
