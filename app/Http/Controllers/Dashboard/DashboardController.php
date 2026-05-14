@@ -9,6 +9,7 @@ use App\Models\ConsultaLote;
 use App\Models\ConsultaResultado;
 use App\Models\CreditTransaction;
 use App\Models\MonitoramentoAssinatura;
+use App\Models\MonitoramentoConsulta;
 use App\Models\MonitoramentoPlano;
 use App\Models\Participante;
 use App\Services\AlertaCentralService;
@@ -401,7 +402,23 @@ class DashboardController extends Controller
         $assinaturaAtiva = MonitoramentoAssinatura::where('cliente_id', $cliente->id)
             ->where('user_id', Auth::id())
             ->whereIn('status', ['ativo', 'pausado'])
+            ->with('plano')
             ->first();
+
+        $custoMensalEstimado = $assinaturaAtiva
+            ? (int) round((($assinaturaAtiva->plano->custo_creditos ?? 0) * 30) / max(1, $assinaturaAtiva->frequencia_dias))
+            : null;
+
+        $totalConsumido = (int) MonitoramentoConsulta::where('cliente_id', $cliente->id)
+            ->where('user_id', Auth::id())
+            ->where('status', '!=', 'erro')
+            ->sum('creditos_cobrados');
+
+        $consultasMonitoramento = MonitoramentoConsulta::where('cliente_id', $cliente->id)
+            ->where('user_id', Auth::id())
+            ->with('plano')
+            ->orderByDesc('created_at')
+            ->paginate(10);
 
         $viewData = [
             'cliente' => $cliente,
@@ -414,6 +431,9 @@ class DashboardController extends Controller
             'notasEntityId' => $cliente->id,
             'planos' => MonitoramentoPlano::ativos(),
             'assinaturaAtiva' => $assinaturaAtiva,
+            'custoMensalEstimado' => $custoMensalEstimado,
+            'totalConsumido' => $totalConsumido,
+            'consultas' => $consultasMonitoramento,
         ];
 
         if ($this->isAjaxRequest($request)) {

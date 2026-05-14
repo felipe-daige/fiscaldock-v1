@@ -158,9 +158,15 @@
                         'entityId' => $notasEntityId,
                     ])
                 </div>
+
+                <div>
+                    @include('autenticado.monitoramento._assinatura-historico')
+                </div>
             </div>
 
             <div class="space-y-6">
+                @include('autenticado.monitoramento._assinatura-painel')
+
                 <div class="bg-white rounded border border-gray-300 overflow-hidden">
                     <div class="bg-gray-50 px-4 py-2 border-b border-gray-200">
                         <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Situação do Cadastro</span>
@@ -413,6 +419,52 @@
                         }
                     });
                 }
+            })();
+            </script>
+
+            <script>
+            (function() {
+                var csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+                function acaoAssinatura(url, method, confirmMsg) {
+                    if (confirmMsg && !confirm(confirmMsg)) return;
+                    fetch(url, {
+                        method: method,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': csrf,
+                            'Accept': 'application/json',
+                        },
+                        credentials: 'same-origin',
+                    })
+                    .then(function(res) { return res.json().then(function(data) { return { ok: res.ok, data: data }; }); })
+                    .then(function(r) {
+                        if (!r.ok) {
+                            throw new Error(r.data.error || 'Erro ao atualizar a assinatura');
+                        }
+                        window.showToast && window.showToast('Assinatura atualizada.', 'success');
+                        setTimeout(function() { window.location.reload(); }, 1200);
+                    })
+                    .catch(function(err) {
+                        window.showToast && window.showToast(err.message || 'Erro ao atualizar a assinatura', 'error');
+                    });
+                }
+
+                document.querySelectorAll('.btn-pausar-assinatura').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        acaoAssinatura('/app/monitoramento/assinatura/' + this.dataset.assinaturaId + '/pausar', 'POST', 'Deseja pausar esta assinatura?');
+                    });
+                });
+                document.querySelectorAll('.btn-reativar-assinatura').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        acaoAssinatura('/app/monitoramento/assinatura/' + this.dataset.assinaturaId + '/reativar', 'POST', null);
+                    });
+                });
+                document.querySelectorAll('.btn-cancelar-assinatura').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        acaoAssinatura('/app/monitoramento/assinatura/' + this.dataset.assinaturaId, 'DELETE', 'Tem certeza que deseja cancelar esta assinatura? Esta ação não pode ser desfeita.');
+                    });
+                });
             })();
             </script>
         @endif
