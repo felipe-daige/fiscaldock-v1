@@ -14,9 +14,11 @@ return new class extends Migration
         Schema::create('monitoramento_consultas', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->foreignId('participante_id')->constrained('participantes')->onDelete('cascade');
+            $table->foreignId('participante_id')->nullable()->constrained('participantes')->onDelete('cascade');
+            $table->foreignId('cliente_id')->nullable()->constrained('clientes')->onDelete('cascade');
             $table->foreignId('plano_id')->constrained('monitoramento_planos');
             $table->foreignId('assinatura_id')->nullable()->constrained('monitoramento_assinaturas')->onDelete('set null');
+            $table->foreignId('parent_consulta_id')->nullable()->constrained('monitoramento_consultas')->onDelete('set null');
             $table->enum('tipo', ['assinatura', 'avulso']);
             $table->enum('status', ['pendente', 'processando', 'sucesso', 'erro'])->default('pendente');
             $table->json('resultado')->nullable(); // Dados retornados pelo n8n
@@ -32,6 +34,7 @@ return new class extends Migration
             $table->index('situacao_geral');
             $table->index('tem_pendencias');
             $table->index('proxima_validade');
+            $table->index('parent_consulta_id');
         });
     }
 
