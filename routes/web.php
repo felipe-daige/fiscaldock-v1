@@ -141,6 +141,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [MonitoramentoController::class, 'painel'])->name('painel');
 
         Route::get('/historico', [MonitoramentoController::class, 'historico'])->name('historico');
+        Route::get('/alertas', [MonitoramentoController::class, 'alertas'])->name('alertas');
         Route::get('/clientes', [MonitoramentoController::class, 'clientes'])->name('clientes');
         // SSE para acompanhar resultado de consultas em tempo real
         Route::get('/consulta/stream', [MonitoramentoController::class, 'streamConsultas'])->name('consulta.stream');

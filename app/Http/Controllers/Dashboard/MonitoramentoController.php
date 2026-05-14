@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
+use App\Models\Alerta;
 use App\Models\Cliente;
 use App\Models\MonitoramentoAssinatura;
 use App\Models\MonitoramentoConsulta;
@@ -107,6 +108,62 @@ class MonitoramentoController extends Controller
         }
 
         return view(self::AUTH_LAYOUT_VIEW, array_merge(['initialView' => $historicoView], $data));
+    }
+
+    /**
+     * Alertas de monitoramento do usuário.
+     */
+    public function alertas(Request $request)
+    {
+        if (! Auth::check()) {
+            return $this->redirectToLogin($request);
+        }
+
+        $user = Auth::user();
+        $userId = (int) $user->id;
+
+        $tipoAtivo = $this->normalizarTipo($request);
+
+        $query = Alerta::query()
+            ->where('user_id', $userId)
+            ->where('categoria', 'monitoramento')
+            ->with(['cliente', 'participante']);
+        $this->aplicarFiltroTipo($query, $tipoAtivo);
+
+        $alertas = $query->orderByDesc('created_at')->paginate(20)->withQueryString();
+
+        $kpiBase = Alerta::query()
+            ->where('user_id', $userId)
+            ->where('categoria', 'monitoramento');
+        $this->aplicarFiltroTipo($kpiBase, $tipoAtivo);
+        $kpiNaoLidos = (clone $kpiBase)->whereNull('visto_em')->count();
+        $kpiCriticos = (clone $kpiBase)->where('severidade', 'critico')->count();
+        $kpi7dias = (clone $kpiBase)->where('created_at', '>=', Carbon::now()->subDays(7))->count();
+
+        $contagensBase = Alerta::query()->where('user_id', $userId)->where('categoria', 'monitoramento');
+        $contagens = [
+            'tudo' => (clone $contagensBase)->count(),
+            'cliente' => (clone $contagensBase)->whereNotNull('cliente_id')->count(),
+            'participante' => (clone $contagensBase)->whereNotNull('participante_id')->count(),
+        ];
+
+        $data = [
+            'alertas' => $alertas,
+            'tipoAtivo' => $tipoAtivo,
+            'contagens' => $contagens,
+            'kpiNaoLidos' => $kpiNaoLidos,
+            'kpiCriticos' => $kpiCriticos,
+            'kpi7dias' => $kpi7dias,
+            'credits' => $this->creditService->getBalance($user),
+        ];
+
+        $alertasView = self::AUTH_VIEW_PREFIX.'alertas';
+
+        if ($this->isAjaxRequest($request)) {
+            return response(view($alertasView, $data)->render())->header('Content-Type', 'text/html');
+        }
+
+        return view(self::AUTH_LAYOUT_VIEW, array_merge(['initialView' => $alertasView], $data));
     }
 
     public function painel(Request $request)
