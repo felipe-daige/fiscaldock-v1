@@ -16,6 +16,7 @@ class MonitoramentoAssinatura extends Model
     protected $fillable = [
         'user_id',
         'participante_id',
+        'cliente_id',
         'plano_id',
         'status',
         'frequencia_dias',
@@ -56,6 +57,30 @@ class MonitoramentoAssinatura extends Model
     public function participante(): BelongsTo
     {
         return $this->belongsTo(Participante::class);
+    }
+
+    /**
+     * Cliente monitorado (alternativa a participante).
+     */
+    public function cliente(): BelongsTo
+    {
+        return $this->belongsTo(Cliente::class);
+    }
+
+    /**
+     * Tipo do alvo monitorado: 'participante' ou 'cliente'.
+     */
+    public function alvoTipo(): string
+    {
+        return $this->cliente_id ? 'cliente' : 'participante';
+    }
+
+    /**
+     * Modelo do alvo monitorado (Participante ou Cliente).
+     */
+    public function alvo(): ?Model
+    {
+        return $this->cliente_id ? $this->cliente : $this->participante;
     }
 
     /**
