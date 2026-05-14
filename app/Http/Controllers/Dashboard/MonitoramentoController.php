@@ -779,6 +779,46 @@ class MonitoramentoController extends Controller
     }
 
     /**
+     * Aplica filtro por tipo de alvo (tudo/cliente/participante) numa query
+     * que tenha as colunas cliente_id e participante_id.
+     */
+    private function aplicarFiltroTipo(\Illuminate\Database\Eloquent\Builder $query, string $tipo): \Illuminate\Database\Eloquent\Builder
+    {
+        return match ($tipo) {
+            'cliente' => $query->whereNotNull('cliente_id'),
+            'participante' => $query->whereNotNull('participante_id'),
+            default => $query,
+        };
+    }
+
+    /**
+     * Calcula contagens por tipo de alvo (tudo/cliente/participante) para um
+     * modelo que tenha as colunas user_id, cliente_id, participante_id.
+     *
+     * @param  class-string<\Illuminate\Database\Eloquent\Model>  $modelo
+     * @return array{tudo:int,cliente:int,participante:int}
+     */
+    private function contagensPorTipo(int $userId, string $modelo): array
+    {
+        $base = $modelo::query()->where('user_id', $userId);
+        $tudo = (clone $base)->count();
+        $cliente = (clone $base)->whereNotNull('cliente_id')->count();
+        $participante = (clone $base)->whereNotNull('participante_id')->count();
+
+        return compact('tudo', 'cliente', 'participante');
+    }
+
+    /**
+     * Normaliza o parâmetro 'tipo' da request — default 'tudo' se inválido.
+     */
+    private function normalizarTipo(Request $request): string
+    {
+        $tipo = $request->string('tipo')->toString();
+
+        return in_array($tipo, ['cliente', 'participante'], true) ? $tipo : 'tudo';
+    }
+
+    /**
      * Redireciona para login.
      */
     private function redirectToLogin(Request $request)
