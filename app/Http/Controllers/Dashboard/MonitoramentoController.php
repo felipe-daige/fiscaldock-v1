@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\MonitoramentoAssinatura;
 use App\Models\MonitoramentoConsulta;
 use App\Models\MonitoramentoPlano;
+use App\Models\Cliente;
 use App\Models\Participante;
 use App\Services\CreditService;
 use App\Services\PricingCatalogService;
@@ -304,10 +305,17 @@ class MonitoramentoController extends Controller
             $participanteIds = [$participanteId];
         }
 
-        if (empty($participanteIds) || empty($planoId)) {
+        // Aceita cliente_id (único) ou clientes (array)
+        $clienteId = $request->input('cliente_id');
+        $clienteIds = $request->input('clientes', []);
+        if ($clienteId && empty($clienteIds)) {
+            $clienteIds = [$clienteId];
+        }
+
+        if ((empty($participanteIds) && empty($clienteIds)) || empty($planoId)) {
             return response()->json([
                 'success' => false,
-                'error' => 'Dados incompletos. Selecione participantes e um plano.',
+                'error' => 'Dados incompletos. Selecione participantes ou clientes e um plano.',
             ], Response::HTTP_BAD_REQUEST);
         }
 
@@ -365,6 +373,43 @@ class MonitoramentoController extends Controller
                 MonitoramentoAssinatura::create([
                     'user_id' => $user->id,
                     'participante_id' => $participante->id,
+                    'plano_id' => $plano->id,
+                    'frequencia_dias' => $frequenciaDias,
+                    'status' => 'ativo',
+                    'proxima_execucao_em' => $proximaExecucao,
+                ]);
+
+                $assinaturasCriadas++;
+            }
+
+            foreach ($clienteIds as $cId) {
+                // Verificar se cliente pertence ao usuário
+                $cliente = Cliente::where('id', $cId)
+                    ->where('user_id', $user->id)
+                    ->first();
+
+                if (! $cliente) {
+                    continue;
+                }
+
+                // Verificar se já existe assinatura ativa/pausada
+                $assinaturaExistente = MonitoramentoAssinatura::where('cliente_id', $cliente->id)
+                    ->where('user_id', $user->id)
+                    ->whereIn('status', ['ativo', 'pausado'])
+                    ->first();
+
+                if ($assinaturaExistente) {
+                    $jaExistentes++;
+
+                    continue;
+                }
+
+                $frequenciaDias = $this->frequenciaParaDias($frequencia);
+                $proximaExecucao = Carbon::now()->addDays($frequenciaDias)->setTime(8, 0, 0);
+
+                MonitoramentoAssinatura::create([
+                    'user_id' => $user->id,
+                    'cliente_id' => $cliente->id,
                     'plano_id' => $plano->id,
                     'frequencia_dias' => $frequenciaDias,
                     'status' => 'ativo',
