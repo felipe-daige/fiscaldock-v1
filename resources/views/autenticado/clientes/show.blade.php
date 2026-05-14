@@ -70,6 +70,15 @@
                         >
                             Editar cadastro
                         </a>
+                        @if(!$cliente->is_empresa_propria && !($assinaturaAtiva ?? null))
+                            <button
+                                type="button"
+                                id="btn-criar-assinatura"
+                                class="px-3 py-2 text-sm font-medium bg-white border border-gray-300 text-gray-600 hover:bg-gray-50 rounded"
+                            >
+                                Criar assinatura
+                            </button>
+                        @endif
                         @if(!$cliente->is_empresa_propria)
                             <button
                                 type="button"
@@ -274,6 +283,134 @@
                             fecharModal();
                             alert('Erro ao excluir cliente.');
                         });
+                    });
+                }
+            })();
+            </script>
+
+            {{-- Modal Criar Assinatura de Monitoramento --}}
+            <div id="modal-criar-assinatura" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <div class="bg-white rounded border border-gray-300 max-w-md w-full overflow-hidden">
+                    <div class="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Criar Assinatura</span>
+                            <button type="button" class="modal-criar-assinatura-close text-gray-400 hover:text-gray-500">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <form id="form-criar-assinatura">
+                        <div class="p-4 sm:p-6 space-y-4">
+                            <div>
+                                <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Selecione o Plano</label>
+                                <select name="plano_id" id="select-plano-assinatura" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-gray-400 focus:border-gray-400" required>
+                                    <option value="">Selecione...</option>
+                                    @foreach($planos as $plano)
+                                        <option value="{{ $plano->id }}" data-creditos="{{ $plano->custo_creditos }}">
+                                            {{ $plano->nome }} ({{ $plano->custo_creditos }} creditos)
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Frequência</label>
+                                <select name="frequencia" id="select-frequencia" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-gray-400 focus:border-gray-400" required>
+                                    <option value="mensal" selected>Mensal</option>
+                                    <option value="quinzenal" disabled>Quinzenal (em breve)</option>
+                                    <option value="60dias" disabled>60 dias (em breve)</option>
+                                </select>
+                            </div>
+                            <div class="bg-gray-50 border border-gray-200 rounded p-4">
+                                <p class="text-sm text-gray-600 mb-2">Cliente:</p>
+                                <p class="text-sm font-semibold text-gray-900">{{ $cliente->razao_social ?? $cliente->nome }}</p>
+                                <p class="text-xs text-gray-500 font-mono">{{ $cliente->documento_formatado }}</p>
+                            </div>
+                        </div>
+                        <div class="px-6 py-4 border-t border-gray-200 bg-white flex justify-end gap-3">
+                            <button type="button" class="modal-criar-assinatura-close px-4 py-2 rounded border border-gray-300 bg-white text-gray-700 text-sm font-semibold transition hover:bg-gray-50">
+                                Cancelar
+                            </button>
+                            <button type="submit" class="px-4 py-2 rounded bg-gray-800 text-white text-sm font-semibold transition hover:bg-gray-700">
+                                Criar Assinatura
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <script>
+            (function() {
+                var btnCriar = document.getElementById('btn-criar-assinatura');
+                var modal = document.getElementById('modal-criar-assinatura');
+                var form = document.getElementById('form-criar-assinatura');
+                var clienteId = {{ $cliente->id }};
+
+                if (btnCriar && modal) {
+                    btnCriar.addEventListener('click', function() {
+                        modal.classList.remove('hidden');
+                        document.body.style.overflow = 'hidden';
+                    });
+                }
+
+                document.querySelectorAll('.modal-criar-assinatura-close').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        if (modal) modal.classList.add('hidden');
+                        document.body.style.overflow = '';
+                    });
+                });
+
+                if (form) {
+                    form.addEventListener('submit', async function(e) {
+                        e.preventDefault();
+
+                        var planoId = document.getElementById('select-plano-assinatura').value;
+                        var frequencia = document.getElementById('select-frequencia').value;
+
+                        if (!planoId) {
+                            window.showToast && window.showToast('Selecione um plano', 'error');
+                            return;
+                        }
+
+                        var csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                        var submitBtn = this.querySelector('button[type="submit"]');
+                        var originalText = submitBtn.textContent;
+                        submitBtn.disabled = true;
+                        submitBtn.textContent = 'Criando...';
+
+                        try {
+                            var response = await fetch('/app/monitoramento/assinatura', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': csrf,
+                                    'Accept': 'application/json',
+                                },
+                                credentials: 'same-origin',
+                                body: JSON.stringify({
+                                    cliente_id: clienteId,
+                                    plano_id: planoId,
+                                    frequencia: frequencia,
+                                }),
+                            });
+
+                            var data = await response.json();
+
+                            if (!response.ok) {
+                                throw new Error(data.error || 'Erro ao criar assinatura');
+                            }
+
+                            window.showToast && window.showToast('Assinatura criada com sucesso!', 'success');
+                            modal.classList.add('hidden');
+                            document.body.style.overflow = '';
+                            setTimeout(function() { window.location.reload(); }, 1500);
+                        } catch (err) {
+                            window.showToast && window.showToast(err.message || 'Erro ao criar assinatura', 'error');
+                        } finally {
+                            submitBtn.disabled = false;
+                            submitBtn.textContent = originalText;
+                        }
                     });
                 }
             })();

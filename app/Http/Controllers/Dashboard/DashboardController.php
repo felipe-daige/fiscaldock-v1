@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Dashboard;
 use App\Http\Controllers\Controller;
 use App\Models\Alerta;
 use App\Models\Cliente;
+use App\Models\MonitoramentoAssinatura;
+use App\Models\MonitoramentoPlano;
 use App\Models\ConsultaResultado;
 use App\Models\ConsultaLote;
 use App\Models\CreditTransaction;
@@ -396,6 +398,11 @@ class DashboardController extends Controller
 
         $showView = self::AUTH_VIEW_PREFIX.'clientes.show';
 
+        $assinaturaAtiva = MonitoramentoAssinatura::where('cliente_id', $cliente->id)
+            ->where('user_id', Auth::id())
+            ->whereIn('status', ['ativo', 'pausado'])
+            ->first();
+
         $viewData = [
             'cliente' => $cliente,
             'totalParticipantes' => $totalParticipantes,
@@ -405,6 +412,8 @@ class DashboardController extends Controller
             'notasAjaxUrl' => "/app/cliente/{$id}/notas",
             'notasContexto' => 'cliente',
             'notasEntityId' => $cliente->id,
+            'planos' => MonitoramentoPlano::ativos(),
+            'assinaturaAtiva' => $assinaturaAtiva,
         ];
 
         if ($this->isAjaxRequest($request)) {
