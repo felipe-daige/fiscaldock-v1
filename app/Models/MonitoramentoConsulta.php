@@ -6,6 +6,7 @@ use App\Support\SystemCriticalError;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class MonitoramentoConsulta extends Model
 {
@@ -16,8 +17,10 @@ class MonitoramentoConsulta extends Model
     protected $fillable = [
         'user_id',
         'participante_id',
+        'cliente_id',
         'plano_id',
         'assinatura_id',
+        'parent_consulta_id',
         'tipo',
         'status',
         'resultado',
@@ -55,6 +58,14 @@ class MonitoramentoConsulta extends Model
     }
 
     /**
+     * Cliente consultado (alternativa a participante).
+     */
+    public function cliente(): BelongsTo
+    {
+        return $this->belongsTo(Cliente::class);
+    }
+
+    /**
      * Plano usado na consulta.
      */
     public function plano(): BelongsTo
@@ -68,6 +79,39 @@ class MonitoramentoConsulta extends Model
     public function assinatura(): BelongsTo
     {
         return $this->belongsTo(MonitoramentoAssinatura::class, 'assinatura_id');
+    }
+
+    /**
+     * Consulta pai (quando esta consulta é um retry).
+     */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(MonitoramentoConsulta::class, 'parent_consulta_id');
+    }
+
+    /**
+     * Consultas de retry que apontam para esta.
+     */
+    public function retries(): HasMany
+    {
+        return $this->hasMany(MonitoramentoConsulta::class, 'parent_consulta_id');
+    }
+
+    /**
+     * Quantos retries esta consulta já acumula (anda a cadeia de pais).
+     * Consulta original = 0; primeiro retry = 1; etc.
+     */
+    public function retryCount(): int
+    {
+        $count = 0;
+        $current = $this->parent;
+
+        while ($current) {
+            $count++;
+            $current = $current->parent;
+        }
+
+        return $count;
     }
 
     /**
