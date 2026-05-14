@@ -104,6 +104,109 @@ class MonitoramentoController extends Controller
         ], $data));
     }
 
+    public function painel(Request $request)
+    {
+        if (! Auth::check()) {
+            return $this->redirectToLogin($request);
+        }
+
+        $user = Auth::user();
+        $userId = (int) $user->id;
+
+        $tipoAtivo = $this->normalizarTipo($request);
+
+        $assinaturasQuery = MonitoramentoAssinatura::query()
+            ->where('user_id', $userId)
+            ->with(['participante', 'cliente', 'plano']);
+        $this->aplicarFiltroTipo($assinaturasQuery, $tipoAtivo);
+
+        $statusFiltro = $request->string('status')->toString();
+        if (in_array($statusFiltro, ['ativo', 'pausado'], true)) {
+            $assinaturasQuery->where('status', $statusFiltro);
+        }
+
+        $planoFiltro = (int) $request->input('plano_id');
+        if ($planoFiltro > 0) {
+            $assinaturasQuery->where('plano_id', $planoFiltro);
+        }
+
+        $busca = trim($request->string('busca')->toString());
+        if ($busca !== '') {
+            $documento = preg_replace('/\D/', '', $busca);
+            $assinaturasQuery->where(function ($sub) use ($busca, $documento) {
+                $sub->whereHas('participante', function ($q) use ($busca, $documento) {
+                    $q->where('razao_social', 'ilike', "%{$busca}%");
+                    if ($documento !== '') {
+                        $q->orWhere('documento', 'like', "%{$documento}%");
+                    }
+                })->orWhereHas('cliente', function ($q) use ($busca, $documento) {
+                    $q->where('razao_social', 'ilike', "%{$busca}%");
+                    if ($documento !== '') {
+                        $q->orWhere('documento', 'like', "%{$documento}%");
+                    }
+                });
+            });
+        }
+
+        $assinaturas = $assinaturasQuery->orderByDesc('created_at')->paginate(20)->withQueryString();
+
+        $kpiBase = MonitoramentoAssinatura::query()->where('user_id', $userId);
+        $this->aplicarFiltroTipo($kpiBase, $tipoAtivo);
+        $kpiAtivas = (clone $kpiBase)->where('status', 'ativo')->count();
+        $kpiPausadas = (clone $kpiBase)->where('status', 'pausado')->count();
+
+        $consultasMesQuery = MonitoramentoConsulta::query()
+            ->where('user_id', $userId)
+            ->where('status', '!=', 'erro')
+            ->where('executado_em', '>=', Carbon::now()->startOfMonth());
+        $this->aplicarFiltroTipo($consultasMesQuery, $tipoAtivo);
+        $kpiCreditosMes = (int) $consultasMesQuery->sum('creditos_cobrados');
+
+        $previsaoQuery = MonitoramentoAssinatura::query()
+            ->where('user_id', $userId)
+            ->where('status', 'ativo')
+            ->join('monitoramento_planos', 'monitoramento_planos.id', '=', 'monitoramento_assinaturas.plano_id');
+        $this->aplicarFiltroTipo($previsaoQuery, $tipoAtivo);
+        $kpiPrevisaoCiclo = (int) $previsaoQuery->sum('monitoramento_planos.custo_creditos');
+
+        $ultimasConsultas = MonitoramentoConsulta::query()
+            ->whereIn('assinatura_id', $assinaturas->pluck('id'))
+            ->where('status', 'sucesso')
+            ->orderByDesc('executado_em')
+            ->get(['assinatura_id', 'situacao_geral', 'executado_em'])
+            ->groupBy('assinatura_id')
+            ->map(fn ($g) => $g->first());
+
+        $contagens = $this->contagensPorTipo($userId, MonitoramentoAssinatura::class);
+
+        $data = [
+            'assinaturas' => $assinaturas,
+            'ultimasConsultas' => $ultimasConsultas,
+            'planos' => MonitoramentoPlano::ativos(),
+            'tipoAtivo' => $tipoAtivo,
+            'contagens' => $contagens,
+            'kpiAtivas' => $kpiAtivas,
+            'kpiPausadas' => $kpiPausadas,
+            'kpiCreditosMes' => $kpiCreditosMes,
+            'kpiPrevisaoCiclo' => $kpiPrevisaoCiclo,
+            'filtros' => [
+                'tipo' => $tipoAtivo,
+                'status' => $statusFiltro,
+                'plano_id' => $planoFiltro ?: null,
+                'busca' => $busca,
+            ],
+            'credits' => $this->creditService->getBalance($user),
+        ];
+
+        $painelView = self::AUTH_VIEW_PREFIX.'painel';
+
+        if ($this->isAjaxRequest($request)) {
+            return response(view($painelView, $data)->render())->header('Content-Type', 'text/html');
+        }
+
+        return view(self::AUTH_LAYOUT_VIEW, array_merge(['initialView' => $painelView], $data));
+    }
+
     /**
      * Monitoramento de clientes - visualiza status dos clientes monitorados.
      */

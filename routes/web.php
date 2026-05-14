@@ -138,6 +138,8 @@ Route::middleware('auth')->group(function () {
     // Rotas de Monitoramento
     Route::prefix('app/monitoramento')->name('app.monitoramento.')->group(function () {
 
+        Route::get('/', [MonitoramentoController::class, 'painel'])->name('painel');
+
         Route::get('/historico', [MonitoramentoController::class, 'historico'])->name('historico');
         Route::get('/clientes', [MonitoramentoController::class, 'clientes'])->name('clientes');
         // SSE para acompanhar resultado de consultas em tempo real
