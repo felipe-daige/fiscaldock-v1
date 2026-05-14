@@ -739,6 +739,31 @@ class DataReceiverController extends Controller
                 'status' => $validated['status'],
             ]);
 
+            if ($validated['status'] === 'sucesso') {
+                app(\App\Actions\Monitoramento\AvaliarMudancaSituacao::class)->execute($consulta->fresh());
+            }
+
+            if ($validated['status'] === 'erro') {
+                $estorno = (int) $consulta->creditos_cobrados;
+                if ($estorno > 0) {
+                    $user = User::find($consulta->user_id);
+                    if ($user) {
+                        $this->creditService->add(
+                            $user,
+                            $estorno,
+                            'monitoramento_refund',
+                            "Estorno — erro na consulta de monitoramento #{$consulta->id}",
+                            $consulta,
+                        );
+                        Log::info('Créditos estornados para consulta de monitoramento com erro', [
+                            'consulta_id' => $consulta->id,
+                            'user_id' => $consulta->user_id,
+                            'creditos_estornados' => $estorno,
+                        ]);
+                    }
+                }
+            }
+
             // Armazenar em cache para SSE (notificação em tempo real)
             $cacheKey = "monitoramento_consulta_resultado_{$consultaId}";
             Cache::put($cacheKey, [
