@@ -51,3 +51,34 @@ it('não renderiza o painel quando não há assinatura', function () {
     $response->assertOk();
     $response->assertDontSee('Custo Mensal Estimado');
 });
+
+it('lista o histórico de execuções do monitoramento', function () {
+    MonitoramentoAssinatura::create([
+        'user_id' => $this->user->id, 'participante_id' => $this->participante->id,
+        'plano_id' => $this->plano->id, 'status' => 'ativo', 'frequencia_dias' => 30,
+    ]);
+    MonitoramentoConsulta::create([
+        'user_id' => $this->user->id, 'participante_id' => $this->participante->id,
+        'plano_id' => $this->plano->id, 'tipo' => 'assinatura', 'status' => 'sucesso',
+        'situacao_geral' => 'irregular', 'creditos_cobrados' => 7, 'executado_em' => now(),
+    ]);
+
+    $response = $this->actingAs($this->user)->get("/app/participante/{$this->participante->id}");
+
+    $response->assertOk();
+    $response->assertSee('Histórico de Execuções do Monitoramento');
+    $response->assertSee('Irregular');
+});
+
+it('mostra estado vazio do histórico quando a assinatura não tem execuções', function () {
+    MonitoramentoAssinatura::create([
+        'user_id' => $this->user->id, 'participante_id' => $this->participante->id,
+        'plano_id' => $this->plano->id, 'status' => 'ativo', 'frequencia_dias' => 30,
+    ]);
+
+    $response = $this->actingAs($this->user)->get("/app/participante/{$this->participante->id}");
+
+    $response->assertOk();
+    $response->assertSee('Histórico de Execuções do Monitoramento');
+    $response->assertSee('Nenhuma execução registrada');
+});

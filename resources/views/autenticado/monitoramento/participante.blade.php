@@ -985,6 +985,9 @@
                     @endif
                 </div>
                 @endif
+
+                {{-- Histórico de Execuções do Monitoramento --}}
+                @include('autenticado.monitoramento._assinatura-historico')
             </div>
 
             {{-- Coluna Lateral --}}
