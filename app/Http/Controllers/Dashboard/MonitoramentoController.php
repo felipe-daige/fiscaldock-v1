@@ -513,6 +513,13 @@ class MonitoramentoController extends Controller
             ], Response::HTTP_NOT_FOUND);
         }
 
+        if (! in_array($plano->codigo, config('monitoramento.planos_assinatura', []), true)) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Este plano ainda não está disponível para Compliance Automático.',
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
         try {
             DB::beginTransaction();
 

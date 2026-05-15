@@ -48,7 +48,7 @@
 
                 <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Plano</label>
                 <select id="modal-plano" class="w-full px-3 py-2 text-sm border border-gray-300 rounded mb-3">
-                    @foreach (\App\Models\MonitoramentoPlano::ativos() as $plano)
+                    @foreach (\App\Models\MonitoramentoPlano::ativos()->whereIn('codigo', config('monitoramento.planos_assinatura', [])) as $plano)
                         <option value="{{ $plano->id }}" data-creditos="{{ $plano->custo_creditos }}">
                             {{ $plano->nome }} ({{ $plano->custo_creditos }} créditos / consulta)
                         </option>
