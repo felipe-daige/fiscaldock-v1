@@ -233,3 +233,55 @@
 </div>
 
 <script src="/js/monitoramento-modal-nova-assinatura.js?v={{ filemtime(public_path('js/monitoramento-modal-nova-assinatura.js')) }}"></script>
+
+<script>
+(function() {
+    'use strict';
+
+    var csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+    function acaoAssinatura(url, method, confirmMsg) {
+        if (confirmMsg && !confirm(confirmMsg)) return;
+        fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrf,
+                'Accept': 'application/json',
+            },
+            credentials: 'same-origin',
+        })
+        .then(function(res) { return res.json().then(function(data) { return { ok: res.ok, data: data }; }); })
+        .then(function(r) {
+            if (!r.ok) {
+                throw new Error(r.data.error || r.data.message || 'Erro ao atualizar a assinatura');
+            }
+            window.showToast && window.showToast('Assinatura atualizada.', 'success');
+            setTimeout(function() { window.location.reload(); }, 800);
+        })
+        .catch(function(err) {
+            if (window.showToast) {
+                window.showToast(err.message || 'Erro ao atualizar a assinatura', 'error');
+            } else {
+                alert(err.message || 'Erro ao atualizar a assinatura');
+            }
+        });
+    }
+
+    document.querySelectorAll('#monitoramento-painel-container .btn-pausar').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            acaoAssinatura('/app/monitoramento/assinatura/' + this.dataset.assinaturaId + '/pausar', 'POST', 'Deseja pausar esta assinatura?');
+        });
+    });
+    document.querySelectorAll('#monitoramento-painel-container .btn-reativar').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            acaoAssinatura('/app/monitoramento/assinatura/' + this.dataset.assinaturaId + '/reativar', 'POST', null);
+        });
+    });
+    document.querySelectorAll('#monitoramento-painel-container .btn-cancelar').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            acaoAssinatura('/app/monitoramento/assinatura/' + this.dataset.assinaturaId, 'DELETE', 'Tem certeza que deseja cancelar esta assinatura? Esta ação não pode ser desfeita.');
+        });
+    });
+})();
+</script>
