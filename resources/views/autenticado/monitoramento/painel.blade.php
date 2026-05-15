@@ -5,8 +5,8 @@
         {{-- Header --}}
         <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-                <h1 class="text-lg sm:text-xl font-bold text-gray-900 uppercase tracking-wide">Painel de Monitoramento</h1>
-                <p class="text-xs text-gray-500 mt-1">Assinaturas ativas e pausadas dos seus CNPJs monitorados.</p>
+                <h1 class="text-lg sm:text-xl font-bold text-gray-900 uppercase tracking-wide">Compliance Automático</h1>
+                <p class="text-xs text-gray-500 mt-1">Checagem recorrente de compliance dos clientes e participantes selecionados.</p>
             </div>
             <button type="button"
                     id="btn-nova-assinatura"

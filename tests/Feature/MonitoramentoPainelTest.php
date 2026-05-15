@@ -40,7 +40,7 @@ it('renderiza painel com KPIs e tabela de assinaturas', function () {
     $response = $this->actingAs($this->user)->get('/app/monitoramento');
 
     $response->assertOk()
-        ->assertSee('Painel de Monitoramento', false)
+        ->assertSee('Compliance Automático', false)
         ->assertSee('C1')
         ->assertSee('P1')
         ->assertSee('Nova assinatura', false);

@@ -5,8 +5,8 @@
         {{-- Header --}}
         <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-                <h1 class="text-lg sm:text-xl font-bold text-gray-900 uppercase tracking-wide">Histórico de Consultas</h1>
-                <p class="text-xs text-gray-500 mt-1">Visualize todas as consultas realizadas.</p>
+                <h1 class="text-lg sm:text-xl font-bold text-gray-900 uppercase tracking-wide">Histórico de Compliance Automático</h1>
+                <p class="text-xs text-gray-500 mt-1">Todas as checagens recorrentes executadas.</p>
             </div>
             <a href="/app/dashboard" data-link
                class="inline-flex items-center gap-2 px-3 py-2 rounded border border-gray-300 bg-white text-gray-700 text-xs font-semibold hover:bg-gray-50 transition">

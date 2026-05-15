@@ -115,7 +115,7 @@
             <x-sidebar.group-item href="/app/consulta/planos">Planos</x-sidebar.group-item>
         </x-sidebar.group>
 
-        <x-sidebar.group title="Monitoramento" :open="request()->is('app/monitoramento/*') || request()->is('app/monitoramento')">
+        <x-sidebar.group title="Compliance Automático" :open="request()->is('app/monitoramento/*') || request()->is('app/monitoramento')">
             <x-slot:icon>
                 <svg class="sidebar__item-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h18M3 12h18M3 19h18"></path>

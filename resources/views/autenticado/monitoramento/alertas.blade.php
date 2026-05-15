@@ -2,8 +2,8 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
 
         <div class="mb-6">
-            <h1 class="text-lg sm:text-xl font-bold text-gray-900 uppercase tracking-wide">Alertas de Monitoramento</h1>
-            <p class="text-xs text-gray-500 mt-1">Eventos gerados pelas suas assinaturas ativas.</p>
+            <h1 class="text-lg sm:text-xl font-bold text-gray-900 uppercase tracking-wide">Alertas de Compliance Automático</h1>
+            <p class="text-xs text-gray-500 mt-1">Eventos gerados pelas checagens recorrentes ativas.</p>
         </div>
 
         {{-- KPIs --}}
