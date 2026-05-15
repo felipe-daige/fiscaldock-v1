@@ -797,6 +797,80 @@ class MonitoramentoController extends Controller
     }
 
     /**
+     * Dispara consulta(s) manual(is) fora do ciclo agendado.
+     * Aceita lista de IDs de assinaturas — soma o custo total, valida saldo
+     * antes de qualquer disparo, executa todas em sequência e reagenda
+     * proxima_execucao_em de cada uma.
+     *
+     * POST /app/monitoramento/consultar-agora
+     */
+    public function consultarAgora(Request $request, \App\Actions\Monitoramento\DispararConsultaMonitoramento $disparar)
+    {
+        if (! Auth::check()) {
+            return response()->json(['success' => false, 'error' => 'Não autenticado.'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $user = Auth::user();
+        $userId = (int) $user->id;
+
+        $assinaturas = MonitoramentoAssinatura::query()
+            ->where('user_id', $userId)
+            ->whereIn('id', $validated['ids'])
+            ->where('status', 'ativo')
+            ->with('plano')
+            ->get();
+
+        if ($assinaturas->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Nenhuma assinatura ativa válida foi encontrada para os IDs informados.',
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $custoTotal = (int) $assinaturas->sum(fn ($a) => (int) ($a->plano?->custo_creditos ?? 0));
+        $saldoAtual = (int) $this->creditService->getBalance($user);
+
+        if ($saldoAtual < $custoTotal) {
+            return response()->json([
+                'success' => false,
+                'error' => "Saldo insuficiente. Necessário: {$custoTotal} créditos. Disponível: {$saldoAtual}.",
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $disparadas = 0;
+        $falhas = [];
+
+        foreach ($assinaturas as $assinatura) {
+            try {
+                $consulta = $disparar->execute($assinatura);
+                if ($consulta->status === 'erro') {
+                    $falhas[] = $assinatura->id;
+                } else {
+                    $disparadas++;
+                    $assinatura->agendarProximaExecucao();
+                }
+            } catch (\Throwable $e) {
+                Log::error('Erro ao disparar consulta manual', [
+                    'assinatura_id' => $assinatura->id,
+                    'error' => $e->getMessage(),
+                ]);
+                $falhas[] = $assinatura->id;
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'disparadas' => $disparadas,
+            'falhas' => $falhas,
+        ]);
+    }
+
+    /**
      * SSE para acompanhar resultado de consultas em tempo real.
      * Verifica o banco de dados para consultas que foram concluídas.
      *

@@ -159,6 +159,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/assinatura/{id}/pausar', [MonitoramentoController::class, 'pausarAssinatura'])->name('assinatura.pausar');
         Route::post('/assinatura/{id}/reativar', [MonitoramentoController::class, 'reativarAssinatura'])->name('assinatura.reativar');
         Route::delete('/assinatura/{id}', [MonitoramentoController::class, 'cancelarAssinatura'])->name('assinatura.cancelar');
+        Route::post('/consultar-agora', [MonitoramentoController::class, 'consultarAgora'])->name('consultar-agora');
 
         // Grupos de participantes
         Route::get('/grupos', [ParticipanteGrupoController::class, 'index'])->name('grupos');

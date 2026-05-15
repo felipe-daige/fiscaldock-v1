@@ -112,6 +112,7 @@
                         <table class="min-w-full text-sm">
                             <thead class="bg-gray-50 border-b border-gray-200">
                                 <tr class="text-left text-[10px] font-semibold text-gray-500 uppercase tracking-widest">
+                                    <th class="px-3 py-2 w-8"><input type="checkbox" id="select-all-assinaturas" class="rounded border-gray-300"></th>
                                     <th class="px-4 py-2">Tipo</th>
                                     <th class="px-4 py-2">CNPJ</th>
                                     <th class="px-4 py-2">Razão Social</th>
@@ -140,6 +141,13 @@
                                         $corPlano = $coresPlano[$a->plano?->codigo] ?? '#374151';
                                     @endphp
                                     <tr>
+                                        <td class="px-3 py-2 w-8">
+                                            @if ($a->status === 'ativo')
+                                                <input type="checkbox" class="chk-assinatura rounded border-gray-300"
+                                                       data-assinatura-id="{{ $a->id }}"
+                                                       data-custo="{{ $a->plano?->custo_creditos ?? 0 }}">
+                                            @endif
+                                        </td>
                                         <td class="px-4 py-2">
                                             <span class="text-[10px] font-semibold text-white uppercase px-2 py-1 rounded"
                                                   style="background-color: {{ $corTipo }};">{{ $alvoTipo }}</span>
@@ -173,8 +181,12 @@
                                             @endif
                                         </td>
                                         <td class="px-4 py-2 text-right">
-                                            <div class="inline-flex gap-1">
+                                            <div class="inline-flex gap-1 flex-wrap justify-end">
                                                 @if ($a->status === 'ativo')
+                                                    <button type="button" class="btn-consultar-agora text-xs px-2 py-1 rounded text-white"
+                                                            style="background-color: #047857;"
+                                                            data-assinatura-id="{{ $a->id }}"
+                                                            data-custo="{{ $a->plano?->custo_creditos ?? 0 }}">Consultar agora</button>
                                                     <button type="button" class="btn-pausar text-xs px-2 py-1 rounded border border-gray-300 hover:bg-gray-50" data-assinatura-id="{{ $a->id }}">Pausar</button>
                                                 @else
                                                     <button type="button" class="btn-reativar text-xs px-2 py-1 rounded border border-gray-300 hover:bg-gray-50" data-assinatura-id="{{ $a->id }}">Reativar</button>
@@ -206,7 +218,12 @@
                                 $corPlano = $coresPlano[$a->plano?->codigo] ?? '#374151';
                             @endphp
                             <div class="p-4">
-                                <div class="flex items-start justify-between gap-2 mb-2">
+                                <div class="flex items-start gap-3 mb-2">
+                                    @if ($a->status === 'ativo')
+                                        <input type="checkbox" class="chk-assinatura mt-1 shrink-0 rounded border-gray-300"
+                                               data-assinatura-id="{{ $a->id }}"
+                                               data-custo="{{ $a->plano?->custo_creditos ?? 0 }}">
+                                    @endif
                                     <div class="min-w-0 flex-1">
                                         <div class="flex flex-wrap items-center gap-1.5 mb-1">
                                             <span class="text-[10px] font-semibold text-white uppercase px-2 py-0.5 rounded"
@@ -249,7 +266,16 @@
                                     </div>
                                 </div>
 
-                                <div class="flex gap-2 mt-3 pt-3 border-t border-gray-100">
+                                @if ($a->status === 'ativo')
+                                    <button type="button" class="btn-consultar-agora w-full text-xs px-3 py-2 rounded text-white font-semibold mt-3"
+                                            style="background-color: #047857;"
+                                            data-assinatura-id="{{ $a->id }}"
+                                            data-custo="{{ $a->plano?->custo_creditos ?? 0 }}">
+                                        Consultar agora
+                                    </button>
+                                @endif
+
+                                <div class="flex gap-2 mt-2 pt-3 border-t border-gray-100">
                                     @if ($a->status === 'ativo')
                                         <button type="button" class="btn-pausar flex-1 text-xs px-3 py-2 rounded border border-gray-300 hover:bg-gray-50" data-assinatura-id="{{ $a->id }}">Pausar</button>
                                     @else
@@ -268,6 +294,23 @@
             </div>
 
         </div> {{-- /#monitoramento-painel-dinamico --}}
+    </div>
+
+    {{-- Barra fixa de seleção em massa --}}
+    <div id="barra-selecao" class="hidden fixed bottom-0 inset-x-0 z-40 bg-gray-900 text-white px-4 py-3 shadow-lg">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div class="text-xs sm:text-sm">
+                <strong id="barra-selecao-count">0</strong> selecionada(s) ·
+                Custo total: <strong id="barra-selecao-custo">0</strong> créditos
+                <span class="text-gray-400">(≈ R$ <span id="barra-selecao-reais">0,00</span>)</span>
+            </div>
+            <div class="flex gap-2">
+                <button type="button" id="btn-limpar-selecao" class="px-3 py-2 rounded border border-gray-600 text-xs font-semibold hover:bg-gray-800">Limpar</button>
+                <button type="button" id="btn-consultar-selecionados" class="px-4 py-2 rounded text-white text-xs font-semibold" style="background-color: #047857;">
+                    Consultar selecionadas
+                </button>
+            </div>
+        </div>
     </div>
 
     @include('autenticado.monitoramento._modal-nova-assinatura')
@@ -411,6 +454,21 @@
             return;
         }
 
+        var consultarBtn = e.target.closest('.btn-consultar-agora');
+        if (consultarBtn) {
+            var id = consultarBtn.dataset.assinaturaId;
+            var custo = parseInt(consultarBtn.dataset.custo || '0', 10);
+            var reais = (custo * 0.20).toFixed(2).replace('.', ',');
+            abrirConfirmacao({
+                titulo: 'Consultar agora',
+                mensagem: 'Será disparada uma consulta imediata fora do ciclo agendado. Custo: ' + custo + ' créditos (≈ R$ ' + reais + '). A próxima execução automática é reagendada a partir de agora.',
+                textoConfirmar: 'Consultar',
+                destrutivo: false,
+                onConfirm: function() { consultarAgora([id]); },
+            });
+            return;
+        }
+
         // Sub-aba de tipo: navega sem scroll-to-top
         var subTab = e.target.closest('[data-sub-tab]');
         if (subTab) {
@@ -419,6 +477,95 @@
             return;
         }
     });
+
+    // Seleção em massa (checkboxes)
+    var barraSelecao = document.getElementById('barra-selecao');
+    var barraCount = document.getElementById('barra-selecao-count');
+    var barraCusto = document.getElementById('barra-selecao-custo');
+    var barraReais = document.getElementById('barra-selecao-reais');
+
+    function atualizarBarra() {
+        var checks = container.querySelectorAll('.chk-assinatura:checked');
+        var count = checks.length;
+        if (count === 0) {
+            barraSelecao.classList.add('hidden');
+            return;
+        }
+        var custo = 0;
+        checks.forEach(function(c) { custo += parseInt(c.dataset.custo || '0', 10); });
+        barraCount.textContent = count;
+        barraCusto.textContent = custo;
+        barraReais.textContent = (custo * 0.20).toFixed(2).replace('.', ',');
+        barraSelecao.classList.remove('hidden');
+    }
+
+    container.addEventListener('change', function(e) {
+        if (e.target.matches('.chk-assinatura')) {
+            atualizarBarra();
+            return;
+        }
+        if (e.target.id === 'select-all-assinaturas') {
+            var marcado = e.target.checked;
+            container.querySelectorAll('.chk-assinatura').forEach(function(c) { c.checked = marcado; });
+            atualizarBarra();
+        }
+    });
+
+    document.getElementById('btn-limpar-selecao').addEventListener('click', function() {
+        container.querySelectorAll('.chk-assinatura').forEach(function(c) { c.checked = false; });
+        var selectAll = document.getElementById('select-all-assinaturas');
+        if (selectAll) selectAll.checked = false;
+        atualizarBarra();
+    });
+
+    document.getElementById('btn-consultar-selecionados').addEventListener('click', function() {
+        var checks = container.querySelectorAll('.chk-assinatura:checked');
+        if (checks.length === 0) return;
+        var ids = Array.from(checks).map(function(c) { return c.dataset.assinaturaId; });
+        var custo = 0;
+        checks.forEach(function(c) { custo += parseInt(c.dataset.custo || '0', 10); });
+        var reais = (custo * 0.20).toFixed(2).replace('.', ',');
+        abrirConfirmacao({
+            titulo: 'Consultar ' + ids.length + ' assinatura(s) agora',
+            mensagem: 'Serão disparadas ' + ids.length + ' consultas imediatas fora do ciclo. Custo total: ' + custo + ' créditos (≈ R$ ' + reais + '). As próximas execuções automáticas são reagendadas a partir de agora.',
+            textoConfirmar: 'Consultar todas',
+            destrutivo: false,
+            onConfirm: function() { consultarAgora(ids); },
+        });
+    });
+
+    function consultarAgora(ids) {
+        fetch('/app/monitoramento/consultar-agora', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrf,
+                'Accept': 'application/json',
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({ ids: ids }),
+        })
+        .then(function(res) { return res.json().then(function(data) { return { ok: res.ok, data: data }; }); })
+        .then(function(r) {
+            if (!r.ok) {
+                throw new Error(r.data.error || 'Erro ao disparar consulta');
+            }
+            var msg = r.data.disparadas + ' consulta(s) disparada(s).';
+            if (r.data.falhas && r.data.falhas.length) {
+                msg += ' Falhas: ' + r.data.falhas.length + '.';
+            }
+            window.showToast && window.showToast(msg, 'success');
+            recarregarDinamico(window.location.href);
+            barraSelecao.classList.add('hidden');
+        })
+        .catch(function(err) {
+            if (window.showToast) {
+                window.showToast(err.message || 'Erro ao disparar consulta', 'error');
+            } else {
+                alert(err.message || 'Erro ao disparar consulta');
+            }
+        });
+    }
 
     // popstate: back/forward funciona sem reload
     window.addEventListener('popstate', function() {
