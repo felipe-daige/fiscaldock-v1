@@ -103,7 +103,8 @@
             <div class="bg-gray-50 px-4 py-2 border-b border-gray-200">
                 <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Consultas</span>
             </div>
-            <div class="overflow-x-auto">
+            {{-- Desktop: tabela --}}
+            <div class="hidden md:block overflow-x-auto">
                 <table class="min-w-full">
                     <thead>
                         <tr class="border-b border-gray-300">
@@ -124,6 +125,7 @@
                                 $tipoAlvo = $consulta->cliente_id ? 'cliente' : ($consulta->participante_id ? 'participante' : null);
                                 $corTipoAlvo = $tipoAlvo === 'cliente' ? '#1e40af' : '#7c3aed';
                                 $alvo = $consulta->cliente ?? $consulta->participante;
+                                $docFormatado = $tipoAlvo === 'cliente' ? $alvo?->documento_formatado : ($tipoAlvo === 'participante' ? $alvo?->cnpj_formatado : null);
                             @endphp
                             <tr class="hover:bg-gray-50/50 transition-colors" data-consulta-id="{{ $consulta->id }}">
                                 <td class="px-3 py-3 whitespace-nowrap">
@@ -138,7 +140,7 @@
                                     {{ $consulta->created_at->format('d/m/Y H:i') }}
                                 </td>
                                 <td class="px-3 py-3 text-sm font-mono text-gray-900 whitespace-nowrap">
-                                    {{ preg_replace('/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/', '$1.$2.$3/$4-$5', $alvo->documento ?? '') }}
+                                    {{ $docFormatado ?? $alvo?->documento ?? '—' }}
                                 </td>
                                 <td class="px-3 py-3 text-sm text-gray-900 max-w-xs truncate">
                                     {{ $alvo->razao_social ?? '-' }}
@@ -183,18 +185,81 @@
                                     </svg>
                                     <h3 class="mt-4 text-sm font-semibold text-gray-900 uppercase tracking-wide">Nenhuma consulta realizada</h3>
                                     <p class="mt-2 text-xs text-gray-500">Suas consultas aparecerão aqui após serem realizadas.</p>
-                                    <a href="/app/monitoramento/avulso" data-link
-                                       class="mt-4 inline-flex items-center gap-2 px-3 py-2 rounded bg-gray-800 hover:bg-gray-700 text-white text-xs font-semibold transition">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                                        </svg>
-                                        Fazer Consulta Avulsa
-                                    </a>
                                 </td>
                             </tr>
                         @endforelse
                     </tbody>
                 </table>
+            </div>
+
+            {{-- Mobile: cards --}}
+            <div class="divide-y divide-gray-100 md:hidden" id="historico-cards">
+                @forelse($consultas ?? [] as $consulta)
+                    @php
+                        $tipoAlvo = $consulta->cliente_id ? 'cliente' : ($consulta->participante_id ? 'participante' : null);
+                        $corTipoAlvo = $tipoAlvo === 'cliente' ? '#1e40af' : '#7c3aed';
+                        $alvo = $consulta->cliente ?? $consulta->participante;
+                        $docFormatado = $tipoAlvo === 'cliente' ? $alvo?->documento_formatado : ($tipoAlvo === 'participante' ? $alvo?->cnpj_formatado : null);
+                        $statusCfg = match ($consulta->status) {
+                            'sucesso' => ['hex' => '#047857', 'label' => 'Sucesso'],
+                            'pendente' => ['hex' => '#d97706', 'label' => 'Pendente'],
+                            'processando' => ['hex' => '#4338ca', 'label' => 'Processando'],
+                            default => ['hex' => '#b91c1c', 'label' => 'Erro'],
+                        };
+                        $tipoCfg = $consulta->tipo === 'avulso'
+                            ? ['hex' => '#374151', 'label' => 'Avulso']
+                            : ['hex' => '#4338ca', 'label' => 'Assinatura'];
+                    @endphp
+                    <div class="p-4" data-consulta-id="{{ $consulta->id }}">
+                        <div class="flex items-start justify-between gap-2 mb-2">
+                            <div class="min-w-0 flex-1">
+                                <div class="flex flex-wrap items-center gap-1.5 mb-1">
+                                    @if ($tipoAlvo)
+                                        <span class="text-[10px] font-semibold text-white uppercase px-2 py-0.5 rounded"
+                                              style="background-color: {{ $corTipoAlvo }};">{{ $tipoAlvo }}</span>
+                                    @endif
+                                    <span class="text-[10px] font-bold uppercase tracking-wide text-white px-2 py-0.5 rounded"
+                                          style="background-color: {{ $tipoCfg['hex'] }};">{{ $tipoCfg['label'] }}</span>
+                                    <span class="text-[10px] font-bold uppercase tracking-wide text-white px-2 py-0.5 rounded"
+                                          style="background-color: {{ $statusCfg['hex'] }};">{{ $statusCfg['label'] }}</span>
+                                </div>
+                                <p class="text-sm font-medium text-gray-900 truncate">{{ $alvo->razao_social ?? '—' }}</p>
+                                <p class="text-xs font-mono text-gray-500 mt-0.5">{{ $docFormatado ?? $alvo?->documento ?? '—' }}</p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3 mt-3 text-xs">
+                            <div>
+                                <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Data</p>
+                                <p class="text-gray-900 mt-0.5 font-mono">{{ $consulta->created_at->format('d/m/Y H:i') }}</p>
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Plano</p>
+                                <p class="text-gray-900 mt-0.5">{{ $consulta->plano->nome ?? '—' }}</p>
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Créditos</p>
+                                <p class="text-gray-900 mt-0.5 font-mono">{{ $consulta->creditos_cobrados }}</p>
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Ação</p>
+                                <button type="button"
+                                        class="btn-ver-resultado text-gray-600 hover:text-gray-900 hover:underline text-xs mt-0.5"
+                                        data-consulta-id="{{ $consulta->id }}">
+                                    Ver resultado
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                @empty
+                    <div class="px-6 py-12 text-center">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                        </svg>
+                        <h3 class="mt-4 text-sm font-semibold text-gray-900 uppercase tracking-wide">Nenhuma consulta realizada</h3>
+                        <p class="mt-2 text-xs text-gray-500">Suas consultas aparecerão aqui após serem realizadas.</p>
+                    </div>
+                @endforelse
             </div>
 
             @if(isset($consultas) && $consultas->hasPages())

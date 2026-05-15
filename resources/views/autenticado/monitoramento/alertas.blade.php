@@ -45,6 +45,7 @@
                             $alvo = $alerta->cliente ?? $alerta->participante;
                             $tipoAlvo = $alerta->cliente_id ? 'cliente' : ($alerta->participante_id ? 'participante' : null);
                             $href = $tipoAlvo === 'cliente' ? "/app/cliente/{$alvo?->id}" : ($tipoAlvo === 'participante' ? "/app/participante/{$alvo?->id}" : '#');
+                            $docFormatado = $tipoAlvo === 'cliente' ? $alvo?->documento_formatado : ($tipoAlvo === 'participante' ? $alvo?->cnpj_formatado : null);
                             $corSev = match ($alerta->severidade) {
                                 'critico' => '#b91c1c',
                                 'atencao' => '#d97706',
@@ -52,17 +53,17 @@
                             };
                         @endphp
                         <li class="p-4 flex items-start gap-3">
-                            <span class="mt-1 inline-block w-2 h-2 rounded-full" style="background-color: {{ $corSev }};"></span>
-                            <div class="flex-1">
+                            <span class="mt-1 inline-block w-2 h-2 rounded-full shrink-0" style="background-color: {{ $corSev }};"></span>
+                            <div class="flex-1 min-w-0">
                                 <p class="text-sm font-semibold text-gray-900">{{ $alerta->titulo }}</p>
                                 <p class="text-xs text-gray-600 mt-1">{{ $alerta->descricao }}</p>
                                 @if ($alvo)
-                                    <a href="{{ $href }}" data-link class="text-[11px] text-gray-500 hover:text-gray-700 hover:underline mt-1 inline-block">
-                                        {{ $alvo->documento }} — {{ $alvo->razao_social }}
+                                    <a href="{{ $href }}" data-link class="text-[11px] text-gray-500 hover:text-gray-700 hover:underline mt-1 inline-block break-words">
+                                        <span class="font-mono">{{ $docFormatado ?? $alvo->documento }}</span> — {{ $alvo->razao_social }}
                                     </a>
                                 @endif
                             </div>
-                            <span class="text-[10px] text-gray-400">{{ $alerta->created_at?->diffForHumans() }}</span>
+                            <span class="text-[10px] text-gray-400 shrink-0">{{ $alerta->created_at?->diffForHumans() }}</span>
                         </li>
                     @endforeach
                 </ul>
