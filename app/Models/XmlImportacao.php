@@ -77,6 +77,7 @@ class XmlImportacao extends Model
 
     /**
      * Alias para notas() - mantido para compatibilidade.
+     *
      * @deprecated Use notas() instead
      */
     public function notasFiscais(): HasMany
@@ -132,11 +133,12 @@ class XmlImportacao extends Model
     {
         $bytes = $this->tamanho_total_bytes;
         if ($bytes >= 1048576) {
-            return number_format($bytes / 1048576, 2) . ' MB';
+            return number_format($bytes / 1048576, 2).' MB';
         } elseif ($bytes >= 1024) {
-            return number_format($bytes / 1024, 2) . ' KB';
+            return number_format($bytes / 1024, 2).' KB';
         }
-        return $bytes . ' bytes';
+
+        return $bytes.' bytes';
     }
 
     // Scopes
@@ -164,6 +166,20 @@ class XmlImportacao extends Model
     public function scopeComErro($query)
     {
         return $query->where('status', 'erro');
+    }
+
+    public function scopeTravadas($query)
+    {
+        return $query->where('status', 'processando')
+            ->where('updated_at', '<', now()->subMinutes((int) config('importacao.stale_minutos')));
+    }
+
+    public function marcarComoTravada(): void
+    {
+        $this->update([
+            'status' => 'erro',
+            'erro_mensagem' => 'Importação interrompida — o processamento ficou sem resposta. Tente reenviar o arquivo.',
+        ]);
     }
 
     /**
