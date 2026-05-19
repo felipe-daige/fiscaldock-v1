@@ -165,4 +165,15 @@ class EfdImportacao extends Model
     {
         return $query->where('status', 'concluido');
     }
+
+    public function scopeTravadas($query)
+    {
+        return $query->where('status', 'processando')
+            ->where('updated_at', '<', now()->subMinutes((int) config('importacao.stale_minutos')));
+    }
+
+    public function marcarComoTravada(): void
+    {
+        $this->update(['status' => 'erro']);
+    }
 }
