@@ -14,6 +14,7 @@ use App\Services\ConsultaReportService;
 use App\Services\CreditService;
 use App\Services\ParecerFiscalService;
 use App\Services\PricingCatalogService;
+use App\Support\CndFederal;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -680,10 +681,11 @@ class ConsultaController extends Controller
             ], Response::HTTP_PAYMENT_REQUIRED);
         }
 
-        $webhookUrl = config('services.webhook.consultas_cnpj_url');
+        $webhookUrl = config('services.webhook.consultas_cnpj_participante_url')
+            ?: config('services.webhook.consultas_cnpj_url');
 
         if (empty($webhookUrl)) {
-            Log::error('Consultas: webhook não configurado (WEBHOOK_CONSULTAS_CNPJ_URL)');
+            Log::error('Consultas: webhook não configurado (WEBHOOK_CONSULTAS_CNPJ_PARTICIPANTE_URL nem WEBHOOK_CONSULTAS_CNPJ_URL)');
 
             return response()->json([
                 'success' => false,
@@ -1594,13 +1596,35 @@ class ConsultaController extends Controller
                     'regime_tributario'  => $r->getRegimeTributarioLabel(),
                     'simples_nacional'   => $r->getDado('simples_nacional'),
                     'mei'                => $r->getDado('mei'),
-                    'cnd_federal'        => $r->getDado('cnd_federal'),
+                    'cnd_federal'        => $this->cndFederalComAnalise($r->getDado('cnd_federal')),
                     'crf_fgts'           => $r->getDado('crf_fgts'),
                     'cndt'               => $r->getDado('cndt'),
                     'cnd_estadual'       => $r->getDado('cnd_estadual'),
                     'parecer'            => $parecerResumo,
                 ];
             }),
+        ]);
+    }
+
+    /**
+     * Anexa indeterminado/label/hex/motivo (CndFederal) ao payload de CND Federal.
+     * Para status não-indeterminado retorna o valor original intacto.
+     */
+    private function cndFederalComAnalise(mixed $cnd): mixed
+    {
+        $analise = CndFederal::analisar($cnd);
+
+        if (! $analise['indeterminado']) {
+            return $cnd;
+        }
+
+        $base = is_array($cnd) ? $cnd : [];
+
+        return array_merge($base, [
+            'indeterminado' => true,
+            'label' => $analise['label'],
+            'hex' => $analise['hex'],
+            'motivo' => $analise['motivo'],
         ]);
     }
 

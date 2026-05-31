@@ -1659,6 +1659,15 @@
         return '<span class="text-gray-700 text-xs">' + dado + '</span>';
     }
 
+    function formatCndFederal(cnd) {
+        if (cnd && typeof cnd === 'object' && cnd.indeterminado) {
+            var motivo = cnd.motivo ? escapeHtml(String(cnd.motivo)) : 'Certidão não emitida pela fonte oficial.';
+            return '<span class="inline-block px-2 py-0.5 rounded text-xs font-medium text-white"'
+                + ' style="background-color: #d97706" title="' + motivo + '">Indeterminada</span>';
+        }
+        return formatRegularidade(cnd);
+    }
+
     function formatRegimeTributario(regime) {
         if (regime === null || regime === undefined || regime === '') {
             return '<span class="text-gray-400">-</span>';
@@ -1730,7 +1739,7 @@
                 + '<td class="px-3 py-2 text-xs text-gray-500 text-center">' + ((r.participante && r.participante.uf) || '-') + '</td>'
                 + '<td class="px-3 py-2 text-xs text-center">' + (r.situacao_cadastral ? '<span class="text-xs text-gray-700">' + r.situacao_cadastral + '</span>' : '<span class="text-gray-400">-</span>') + '</td>'
                 + '<td class="px-3 py-2 text-xs text-center">' + formatRegimeTributario(r.regime_tributario) + '</td>'
-                + '<td class="px-3 py-2 text-xs text-center">' + formatRegularidade(r.cnd_federal) + '</td>'
+                + '<td class="px-3 py-2 text-xs text-center">' + formatCndFederal(r.cnd_federal) + '</td>'
                 + '<td class="px-3 py-2 text-xs text-center">' + formatRegularidade(r.crf_fgts) + '</td>'
                 + '<td class="px-3 py-2 text-xs text-center">' + formatRegularidade(r.cndt) + '</td>'
                 + '<td class="px-3 py-2 text-xs">' + formatParecer(r.parecer) + '</td>'
