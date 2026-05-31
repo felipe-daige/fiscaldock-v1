@@ -351,12 +351,20 @@
                 html += '<div class="grid grid-cols-2 gap-4">';
 
                 if (r.detalhes.cnd_federal) {
-                    const cndClass = r.detalhes.cnd_federal.status === 'NEGATIVA' ? 'text-green-600' : 'text-red-600';
+                    const cnd = r.detalhes.cnd_federal;
                     html += '<div class="bg-gray-50 rounded border border-gray-200 p-3">';
                     html += '<p class="text-xs text-gray-500">CND Federal</p>';
-                    html += '<p class="text-sm font-semibold ' + cndClass + '">' + r.detalhes.cnd_federal.status + '</p>';
-                    if (r.detalhes.cnd_federal.validade) {
-                        html += '<p class="text-xs text-gray-500 mt-1">Validade: ' + r.detalhes.cnd_federal.validade + '</p>';
+                    if (cnd.indeterminado) {
+                        html += '<p class="text-sm font-semibold" style="color: #d97706">Indeterminada</p>';
+                        if (cnd.motivo) {
+                            html += '<p class="text-xs text-gray-600 mt-1 leading-snug">' + cnd.motivo + '</p>';
+                        }
+                    } else {
+                        const cndClass = cnd.status === 'NEGATIVA' ? 'text-green-600' : 'text-red-600';
+                        html += '<p class="text-sm font-semibold ' + cndClass + '">' + cnd.status + '</p>';
+                        if (cnd.validade) {
+                            html += '<p class="text-xs text-gray-500 mt-1">Validade: ' + cnd.validade + '</p>';
+                        }
                     }
                     html += '</div>';
                 }

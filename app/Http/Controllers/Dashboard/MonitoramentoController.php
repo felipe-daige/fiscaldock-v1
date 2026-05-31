@@ -9,6 +9,7 @@ use App\Models\MonitoramentoPlano;
 use App\Models\Participante;
 use App\Services\CreditService;
 use App\Services\PricingCatalogService;
+use App\Support\CndFederal;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -161,6 +162,30 @@ class MonitoramentoController extends Controller
             ], Response::HTTP_NOT_FOUND);
         }
 
+        $resultado = $consulta->resultado ?? [
+            'cnpj' => $consulta->participante?->documento,
+            'razao_social' => $consulta->participante?->razao_social,
+            'situacao_cadastral' => $consulta->participante?->situacao_cadastral,
+            'regime_tributario' => $consulta->participante?->regime_tributario,
+            'detalhes' => [],
+        ];
+
+        if (is_array($resultado) && isset($resultado['detalhes']['cnd_federal'])) {
+            $analiseCnd = CndFederal::analisar($resultado['detalhes']['cnd_federal']);
+
+            if ($analiseCnd['indeterminado']) {
+                $resultado['detalhes']['cnd_federal'] = array_merge(
+                    (array) $resultado['detalhes']['cnd_federal'],
+                    [
+                        'indeterminado' => true,
+                        'label' => $analiseCnd['label'],
+                        'hex' => $analiseCnd['hex'],
+                        'motivo' => $analiseCnd['motivo'],
+                    ]
+                );
+            }
+        }
+
         return response()->json([
             'success' => true,
             'id' => $consulta->id,
@@ -173,13 +198,7 @@ class MonitoramentoController extends Controller
                 'nome' => $consulta->plano->nome,
                 'codigo' => $consulta->plano->codigo,
             ] : null,
-            'resultado' => $consulta->resultado ?? [
-                'cnpj' => $consulta->participante?->documento,
-                'razao_social' => $consulta->participante?->razao_social,
-                'situacao_cadastral' => $consulta->participante?->situacao_cadastral,
-                'regime_tributario' => $consulta->participante?->regime_tributario,
-                'detalhes' => [],
-            ],
+            'resultado' => $resultado,
             'error_message' => $consulta->publicErrorMessage(),
         ]);
     }
