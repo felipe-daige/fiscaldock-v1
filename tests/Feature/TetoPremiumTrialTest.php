@@ -93,6 +93,22 @@ it('gratuito e validacao nao sao limitados pelo teto', function () {
     executarConsulta($user, $validacao, criarParticipantes($user, 12))->assertOk();
 });
 
+it('pagina nova renderiza e mostra saldo do teste nos planos premium', function () {
+    $user = User::factory()->create(['credits' => 1000]);
+    $licitacao = MonitoramentoPlano::porCodigo('licitacao');
+
+    ConsultaLote::create([
+        'user_id' => $user->id, 'plano_id' => $licitacao->id,
+        'status' => ConsultaLote::STATUS_PROCESSANDO, 'total_participantes' => 2,
+        'creditos_cobrados' => 20, 'tab_id' => (string) Str::uuid(),
+    ]);
+
+    $resp = actingAs($user)->get(route('app.consulta.nova'));
+
+    $resp->assertOk();
+    $resp->assertSee('3 de 5 no teste'); // restam 3 de 5 em Licitacao
+});
+
 it('calcular-custo retorna restantes do teto', function () {
     $user = User::factory()->create(['credits' => 1000]);
     $licitacao = MonitoramentoPlano::porCodigo('licitacao');

@@ -67,12 +67,14 @@
 
                 $hasMadeFirstPurchase = $hasMadeFirstPurchase ?? false;
                 $firstPurchaseLockedProducts = $firstPurchaseLockedProducts ?? ['compliance', 'due_diligence'];
+                $trialCaps = $trialCaps ?? [];
                 $planosDetalhados = [];
                 $planosAtivos = $planos->where('is_active', true)->where('codigo', '!=', 'enterprise')->values();
                 foreach ($planosAtivos as $p) {
                     $meta = $planoMeta[$p->codigo] ?? ['cor' => 'gray', 'icone' => 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z', 'consultas_display' => [], 'casos_uso' => []];
-                    $requiresFirstPurchase = in_array($p->codigo, $firstPurchaseLockedProducts, true);
-                    $isLocked = $requiresFirstPurchase && ! $hasMadeFirstPurchase;
+                    $trialCap = $trialCaps[$p->codigo] ?? null;
+                    $requiresFirstPurchase = (bool) ($trialCap['aplicavel'] ?? false);
+                    $isLocked = $requiresFirstPurchase && ($trialCap['restantes'] ?? 1) <= 0;
                     $badgeHex = match ($p->codigo) {
                         'gratuito' => '#047857',
                         'validacao' => '#4338ca',
@@ -97,6 +99,9 @@
                         'requires_first_purchase' => $requiresFirstPurchase,
                         'locked' => $isLocked,
                         'badge_hex' => $badgeHex,
+                        'trial_restantes' => $trialCap['restantes'] ?? null,
+                        'trial_limite' => $trialCap['limite'] ?? null,
+                        'trial_aplicavel' => (bool) ($trialCap['aplicavel'] ?? false),
                     ];
                 }
 
@@ -636,6 +641,12 @@
                                         <span class="flex-shrink-0 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: #9ca3af">Bloq.</span>
                                     @else
                                         <span class="flex-shrink-0 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $badgeHex }}">{{ $pd['creditos'] }} cred.</span>
+                                    @endif
+                                    @if(!empty($pd['trial_aplicavel']))
+                                        <span class="flex-shrink-0 px-2 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap"
+                                              style="background-color: {{ ($pd['trial_restantes'] ?? 0) > 0 ? '#ecfdf5' : '#fef2f2' }}; color: {{ ($pd['trial_restantes'] ?? 0) > 0 ? '#047857' : '#b91c1c' }};">
+                                            {{ $pd['trial_restantes'] }} de {{ $pd['trial_limite'] }} no teste
+                                        </span>
                                     @endif
                                     <button type="button" class="btn-info-plano-lote flex-shrink-0 w-6 h-6 rounded-full border border-gray-400 bg-white flex items-center justify-center text-gray-500 hover:text-gray-900 hover:bg-gray-100 hover:border-gray-500 transition" data-slide-index="{{ $idx }}" onclick="event.preventDefault(); event.stopPropagation();">
                                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">

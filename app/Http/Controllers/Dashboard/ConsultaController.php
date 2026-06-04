@@ -61,6 +61,14 @@ class ConsultaController extends Controller
         // Buscar catálogo legado de produtos consultáveis
         $planos = MonitoramentoPlano::ativos();
 
+        // Status do teto de teste (5 CNPJs por plano premium antes da 1ª compra)
+        $trialCaps = [];
+        foreach ($planos as $planoItem) {
+            if ($this->pricingCatalogService->planoEhPremium($planoItem->codigo)) {
+                $trialCaps[$planoItem->codigo] = $this->pricingCatalogService->trialCapStatus($user, $planoItem);
+            }
+        }
+
         // Buscar clientes do usuário
         $clientes = Cliente::where('user_id', $user->id)
             ->orderBy('razao_social')
@@ -112,6 +120,7 @@ class ConsultaController extends Controller
             'complianceSources' => $this->pricingCatalogService->getComplianceSources(),
             'hasMadeFirstPurchase' => $this->pricingCatalogService->userHasFirstPurchase($user),
             'firstPurchaseLockedProducts' => $this->pricingCatalogService->getFirstPurchaseLockedProducts(),
+            'trialCaps' => $trialCaps,
         ];
 
         if ($this->isAjaxRequest($request)) {
