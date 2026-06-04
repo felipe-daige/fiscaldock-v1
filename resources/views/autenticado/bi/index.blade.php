@@ -131,6 +131,9 @@
                     <button data-tab="tributario-efd" class="{{ $tabClassMobile('tributario-efd') }}">
                         Tributário EFD
                     </button>
+                    <button data-tab="apuracao-notas" class="{{ $tabClassMobile('apuracao-notas') }}">
+                        Apuração × Notas
+                    </button>
                 </nav>
             </div>
         </div>
@@ -514,6 +517,54 @@
                 </div>
                 <div class="p-4 sm:p-5">
                     <div id="tabela-trib-regime" class="overflow-x-auto scroll-fade-right-white"></div>
+                </div>
+            </div>
+        </div>
+
+        {{-- Tab Apuração × Notas --}}
+        <div id="tab-apuracao-notas" class="bi-tab-content hidden">
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6" id="apn-kpis">
+                <div class="bg-white rounded border border-gray-300 p-3 sm:p-5 text-center">
+                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Declarado (devido)</p>
+                    <p class="text-lg font-bold text-gray-900" id="apn-declarado">—</p>
+                </div>
+                <div class="bg-white rounded border border-gray-300 p-3 sm:p-5 text-center">
+                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Computado (notas)</p>
+                    <p class="text-lg font-bold text-gray-900" id="apn-computado">—</p>
+                </div>
+                <div class="bg-white rounded border border-gray-300 p-3 sm:p-5 text-center">
+                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Divergência</p>
+                    <p class="text-lg font-bold text-gray-900" id="apn-delta">—</p>
+                </div>
+                <div class="bg-white rounded border border-gray-300 p-3 sm:p-5 text-center">
+                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Divergência %</p>
+                    <p class="text-lg font-bold text-gray-900" id="apn-delta-pct">—</p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded border border-gray-300 mb-6">
+                <div class="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
+                    <h3 class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Declarado vs Computado por Mês</h3>
+                    <button data-export="apuracao-notas" class="text-[11px] font-medium text-gray-600 hover:text-gray-900 border border-gray-300 rounded px-2 py-1">Exportar CSV</button>
+                </div>
+                <div class="p-4 sm:p-5"><div id="chart-apn-mensal" class="h-56 sm:h-72 lg:h-80"></div></div>
+            </div>
+
+            <div class="bg-white rounded border border-gray-300 overflow-hidden mb-6">
+                <div class="overflow-x-auto scroll-fade-right-white">
+                    <table class="min-w-[760px] w-full divide-y divide-gray-200 text-xs sm:text-sm">
+                        <thead class="bg-gray-50"><tr>
+                            <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase">Mês</th>
+                            <th class="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-400 uppercase">ICMS decl.</th>
+                            <th class="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-400 uppercase">ICMS comp.</th>
+                            <th class="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-400 uppercase">PIS decl.</th>
+                            <th class="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-400 uppercase">PIS comp.</th>
+                            <th class="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-400 uppercase">COFINS decl.</th>
+                            <th class="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-400 uppercase">COFINS comp.</th>
+                            <th class="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-400 uppercase">Δ%</th>
+                        </tr></thead>
+                        <tbody id="tabela-apn" class="divide-y divide-gray-100"></tbody>
+                    </table>
                 </div>
             </div>
         </div>

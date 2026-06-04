@@ -214,6 +214,9 @@
             case 'tributario-efd':
                 endpoint = '/app/bi/tributario-efd';
                 break;
+            case 'apuracao-notas':
+                endpoint = '/app/bi/apuracao-notas';
+                break;
         }
 
         try {
@@ -258,6 +261,9 @@
                 break;
             case 'tributario-efd':
                 renderTributarioEfdCharts(data);
+                break;
+            case 'apuracao-notas':
+                renderApuracaoNotasCharts(data);
                 break;
         }
     }
@@ -1291,6 +1297,58 @@
         renderGraficoTributarioMensal(data.mensal || []);
         renderGraficoAliquotaEfd(data.aliquota || []);
         renderTabelaTribRegime(data.por_regime || []);
+    }
+
+    const FLAG_HEX = { verde: '#16a34a', amarelo: '#d97706', vermelho: '#dc2626', neutro: '#9ca3af' };
+
+    function renderApuracaoNotasCharts(data) {
+        const mensal = data.mensal || [];
+        const t = data.totais || {};
+        const totDecl = (t.icms?.declarado || 0) + (t.pis?.declarado || 0) + (t.cofins?.declarado || 0);
+        const totComp = (t.icms?.computado || 0) + (t.pis?.computado || 0) + (t.cofins?.computado || 0);
+        const delta = totComp - totDecl;
+        const pct = totDecl !== 0 ? (delta / totDecl) * 100 : 0;
+
+        setKpi('apn-declarado', formatCurrency(totDecl));
+        setKpi('apn-computado', formatCurrency(totComp));
+        setKpi('apn-delta', formatCurrency(delta));
+        setKpi('apn-delta-pct', pct.toFixed(2) + '%');
+
+        const tbody = document.getElementById('tabela-apn');
+        if (tbody) {
+            tbody.innerHTML = mensal.map(m => {
+                const piorPct = Math.max(Math.abs(m.icms.delta_pct), Math.abs(m.pis.delta_pct), Math.abs(m.cofins.delta_pct));
+                const piorFlag = [m.icms, m.pis, m.cofins].sort((a, b) => Math.abs(b.delta_pct) - Math.abs(a.delta_pct))[0].flag;
+                return `<tr>
+                    <td class="px-3 py-2 text-gray-700">${m.label}</td>
+                    <td class="px-3 py-2 text-right text-gray-700">${formatCurrency(m.icms.declarado)}</td>
+                    <td class="px-3 py-2 text-right text-gray-700">${formatCurrency(m.icms.computado)}</td>
+                    <td class="px-3 py-2 text-right text-gray-700">${formatCurrency(m.pis.declarado)}</td>
+                    <td class="px-3 py-2 text-right text-gray-700">${formatCurrency(m.pis.computado)}</td>
+                    <td class="px-3 py-2 text-right text-gray-700">${formatCurrency(m.cofins.declarado)}</td>
+                    <td class="px-3 py-2 text-right text-gray-700">${formatCurrency(m.cofins.computado)}</td>
+                    <td class="px-3 py-2 text-center"><span class="inline-block px-2 py-0.5 rounded text-white text-[11px] font-medium" style="background-color:${FLAG_HEX[piorFlag] || '#9ca3af'}">${piorPct.toFixed(1)}%</span></td>
+                </tr>`;
+            }).join('');
+        }
+
+        if (mensal.length > 0) {
+            renderChart('chart-apn-mensal', {
+                chart: { type: 'bar', height: 320, toolbar: { show: false } },
+                series: [
+                    { name: 'Declarado', data: mensal.map(m => Math.round(m.icms.declarado + m.pis.declarado + m.cofins.declarado)) },
+                    { name: 'Computado', data: mensal.map(m => Math.round(m.icms.computado + m.pis.computado + m.cofins.computado)) },
+                ],
+                xaxis: { categories: mensal.map(m => m.label) },
+                colors: ['#9ca3af', '#111827'],
+                yaxis: { labels: { formatter: (val) => formatAxisCurrency(val) } },
+                plotOptions: { bar: { columnWidth: '55%' } },
+                dataLabels: { enabled: false },
+                tooltip: { y: { formatter: (val) => formatCurrency(val) } },
+            });
+        } else {
+            setEmptyChart('chart-apn-mensal');
+        }
     }
 
     function renderTabelaTributarioConsolidado(consolidado) {
