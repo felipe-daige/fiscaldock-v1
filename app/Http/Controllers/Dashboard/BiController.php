@@ -251,6 +251,26 @@ class BiController extends Controller
     }
 
     /**
+     * Análise por CFOP — para AJAX.
+     */
+    public function cfop(Request $request)
+    {
+        if (! Auth::check()) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        $userId = Auth::id();
+        $ini = $request->get('data_inicio');
+        $fim = $request->get('data_fim');
+        $cli = $request->get('cliente_id');
+
+        return response()->json([
+            'ranking' => $this->biService->getCfopAnalitico($userId, $ini, $fim, $cli)['ranking'],
+            'tendencia' => $this->biService->getCfopTendencia($userId, $ini, $fim, $cli, 5),
+        ]);
+    }
+
+    /**
      * Apuração × Notas (gold) — para AJAX.
      */
     public function apuracaoNotas(Request $request)

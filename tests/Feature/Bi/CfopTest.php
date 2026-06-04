@@ -68,3 +68,9 @@ it('monta cfop analitico com descricao e tendencia top N', function () {
     expect($tend['series'][0]['name'])->toContain('5102');
     expect(count($tend['categorias']))->toBeGreaterThanOrEqual(2);
 });
+
+it('endpoint cfop responde json autenticado', function () {
+    $user = \App\Models\User::factory()->create();
+    $res = $this->actingAs($user)->getJson('/app/bi/cfop');
+    $res->assertOk()->assertJsonStructure(['ranking', 'tendencia' => ['categorias', 'series']]);
+});
