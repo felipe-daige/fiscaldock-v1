@@ -491,7 +491,10 @@ class BiService
     }
 
     /**
-     * Faturamento por UF.
+     * Faturamento por UF (destino). XML usa dest_uf; EFD usa a UF do participante
+     * destinatário (cliente) — que só existe após enriquecer o cadastro com uma
+     * consulta de CNPJ (o plano grátis já traz a UF). Sem consulta, o lado EFD
+     * vem vazio e o gráfico exibe o atalho para consultar.
      */
     public function getFaturamentoPorUf(int $userId, ?string $dataInicio = null, ?string $dataFim = null, ?int $clienteId = null): array
     {
@@ -512,21 +515,42 @@ class BiService
             $query->where('cliente_id', $clienteId);
         }
 
-        return $query->select(
+        $xmlRows = $query->select(
             'dest_uf as uf',
             DB::raw('SUM(valor_total) as total'),
             DB::raw('COUNT(*) as qtd_notas')
         )
             ->groupBy('dest_uf')
-            ->orderByDesc('total')
             ->get()
-            ->map(function ($item) {
-                return [
-                    'uf' => $item->uf,
-                    'total' => (float) $item->total,
-                    'qtd_notas' => (int) $item->qtd_notas,
-                ];
-            })
+            ->keyBy('uf');
+
+        $efdRows = $this->efd->notasDedup($userId, 'saida', $dataInicio, $dataFim, $clienteId)
+            ->join('participantes as p', 'p.id', '=', 'n.participante_id')
+            ->whereNotNull('p.uf')
+            ->where('p.uf', '!=', '')
+            ->select([
+                'p.uf as uf',
+                DB::raw('SUM(n.valor_total) as total'),
+                DB::raw('COUNT(n.id) as qtd_notas'),
+            ])
+            ->groupBy('p.uf')
+            ->get()
+            ->keyBy('uf');
+
+        $ufs = $xmlRows->keys()->merge($efdRows->keys())->unique();
+
+        return $ufs->map(function ($uf) use ($xmlRows, $efdRows) {
+            $x = $xmlRows->get($uf);
+            $e = $efdRows->get($uf);
+
+            return [
+                'uf' => $uf,
+                'total' => (float) ($x->total ?? 0) + (float) ($e->total ?? 0),
+                'qtd_notas' => (int) ($x->qtd_notas ?? 0) + (int) ($e->qtd_notas ?? 0),
+            ];
+        })
+            ->sortByDesc('total')
+            ->values()
             ->toArray();
     }
 
