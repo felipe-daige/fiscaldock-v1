@@ -40,3 +40,31 @@ it('soma valor e icms do C190 por cfop (nao dos itens fiscais)', function () {
     expect((float) $r['icms'])->toBe(120.0);
     expect($r['tipo'])->toBe('saida');
 });
+
+it('monta cfop analitico com descricao e tendencia top N', function () {
+    $user = \App\Models\User::factory()->create();
+    $userId = $user->id;
+    $clienteId = \DB::table('clientes')->insertGetId([
+        'user_id' => $userId, 'documento' => '00000000000191', 'razao_social' => 'Empresa Teste',
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+    $impId = \DB::table('efd_importacoes')->insertGetId([
+        'user_id' => $userId, 'cliente_id' => $clienteId, 'tipo_efd' => 'EFD ICMS/IPI', 'status' => 'concluido',
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    foreach (['2024-03-10' => 1000, '2024-04-10' => 2000] as $data => $val) {
+        $nota = \DB::table('efd_notas')->insertGetId(['user_id' => $userId, 'cliente_id' => $clienteId, 'importacao_id' => $impId, 'origem_arquivo' => 'fiscal', 'modelo' => '55', 'tipo_operacao' => 'saida', 'cancelada' => false, 'valor_total' => $val, 'data_emissao' => $data, 'numero' => 1, 'created_at' => now(), 'updated_at' => now()]);
+        \DB::table('efd_notas_consolidados')->insert(['efd_nota_id' => $nota, 'user_id' => $userId, 'cst_icms' => '000', 'cfop' => '5102', 'valor_operacao' => $val, 'valor_icms' => 0, 'created_at' => now(), 'updated_at' => now()]);
+    }
+
+    $svc = app(\App\Services\BiService::class);
+    $analitico = $svc->getCfopAnalitico($userId, null, null, null);
+    $top = collect($analitico['ranking'])->firstWhere('cfop', '5102');
+    expect($top['descricao'])->toContain('Venda de mercadoria adquirida');
+    expect($top['valor'])->toBe(3000.0);
+
+    $tend = $svc->getCfopTendencia($userId, null, null, null, 5);
+    expect($tend['series'][0]['name'])->toContain('5102');
+    expect(count($tend['categorias']))->toBeGreaterThanOrEqual(2);
+});

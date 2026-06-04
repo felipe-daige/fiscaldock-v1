@@ -1295,4 +1295,44 @@ class BiService
             'ultimas_notas' => $ultimasNotas,
         ];
     }
+
+    public function getCfopAnalitico(int $userId, ?string $dataInicio, ?string $dataFim, ?int $clienteId): array
+    {
+        $ranking = collect($this->efd->cfopRanking($userId, $dataInicio, $dataFim, $clienteId))
+            ->map(fn ($r) => array_merge($r, [
+                'descricao' => \App\Support\Cfop::descricao($r['cfop']),
+                'tributos' => $r['icms'] + $r['icms_st'] + $r['ipi'] + $r['pis'] + $r['cofins'],
+            ]))
+            ->toArray();
+
+        $totalValor = array_sum(array_column($ranking, 'valor')) ?: 1;
+        $ranking = array_map(function ($r) use ($totalValor) {
+            $r['percentual'] = round(($r['valor'] / $totalValor) * 100, 2);
+
+            return $r;
+        }, $ranking);
+
+        return ['ranking' => $ranking];
+    }
+
+    public function getCfopTendencia(int $userId, ?string $dataInicio, ?string $dataFim, ?int $clienteId, int $topN = 5): array
+    {
+        $ranking = $this->efd->cfopRanking($userId, $dataInicio, $dataFim, $clienteId);
+        $topCfops = array_slice(array_column($ranking, 'cfop'), 0, $topN);
+
+        $rows = collect($this->efd->cfopMensal($userId, $dataInicio, $dataFim, $clienteId, $topCfops));
+        $meses = $rows->pluck('mes')->unique()->sort()->values();
+        $categorias = $meses->map(fn ($m) => Carbon::parse($m)->locale('pt_BR')->isoFormat('MMM/YY'))->toArray();
+
+        $series = collect($topCfops)->map(function ($cfop) use ($rows, $meses) {
+            $porMes = $rows->where('cfop', $cfop)->keyBy(fn ($r) => (string) $r['mes']);
+
+            return [
+                'name' => $cfop,
+                'data' => $meses->map(fn ($m) => round((float) ($porMes->get((string) $m)['valor'] ?? 0)))->toArray(),
+            ];
+        })->toArray();
+
+        return ['categorias' => $categorias, 'series' => $series];
+    }
 }
