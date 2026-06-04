@@ -27,7 +27,7 @@
         </div>
 
         {{-- Lista de Consultas --}}
-        <div id="lista-empresa-historico" data-spa-list class="bg-white rounded border border-gray-300 overflow-hidden">
+        <div class="bg-white rounded border border-gray-300 overflow-hidden">
             @if(($consultas ?? collect())->count() > 0)
                 <div class="overflow-x-auto">
                     <table class="min-w-full">
@@ -113,7 +113,7 @@
                 {{-- Paginacao --}}
                 @if($consultas->hasPages())
                     <div class="border-t border-gray-300 px-4 py-3">
-                        {{ $consultas->withQueryString()->links() }}
+                        {{ $consultas->links() }}
                     </div>
                 @endif
             @else

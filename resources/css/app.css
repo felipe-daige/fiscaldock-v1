@@ -474,37 +474,3 @@
         }
     }
 }
-
-/* Loading localizado de paginação de lista (mecanismo navegarLista do spa.js) */
-[data-spa-list] {
-    position: relative;
-}
-
-[data-spa-list][data-spa-loading] {
-    opacity: .5;
-    pointer-events: none;
-    filter: blur(1px);
-    transition: opacity .12s ease;
-}
-
-/* Spinner sobreposto — position:absolute NÃO altera a altura do container,
-   então a tela não desloca. */
-[data-spa-list][data-spa-loading]::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 28px;
-    height: 28px;
-    margin: -14px 0 0 -14px;
-    border: 3px solid #d1d5db;       /* gray-300 */
-    border-top-color: #133a73;        /* primary-600 */
-    border-radius: 9999px;
-    animation: spa-list-spin .6s linear infinite;
-    /* contrabalança o blur do pai pra o spinner ficar nítido */
-    filter: blur(0);
-}
-
-@keyframes spa-list-spin {
-    to { transform: rotate(360deg); }
-}

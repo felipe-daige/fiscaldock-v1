@@ -231,16 +231,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.addEventListener('click', async (e) => {
         const link = e.target.closest('[data-link]');
         if (link) {
-            const linkUrl = new URL(link.href, window.location.origin);
-
-            // Paginação dentro de [data-spa-list] é tratada pelo navegarLista (swap parcial
-            // do container), não pelo swap completo do #app. Deixar o handler dedicado pegar.
-            if (linkUrl.searchParams.has('page') && link.closest('[data-spa-list]')) {
-                return;
-            }
-
             // Ignorar navegação SPA para rotas que NÃO começam com /app/
-            const linkPath = linkUrl.pathname;
+            const linkPath = new URL(link.href, window.location.origin).pathname;
             if (!linkPath.startsWith('/app/')) {
                 return; // Deixar o browser fazer navegação normal (full page reload)
             }
@@ -426,13 +418,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Pegar HTML da resposta
             const html = await resposta.text();
-
-            // Se a navegação é na MESMA página (só mudou a query string — ex: paginação,
-            // ordenação ou filtros de uma lista), preservar a posição de scroll em vez de
-            // jogar a tela pro topo. Captura ANTES de trocar o conteúdo.
-            const mesmaPagina = urlPath === currentPath;
-            const scrollAnterior = window.scrollY;
-
+            
             // Trocar conteúdo
             app.innerHTML = html;
 
@@ -459,10 +445,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             
-            // Mesma página (paginação/filtros/ordenação) → mantém o scroll onde estava.
-            // Página diferente → volta ao topo.
-            window.scrollTo(0, mesmaPagina ? scrollAnterior : 0);
-
+            // Voltar ao topo
+            window.scrollTo(0, 0);
+            
         } catch (erro) {
             // Log do erro para debug
             console.error('[SPA] Erro ao navegar:', {
@@ -486,64 +471,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.navigateTo = function(url, options = {}) {
         return navegar(url, options);
     };
-
-    // 2.1. NAVEGAÇÃO PARCIAL DE LISTA PAGINADA (troca só o container, preserva scroll)
-    async function navegarLista(link, container) {
-        const url = link.href;
-        const containerId = container.id;
-
-        // Mostrar loading localizado (overlay esmaecido sobre a lista)
-        container.setAttribute('data-spa-loading', '');
-
-        try {
-            const resposta = await fetch(url, {
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-                },
-                credentials: 'same-origin'
-            });
-
-            // Sessão expirada → login (igual ao navegar())
-            if (resposta.status === 401 || resposta.status === 419) {
-                window.location.href = '/login';
-                return;
-            }
-
-            if (!resposta.ok) {
-                // Fallback: deixar o browser carregar a página inteira
-                window.location.href = url;
-                return;
-            }
-
-            const html = await resposta.text();
-            const doc = new DOMParser().parseFromString(html, 'text/html');
-            const novo = doc.getElementById(containerId);
-
-            if (!novo) {
-                // Estrutura inesperada → fallback full reload
-                window.location.href = url;
-                return;
-            }
-
-            // Trocar SÓ o miolo da lista — não tocar no scroll
-            container.innerHTML = novo.innerHTML;
-
-            // Atualizar URL (back/forward e F5 mantêm a página)
-            history.pushState(null, '', url);
-
-            // Avisar quem precisa reagir ao swap (estado derivado, badges, etc.)
-            document.dispatchEvent(new CustomEvent('spa:list-updated', {
-                detail: { container, url }
-            }));
-        } catch (erro) {
-            console.error('[SPA] Erro ao paginar lista, recarregando página:', erro);
-            window.location.href = url;
-        } finally {
-            container.removeAttribute('data-spa-loading');
-        }
-    }
-
+    
     // 3. DESTACAR LINK ATIVO
     function destacarLinkAtivo(url) {
         // Usar a função do layout.js se disponível
