@@ -245,6 +245,53 @@ class EfdAgregadorService
     }
 
     /**
+     * Declarado BRUTO (devido) por mês — para o cruzamento Apuração × Notas.
+     * ICMS = icms_tot_debitos (E110, débito bruto; âncora 415.046,03 na massa).
+     * PIS/COFINS = nao_cumulativo + cumulativo (M200/M600 devido bruto).
+     * NÃO usa *_a_recolher/_total_recolher (líquido) — comparação é bruto×bruto (F2).
+     * Mês do ICMS vem de periodo_inicio; do PIS/COFINS, da competência da importação
+     * (cada SPED PIS/COFINS é 1 mês — derivado por MIN(data_emissao) das notas).
+     */
+    public function cargaDeclaradaBrutaMensal(int $userId, ?string $dataInicio = null, ?string $dataFim = null, ?int $clienteId = null): array
+    {
+        $icms = DB::table('efd_apuracoes_icms')
+            ->where('user_id', $userId)
+            ->when($clienteId, fn ($q) => $q->where('cliente_id', $clienteId))
+            ->when($dataInicio, fn ($q) => $q->where('periodo_inicio', '>=', $dataInicio))
+            ->when($dataFim, fn ($q) => $q->where('periodo_inicio', '<=', $dataFim))
+            ->selectRaw("DATE_TRUNC('month', periodo_inicio) mes, SUM(COALESCE(icms_tot_debitos,0)) icms")
+            ->groupBy(DB::raw("DATE_TRUNC('month', periodo_inicio)"))
+            ->get()->keyBy('mes');
+
+        $mesPorImportacao = DB::table('efd_notas')
+            ->where('user_id', $userId)
+            ->where('origem_arquivo', 'contribuicoes')
+            ->when($dataInicio, fn ($q) => $q->where('data_emissao', '>=', $dataInicio))
+            ->when($dataFim, fn ($q) => $q->where('data_emissao', '<=', $dataFim))
+            ->selectRaw("importacao_id, DATE_TRUNC('month', MIN(data_emissao)) mes")
+            ->groupBy('importacao_id');
+
+        $pc = DB::table('efd_apuracoes_contribuicoes as a')
+            ->joinSub($mesPorImportacao, 'm', 'm.importacao_id', '=', 'a.importacao_id')
+            ->where('a.user_id', $userId)
+            ->when($clienteId, fn ($q) => $q->where('a.cliente_id', $clienteId))
+            ->selectRaw('m.mes, SUM(COALESCE(a.pis_nao_cumulativo,0)+COALESCE(a.pis_cumulativo,0)) pis, SUM(COALESCE(a.cofins_nao_cumulativo,0)+COALESCE(a.cofins_cumulativo,0)) cofins')
+            ->groupBy('m.mes')
+            ->get()->keyBy('mes');
+
+        $meses = $icms->keys()->merge($pc->keys())->unique()->sort()->values();
+
+        return $meses->map(function ($mes) use ($icms, $pc) {
+            return [
+                'mes' => $mes,
+                'icms' => (float) ($icms->get($mes)->icms ?? 0),
+                'pis' => (float) ($pc->get($mes)->pis ?? 0),
+                'cofins' => (float) ($pc->get($mes)->cofins ?? 0),
+            ];
+        })->toArray();
+    }
+
+    /**
      * Q-CARGA (apurada) — carga líquida a recolher, declarada ao fisco (gold).
      *   ICMS/ST: efd_apuracoes_icms (E110/ST), filtrável por periodo_inicio.
      *   PIS/COFINS: efd_apuracoes_contribuicoes (M). Não tem coluna de período;
