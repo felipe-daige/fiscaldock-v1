@@ -84,7 +84,7 @@
             </div>
         </div>
 
-        <div class="bg-white rounded border border-gray-300 overflow-hidden">
+        <div id="lista-clearance-alertas" data-spa-list class="bg-white rounded border border-gray-300 overflow-hidden">
             @if($notas->count() > 0)
                 <div class="hidden md:block overflow-x-auto">
                     <table class="min-w-full">
