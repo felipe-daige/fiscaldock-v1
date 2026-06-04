@@ -373,7 +373,7 @@
         </div>
 
         {{-- Tabela --}}
-        <div class="bg-white rounded border border-gray-300 overflow-hidden relative" id="clearance-listagem-card">
+        <div class="bg-white rounded border border-gray-300 overflow-hidden relative" id="clearance-listagem-card" data-spa-list>
             <div id="clearance-sort-loading" class="hidden absolute inset-0 z-10 bg-white/75 backdrop-blur-[1px] flex items-center justify-center pointer-events-none">
                 <div class="bg-white rounded border border-gray-300 shadow-sm px-4 py-3 flex items-center gap-3">
                     <svg class="w-4 h-4 animate-spin text-gray-700" fill="none" viewBox="0 0 24 24" aria-hidden="true">
@@ -564,7 +564,7 @@
                 </table>
             </div>
             <div class="px-4 py-3 border-t border-gray-200 bg-gray-50">
-                {{ $notas->links() }}
+                {{ $notas->withQueryString()->links() }}
             </div>
         </div>
     </div>
