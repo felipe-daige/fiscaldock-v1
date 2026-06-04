@@ -127,7 +127,7 @@
         </div>
 
         @if($lotes->isNotEmpty())
-            <div class="bg-white rounded border border-gray-300 overflow-hidden">
+            <div id="lista-consultas" data-spa-list class="bg-white rounded border border-gray-300 overflow-hidden">
                 <div class="bg-gray-50 px-4 py-2 border-b border-gray-200">
                     <div class="flex items-center justify-between gap-3">
                         <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Consultas Recentes</span>
@@ -269,7 +269,7 @@
 
                 @if($lotes->hasPages())
                     <div class="border-t border-gray-300 px-4 py-3">
-                        {{ $lotes->links() }}
+                        {{ $lotes->withQueryString()->links() }}
                     </div>
                 @endif
             </div>
