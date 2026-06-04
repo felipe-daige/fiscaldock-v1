@@ -431,23 +431,32 @@
         // Carga Tributária Mensal
         if (data.carga_tributaria && data.carga_tributaria.length > 0) {
             renderChart('chart-carga-tributaria', {
-                chart: { type: 'line', height: 320, toolbar: { show: false } },
+                chart: { type: 'bar', height: 320, toolbar: { show: false }, fontFamily: 'inherit' },
                 series: [
-                    { name: 'Faturamento', data: data.carga_tributaria.map(d => d.faturamento), type: 'column' },
-                    { name: 'Tributos', data: data.carga_tributaria.map(d => d.tributos_total), type: 'column' }
+                    { name: 'Faturamento', data: data.carga_tributaria.map(d => d.faturamento) },
+                    { name: 'Tributos', data: data.carga_tributaria.map(d => d.tributos_total) }
                 ],
+                plotOptions: { bar: { columnWidth: '42%', borderRadius: 4, borderRadiusApplication: 'end' } },
+                stroke: { show: false },
+                dataLabels: { enabled: false },
+                colors: ['#cbd5e1', '#334155'],
+                grid: {
+                    borderColor: '#f1f5f9',
+                    strokeDashArray: 4,
+                    xaxis: { lines: { show: false } },
+                    padding: { left: 8, right: 8, top: 0 }
+                },
                 xaxis: {
-                    categories: data.carga_tributaria.map(d => d.mes_formatado)
+                    categories: data.carga_tributaria.map(d => d.mes_formatado),
+                    axisBorder: { show: false },
+                    axisTicks: { show: false },
+                    labels: { style: { colors: '#94a3b8', fontSize: '11px' } }
                 },
                 yaxis: {
-                    labels: { formatter: (val) => formatAxisCurrency(val) }
+                    labels: { formatter: (val) => formatAxisCurrency(val), style: { colors: '#94a3b8', fontSize: '11px' } }
                 },
-                plotOptions: { bar: { columnWidth: '50%' } },
-                dataLabels: { enabled: false },
-                colors: ['#374151', '#dc2626'],
-                tooltip: {
-                    y: { formatter: (val) => formatCurrency(val) }
-                }
+                legend: { position: 'top', horizontalAlign: 'right', fontSize: '12px', labels: { colors: '#64748b' }, markers: { radius: 12 } },
+                tooltip: { y: { formatter: (val) => formatCurrency(val) } }
             });
         } else { setEmptyChart('chart-carga-tributaria'); }
 
