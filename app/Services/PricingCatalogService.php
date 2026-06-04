@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\ConsultaLote;
 use App\Models\CreditTransaction;
 use App\Models\MonitoramentoPlano;
 use App\Models\User;
@@ -9,7 +10,9 @@ use App\Models\User;
 class PricingCatalogService
 {
     public const CREDIT_UNIT_PRICE = 0.20;
+
     public const MINIMUM_DEPOSIT = 50.00;
+
     public const FIRST_PURCHASE_LOCKED_PRODUCTS = ['compliance', 'due_diligence'];
 
     /**
@@ -77,6 +80,47 @@ class PricingCatalogService
         }
 
         return $this->userHasFirstPurchase($user);
+    }
+
+    public function planoEhPremium(string $codigo): bool
+    {
+        return in_array($codigo, (array) config('trial.planos_premium', []), true);
+    }
+
+    /**
+     * Status do teto de teste para um plano premium.
+     *
+     * @return array{aplicavel: bool, limite: int, usados: int, restantes: int, bloqueado: bool}
+     */
+    public function trialCapStatus(User $user, MonitoramentoPlano $plano, int $novosCnpjs = 0): array
+    {
+        $limite = (int) config('trial.limite_premium_por_plano', 5);
+
+        $aplicavel = $this->planoEhPremium($plano->codigo) && ! $this->userHasFirstPurchase($user);
+
+        if (! $aplicavel) {
+            return [
+                'aplicavel' => false,
+                'limite' => $limite,
+                'usados' => 0,
+                'restantes' => $limite,
+                'bloqueado' => false,
+            ];
+        }
+
+        $usados = (int) ConsultaLote::query()
+            ->where('user_id', $user->id)
+            ->where('plano_id', $plano->id)
+            ->where('status', '!=', ConsultaLote::STATUS_ERRO)
+            ->sum('total_participantes');
+
+        return [
+            'aplicavel' => true,
+            'limite' => $limite,
+            'usados' => $usados,
+            'restantes' => max(0, $limite - $usados),
+            'bloqueado' => ($usados + $novosCnpjs) > $limite,
+        ];
     }
 
     public function getPackageBySlug(string $slug): ?array
