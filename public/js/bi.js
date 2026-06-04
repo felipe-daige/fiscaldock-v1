@@ -1339,7 +1339,7 @@
         renderTabelaTribRegime(data.por_regime || []);
     }
 
-    const FLAG_HEX = { verde: '#16a34a', amarelo: '#d97706', vermelho: '#dc2626', neutro: '#9ca3af' };
+    const FLAG_HEX = { verde: '#16a34a', amarelo: '#d97706', vermelho: '#dc2626', neutro: '#9ca3af', sem_dado: '#9ca3af' };
 
     function renderApuracaoNotasCharts(data) {
         const mensal = data.mensal || [];
@@ -1357,8 +1357,19 @@
         const tbody = document.getElementById('tabela-apn');
         if (tbody) {
             tbody.innerHTML = mensal.map(m => {
-                const piorPct = Math.max(Math.abs(m.icms.delta_pct), Math.abs(m.pis.delta_pct), Math.abs(m.cofins.delta_pct));
-                const piorFlag = [m.icms, m.pis, m.cofins].sort((a, b) => Math.abs(b.delta_pct) - Math.abs(a.delta_pct))[0].flag;
+                const flags = [m.icms.flag, m.pis.flag, m.cofins.flag];
+                let badge;
+                if (flags.includes('sem_dado')) {
+                    // mês com arquivo de apuração faltando (ex.: PIS/COFINS não importado)
+                    const quais = [];
+                    if (m.icms.flag === 'sem_dado') quais.push('ICMS');
+                    if (m.pis.flag === 'sem_dado' || m.cofins.flag === 'sem_dado') quais.push('PIS/COFINS');
+                    badge = `<span class="inline-block px-2 py-0.5 rounded text-white text-[11px] font-medium" style="background-color:#9ca3af" title="Apuração não importada">sem dado: ${quais.join(', ')}</span>`;
+                } else {
+                    const piorPct = Math.max(Math.abs(m.icms.delta_pct), Math.abs(m.pis.delta_pct), Math.abs(m.cofins.delta_pct));
+                    const piorFlag = [m.icms, m.pis, m.cofins].sort((a, b) => Math.abs(b.delta_pct) - Math.abs(a.delta_pct))[0].flag;
+                    badge = `<span class="inline-block px-2 py-0.5 rounded text-white text-[11px] font-medium" style="background-color:${FLAG_HEX[piorFlag] || '#9ca3af'}">${piorPct.toFixed(1)}%</span>`;
+                }
                 return `<tr>
                     <td class="px-3 py-2 text-gray-700">${m.label}</td>
                     <td class="px-3 py-2 text-right text-gray-700">${formatCurrency(m.icms.declarado)}</td>
@@ -1367,7 +1378,7 @@
                     <td class="px-3 py-2 text-right text-gray-700">${formatCurrency(m.pis.computado)}</td>
                     <td class="px-3 py-2 text-right text-gray-700">${formatCurrency(m.cofins.declarado)}</td>
                     <td class="px-3 py-2 text-right text-gray-700">${formatCurrency(m.cofins.computado)}</td>
-                    <td class="px-3 py-2 text-center"><span class="inline-block px-2 py-0.5 rounded text-white text-[11px] font-medium" style="background-color:${FLAG_HEX[piorFlag] || '#9ca3af'}">${piorPct.toFixed(1)}%</span></td>
+                    <td class="px-3 py-2 text-center">${badge}</td>
                 </tr>`;
             }).join('');
         }

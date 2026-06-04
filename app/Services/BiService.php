@@ -1144,12 +1144,15 @@ class BiService
         $meses = $declarado->keys()->merge($computado->keys())->unique()->sort()->values();
         $impostos = ['icms', 'pis', 'cofins'];
 
-        $linha = function (float $dec, float $com): array {
+        // $temFonte=false → mês sem o arquivo de apuração daquele imposto (ICMS ou
+        // PIS/COFINS): marca 'sem_dado' em vez de fingir conformidade (verde/neutro).
+        $linha = function (float $dec, float $com, bool $temFonte = true): array {
             $delta = $com - $dec;
             $pct = $dec != 0.0 ? round(($delta / $dec) * 100, 2) : ($com != 0.0 ? 100.0 : 0.0);
             $abs = abs($pct);
-            $flag = ($dec == 0.0 && $com == 0.0) ? 'neutro'
-                : ($abs <= self::FLAG_VERDE ? 'verde' : ($abs <= self::FLAG_AMARELO ? 'amarelo' : 'vermelho'));
+            $flag = ! $temFonte ? 'sem_dado'
+                : (($dec == 0.0 && $com == 0.0) ? 'neutro'
+                    : ($abs <= self::FLAG_VERDE ? 'verde' : ($abs <= self::FLAG_AMARELO ? 'amarelo' : 'vermelho')));
 
             return ['declarado' => $dec, 'computado' => $com, 'delta' => $delta, 'delta_pct' => $pct, 'flag' => $flag];
         };
@@ -1157,9 +1160,12 @@ class BiService
         $mensal = $meses->map(function ($mes) use ($declarado, $computado, $impostos, $linha) {
             $dec = $declarado->get($mes);
             $com = $computado->get($mes);
+            $temIcms = (bool) ($dec['fonte_icms'] ?? false);
+            $temContrib = (bool) ($dec['fonte_contribuicoes'] ?? false);
             $out = ['mes' => $mes, 'label' => Carbon::parse($mes.'-01')->locale('pt_BR')->isoFormat('MMM/YY')];
             foreach ($impostos as $imp) {
-                $out[$imp] = $linha((float) ($dec[$imp] ?? 0), (float) ($com[$imp] ?? 0));
+                $temFonte = $imp === 'icms' ? $temIcms : $temContrib;
+                $out[$imp] = $linha((float) ($dec[$imp] ?? 0), (float) ($com[$imp] ?? 0), $temFonte);
             }
 
             return $out;

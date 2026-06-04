@@ -287,6 +287,10 @@ class EfdAgregadorService
                 'icms' => (float) ($icms->get($mes)->icms ?? 0),
                 'pis' => (float) ($pc->get($mes)->pis ?? 0),
                 'cofins' => (float) ($pc->get($mes)->cofins ?? 0),
+                // Presença da fonte de apuração no mês (distingue "0 declarado" de
+                // "arquivo não importado") — consumido pela flag 'sem_dado'.
+                'fonte_icms' => $icms->has($mes),
+                'fonte_contribuicoes' => $pc->has($mes),
             ];
         })->toArray();
     }

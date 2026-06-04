@@ -66,3 +66,23 @@ it('endpoint apuracao-notas responde json autenticado', function () {
     $res = $this->actingAs($user)->getJson('/app/bi/apuracao-notas');
     $res->assertOk()->assertJsonStructure(['mensal', 'totais' => ['icms', 'pis', 'cofins']]);
 });
+
+it('marca PIS/COFINS como sem_dado no mes sem apuracao de contribuicoes', function () {
+    $user = \App\Models\User::factory()->create();
+    $userId = $user->id;
+    $clienteId = \DB::table('clientes')->insertGetId([
+        'user_id' => $userId, 'documento' => '00000000000191', 'razao_social' => 'Empresa Teste',
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+    // abril com ICMS completo (apuração + nota/C190), mas SEM arquivo PIS/COFINS
+    $imp = \DB::table('efd_importacoes')->insertGetId(['user_id' => $userId, 'cliente_id' => $clienteId, 'tipo_efd' => 'EFD ICMS/IPI', 'status' => 'concluido', 'created_at' => now(), 'updated_at' => now()]);
+    \DB::table('efd_apuracoes_icms')->insert(['importacao_id' => $imp, 'user_id' => $userId, 'cliente_id' => $clienteId, 'periodo_inicio' => '2024-04-01', 'periodo_fim' => '2024-04-30', 'icms_tot_debitos' => 1000, 'created_at' => now(), 'updated_at' => now()]);
+    $nota = \DB::table('efd_notas')->insertGetId(['user_id' => $userId, 'cliente_id' => $clienteId, 'importacao_id' => $imp, 'origem_arquivo' => 'fiscal', 'modelo' => '55', 'tipo_operacao' => 'saida', 'cancelada' => false, 'valor_total' => 5000, 'data_emissao' => '2024-04-10', 'numero' => 1, 'created_at' => now(), 'updated_at' => now()]);
+    \DB::table('efd_notas_consolidados')->insert(['efd_nota_id' => $nota, 'user_id' => $userId, 'cst_icms' => '000', 'cfop' => '5102', 'valor_operacao' => 5000, 'valor_icms' => 1000, 'created_at' => now(), 'updated_at' => now()]);
+
+    $abr = collect(app(\App\Services\BiService::class)->getApuracaoVsNotas($userId, null, null, null)['mensal'])->firstWhere('mes', '2024-04');
+
+    expect($abr['icms']['flag'])->toBe('verde');     // tem fonte ICMS
+    expect($abr['pis']['flag'])->toBe('sem_dado');   // sem apuração de contribuições
+    expect($abr['cofins']['flag'])->toBe('sem_dado');
+});
