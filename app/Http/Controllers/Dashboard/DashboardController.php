@@ -5,9 +5,10 @@ namespace App\Http\Controllers\Dashboard;
 use App\Http\Controllers\Controller;
 use App\Models\Alerta;
 use App\Models\Cliente;
-use App\Models\ConsultaResultado;
 use App\Models\ConsultaLote;
+use App\Models\ConsultaResultado;
 use App\Models\CreditTransaction;
+use App\Models\EfdImportacao;
 use App\Models\Participante;
 use App\Services\AlertaCentralService;
 use App\Services\Dashboard\DashboardDataService;
@@ -153,8 +154,13 @@ class DashboardController extends Controller
         $regime = trim($request->string('regime')->toString());
         $situacao = trim($request->string('situacao')->toString());
         $uf = trim($request->string('uf')->toString());
+        $importacao = trim($request->string('importacao')->toString());
 
-        $baseQuery = Cliente::where('user_id', $userId);
+        $baseQuery = Cliente::where('user_id', $userId)
+            ->when($importacao !== '', fn ($query) => $query->whereIn(
+                'id',
+                EfdImportacao::where('user_id', $userId)->where('id', $importacao)->select('cliente_id')
+            ));
 
         $clientes = (clone $baseQuery)
             ->withCount('participantes')
@@ -291,6 +297,11 @@ class DashboardController extends Controller
             ->orderBy('uf')
             ->pluck('uf');
 
+        $importacoes = EfdImportacao::where('user_id', $userId)
+            ->where('status', 'concluido')
+            ->orderByDesc('created_at')
+            ->get(['id', 'filename', 'tipo_efd', 'created_at']);
+
         $data = [
             'clientes' => $clientes,
             'totalAtivos' => $totalAtivos,
@@ -298,6 +309,7 @@ class DashboardController extends Controller
             'totalPJ' => $totalPJ,
             'totalPF' => $totalPF,
             'ufs' => $ufs,
+            'importacoes' => $importacoes,
             'filtros' => [
                 'status' => $status,
                 'tipo' => strtoupper($tipo),
@@ -305,6 +317,7 @@ class DashboardController extends Controller
                 'regime' => $regime,
                 'situacao' => $situacao,
                 'uf' => strtoupper($uf),
+                'importacao' => $importacao,
             ],
         ];
 
@@ -651,18 +664,19 @@ class DashboardController extends Controller
             if ($this->isAjaxRequest($request)) {
                 return response()->json(['success' => false, 'redirect' => '/login']);
             }
+
             return redirect('/login');
         }
 
         $userId = Auth::id();
-        
+
         $alerta = Alerta::where('id', $id)
             ->where('user_id', $userId)
             ->with(['cliente', 'participante'])
             ->firstOrFail();
 
         $data = ['alerta' => $alerta];
-        $viewName = self::AUTH_VIEW_PREFIX . 'alertas.show';
+        $viewName = self::AUTH_VIEW_PREFIX.'alertas.show';
 
         if ($this->isAjaxRequest($request)) {
             return view($viewName, $data);

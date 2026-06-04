@@ -94,13 +94,22 @@
                             </select>
                         </div>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-200">
+                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-200">
                         <div>
                             <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">UF</label>
                             <select name="uf" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
                                 <option value="">Todas</option>
                                 @foreach($ufs ?? [] as $uf)
                                     <option value="{{ $uf }}" {{ ($filtros['uf'] ?? '') === $uf ? 'selected' : '' }}>{{ $uf }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Importação</label>
+                            <select name="importacao" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                                <option value="">Todas</option>
+                                @foreach($importacoes ?? [] as $imp)
+                                    <option value="{{ $imp->id }}" {{ (string)($filtros['importacao'] ?? '') === (string)$imp->id ? 'selected' : '' }}>{{ $imp->filename }} · {{ $imp->tipo_efd }} · {{ $imp->created_at?->format('d/m/Y') }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -688,7 +697,7 @@
                     var filtrosForm = container.querySelector('form[action="/app/clientes"]');
 
                     if (filtrosForm) {
-                        ['status', 'tipo', 'regime', 'situacao', 'uf', 'busca'].forEach(function(name) {
+                        ['status', 'tipo', 'regime', 'situacao', 'uf', 'busca', 'importacao'].forEach(function(name) {
                             var field = filtrosForm.querySelector('[name="' + name + '"]');
                             if (field && field.value) params.set(name, field.value);
                         });
@@ -982,15 +991,23 @@
             });
         }
 
-        document.addEventListener('click', function(event) {
+        function _clientesOnDocClick(event) {
             if (dropdownAcoes && !dropdownAcoes.classList.contains('hidden') && !dropdownAcoes.contains(event.target)) {
                 fecharDropdownAcoes();
             }
-        });
-
-        document.addEventListener('keydown', function(event) {
+        }
+        function _clientesOnDocKeydown(event) {
             if (event.key === 'Escape') fecharDropdownAcoes();
-        });
+        }
+        document.addEventListener('click', _clientesOnDocClick);
+        document.addEventListener('keydown', _clientesOnDocKeydown);
+        // SPA: remover estes listeners de document ao navegar (spa.js → limparRecursos),
+        // senão acumulam a cada visita (closures presas ao DOM já trocado pelo SPA).
+        if (!window._cleanupFunctions) window._cleanupFunctions = {};
+        window._cleanupFunctions.clientes = function () {
+            document.removeEventListener('click', _clientesOnDocClick);
+            document.removeEventListener('keydown', _clientesOnDocKeydown);
+        };
 
         var modalExcluir = document.getElementById('modal-excluir');
         var modalExcluirOverlay = document.getElementById('modal-excluir-overlay');

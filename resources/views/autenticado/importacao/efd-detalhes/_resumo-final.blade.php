@@ -82,7 +82,7 @@
  <div class="text-right min-w-[120px]"><span class="text-gray-400 text-xs">Vazio</span></div>
  </div>
  @else
- <a href="/app/notas-fiscais?importacao_id={{ $importacao->id }}" data-link class="flex items-center justify-between py-1.5 border-b border-gray-100 last:border-0 hover:bg-gray-50/50 rounded transition-colors group/link">
+ <a href="/app/notas?importacao_id={{ $importacao->id }}" data-link class="flex items-center justify-between py-1.5 border-b border-gray-100 last:border-0 hover:bg-gray-50/50 rounded transition-colors group/link">
  <div class="flex items-center gap-2">
  <span class="text-gray-700 font-bold w-4 text-center">✓</span>
  <span class="text-gray-700 truncate group-hover/link:text-gray-600">{{ $nomesBloco[$bloco] ?? 'Bloco '.$bloco }}</span>
@@ -99,7 +99,7 @@
 
  {{-- Total --}}
  @if(!empty($rf['totais']))
- <a href="/app/notas-fiscais?importacao_id={{ $importacao->id }}" data-link class="flex items-center justify-between py-2 border-t border-gray-300 mt-1 hover:bg-gray-50/50 rounded transition-colors group/link">
+ <a href="/app/notas?importacao_id={{ $importacao->id }}" data-link class="flex items-center justify-between py-2 border-t border-gray-300 mt-1 hover:bg-gray-50/50 rounded transition-colors group/link">
  <div class="flex items-center gap-2">
  <span class="w-4"></span>
  <span class="text-gray-800 font-bold group-hover/link:text-gray-600">Total</span>

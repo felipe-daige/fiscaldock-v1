@@ -13,10 +13,10 @@ class XmlNota extends Model
         'user_id',
         'importacao_xml_id',
         'cliente_id',
-        'nfe_id',
+        'chave_acesso',
         'tipo_documento',
         'origem',
-        'numero_nota',
+        'numero_documento',
         'serie',
         'data_emissao',
         'natureza_operacao',
@@ -24,12 +24,12 @@ class XmlNota extends Model
         'tipo_nota',
         'finalidade',
         'chave_referenciada',
-        'emit_cnpj',
+        'emit_documento',
         'emit_razao_social',
         'emit_uf',
         'emit_participante_id',
         'emit_cliente_id',
-        'dest_cnpj',
+        'dest_documento',
         'dest_razao_social',
         'dest_uf',
         'dest_participante_id',
@@ -42,13 +42,31 @@ class XmlNota extends Model
         'tributos_total',
         'payload',
         'validacao',
+        'id_alternativo',
+        'modelo',
+        'ambiente',
+        'versao_layout',
+        'data_competencia',
+        'municipio_fato_gerador_ibge',
+        'valor_desconto',
+        'emit_municipio_ibge',
+        'emit_ie',
+        'emit_im',
+        'dest_municipio_ibge',
+        'dest_ie',
+        'dest_im',
+        'iss_valor',
+        'iss_retido_valor',
+        'protocolo_autorizacao',
+        'data_autorizacao',
+        'status_autorizacao',
+        'motivo_autorizacao',
     ];
 
     protected function casts(): array
     {
         return [
-            'numero_nota' => 'integer',
-            'serie' => 'integer',
+            'numero_documento' => 'integer',
             'data_emissao' => 'datetime',
             'valor_total' => 'decimal:2',
             'tipo_nota' => 'integer',
@@ -61,6 +79,11 @@ class XmlNota extends Model
             'tributos_total' => 'decimal:2',
             'payload' => 'array',
             'validacao' => 'array',
+            'data_competencia' => 'date',
+            'valor_desconto' => 'decimal:2',
+            'iss_valor' => 'decimal:2',
+            'iss_retido_valor' => 'decimal:2',
+            'data_autorizacao' => 'datetime',
         ];
     }
 
@@ -133,36 +156,39 @@ class XmlNota extends Model
         }
 
         return static::where('user_id', $this->user_id)
-            ->where('nfe_id', $this->chave_referenciada)
+            ->where('chave_acesso', $this->chave_referenciada)
             ->first();
     }
 
     // Acessores
 
     /**
-     * CNPJ do emitente formatado.
+     * Documento do emitente formatado (CNPJ ou CPF zero-padded conforme tamanho).
      */
-    public function getEmitCnpjFormatadoAttribute(): string
+    public function getEmitDocumentoFormatadoAttribute(): string
     {
-        $cnpj = preg_replace('/[^0-9]/', '', $this->emit_cnpj);
-        if (strlen($cnpj) === 14) {
-            return preg_replace('/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/', '$1.$2.$3/$4-$5', $cnpj);
-        }
-
-        return $this->emit_cnpj;
+        return $this->formatarDocumento($this->emit_documento);
     }
 
     /**
-     * CNPJ do destinatário formatado.
+     * Documento do destinatário formatado.
      */
-    public function getDestCnpjFormatadoAttribute(): string
+    public function getDestDocumentoFormatadoAttribute(): string
     {
-        $cnpj = preg_replace('/[^0-9]/', '', $this->dest_cnpj);
-        if (strlen($cnpj) === 14) {
-            return preg_replace('/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/', '$1.$2.$3/$4-$5', $cnpj);
+        return $this->formatarDocumento($this->dest_documento);
+    }
+
+    private function formatarDocumento(?string $doc): string
+    {
+        $digitos = preg_replace('/[^0-9]/', '', (string) $doc);
+        if (strlen($digitos) === 14) {
+            return preg_replace('/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/', '$1.$2.$3/$4-$5', $digitos);
+        }
+        if (strlen($digitos) === 11) {
+            return preg_replace('/(\d{3})(\d{3})(\d{3})(\d{2})/', '$1.$2.$3-$4', $digitos);
         }
 
-        return $this->dest_cnpj;
+        return (string) $doc;
     }
 
     /**
@@ -372,14 +398,14 @@ class XmlNota extends Model
         return $query->where('finalidade', self::FINALIDADE_DEVOLUCAO);
     }
 
-    public function scopePorEmitente($query, string $cnpj)
+    public function scopePorEmitente($query, string $documento)
     {
-        return $query->where('emit_cnpj', preg_replace('/[^0-9]/', '', $cnpj));
+        return $query->where('emit_documento', preg_replace('/[^0-9]/', '', $documento));
     }
 
-    public function scopePorDestinatario($query, string $cnpj)
+    public function scopePorDestinatario($query, string $documento)
     {
-        return $query->where('dest_cnpj', preg_replace('/[^0-9]/', '', $cnpj));
+        return $query->where('dest_documento', preg_replace('/[^0-9]/', '', $documento));
     }
 
     public function scopeNoPeriodo($query, $inicio, $fim)

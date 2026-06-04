@@ -902,7 +902,7 @@
         const emptyState = document.getElementById('dnf-empty-state');
 
         try {
-            const resp = await fetch('/app/notas-fiscais/dashboard/visao-geral?' + params, {
+            const resp = await fetch('/app/notas/dashboard/visao-geral?' + params, {
                 headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
             });
             if (!resp.ok) throw new Error('Erro ao carregar dados');
@@ -1173,7 +1173,7 @@
         const tableCard = container.querySelector('#tab-cfop > .bg-white:not(.grid)');
 
         try {
-            const resp = await fetch('/app/notas-fiscais/dashboard/cfop?' + params, {
+            const resp = await fetch('/app/notas/dashboard/cfop?' + params, {
                 headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
             });
             if (!resp.ok) throw new Error('Erro ao carregar dados CFOP');
@@ -1373,7 +1373,7 @@
         const tableCard = container.querySelector('#tab-participantes > .bg-white');
 
         try {
-            const resp = await fetch('/app/notas-fiscais/dashboard/participantes?' + params.toString(), {
+            const resp = await fetch('/app/notas/dashboard/participantes?' + params.toString(), {
                 headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
             });
             if (!resp.ok) throw new Error('Erro ao carregar participantes');
@@ -1581,7 +1581,7 @@
         const emptyState = document.getElementById('dnf-trib-empty');
 
         try {
-            const resp = await fetch('/app/notas-fiscais/dashboard/tributario?' + params, {
+            const resp = await fetch('/app/notas/dashboard/tributario?' + params, {
                 headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
             });
             if (!resp.ok) throw new Error('Erro ao carregar dados');
@@ -1784,7 +1784,7 @@
         var emptyEl = document.getElementById('dnf-alertas-empty');
 
         try {
-            var resp = await fetch('/app/notas-fiscais/dashboard/alertas?' + params, {
+            var resp = await fetch('/app/notas/dashboard/alertas?' + params, {
                 headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
             });
             if (!resp.ok) throw new Error('Erro ao carregar alertas');
@@ -1930,7 +1930,7 @@
         h += '</tr></thead><tbody>';
         detalhes.forEach(function(d) {
             h += '<tr class="border-b border-gray-100">';
-            h += '<td class="py-1.5 pr-4">' + (d.nota_id ? '<a href="/app/notas-fiscais/efd/' + d.nota_id + '" class="text-gray-900 hover:text-gray-600 hover:underline">' + escapeHtml(String(d.numero || '')) + '</a>' : '<span class="text-gray-700">' + escapeHtml(String(d.numero || '')) + '</span>') + '</td>';
+            h += '<td class="py-1.5 pr-4">' + (d.nota_id ? '<a href="/app/notas/efd/' + d.nota_id + '" class="text-gray-900 hover:text-gray-600 hover:underline">' + escapeHtml(String(d.numero || '')) + '</a>' : '<span class="text-gray-700">' + escapeHtml(String(d.numero || '')) + '</span>') + '</td>';
             h += '<td class="py-1.5 pr-4 text-gray-700">' + escapeHtml(String(d.serie || '')) + '</td>';
             h += '<td class="py-1.5 pr-4 text-gray-700">' + escapeHtml(String(d.modelo || '')) + '</td>';
             h += '<td class="py-1.5 pr-4 truncate max-w-[200px]">' + (d.participante_id ? '<a href="/app/participante/' + d.participante_id + '" class="text-gray-900 hover:text-gray-600 hover:underline">' + escapeHtml(String(d.participante || '')) + '</a>' : escapeHtml(String(d.participante || ''))) + '</td>';
@@ -1954,7 +1954,7 @@
         h += '</tr></thead><tbody>';
         detalhes.forEach(function(d) {
             h += '<tr class="border-b border-gray-100">';
-            h += '<td class="py-1.5 pr-4">' + (d.nota_id ? '<a href="/app/notas-fiscais/efd/' + d.nota_id + '" class="text-gray-900 hover:text-gray-600 hover:underline">' + escapeHtml(String(d.numero || '')) + '</a>' : escapeHtml(String(d.numero || ''))) + '</td>';
+            h += '<td class="py-1.5 pr-4">' + (d.nota_id ? '<a href="/app/notas/efd/' + d.nota_id + '" class="text-gray-900 hover:text-gray-600 hover:underline">' + escapeHtml(String(d.numero || '')) + '</a>' : escapeHtml(String(d.numero || ''))) + '</td>';
             h += '<td class="py-1.5 pr-4 text-gray-700">' + escapeHtml(String(d.serie || '')) + '</td>';
             h += '<td class="py-1.5 pr-4 text-gray-700">' + escapeHtml(String(d.modelo || '')) + '</td>';
             h += '<td class="py-1.5 pr-4 truncate max-w-[200px]">' + (d.participante_id ? '<a href="/app/participante/' + d.participante_id + '" class="text-gray-900 hover:text-gray-600 hover:underline">' + escapeHtml(String(d.participante || '')) + '</a>' : escapeHtml(String(d.participante || 'N/A'))) + '</td>';
@@ -1995,7 +1995,7 @@
         h += '</tr></thead><tbody>';
         detalhes.forEach(function(d) {
             h += '<tr class="border-b border-gray-100">';
-            h += '<td class="py-1.5 pr-4">' + (d.nota_id ? '<a href="/app/notas-fiscais/efd/' + d.nota_id + '" class="text-gray-900 hover:text-gray-600 hover:underline">' + escapeHtml(String(d.numero || '')) + '</a>' : escapeHtml(String(d.numero || ''))) + '</td>';
+            h += '<td class="py-1.5 pr-4">' + (d.nota_id ? '<a href="/app/notas/efd/' + d.nota_id + '" class="text-gray-900 hover:text-gray-600 hover:underline">' + escapeHtml(String(d.numero || '')) + '</a>' : escapeHtml(String(d.numero || ''))) + '</td>';
             h += '<td class="py-1.5 pr-4 text-gray-700">' + escapeHtml(String(d.serie || '')) + '</td>';
             h += '<td class="py-1.5 pr-4 text-gray-700">' + escapeHtml(String(d.tipo_operacao || '')) + '</td>';
             h += '<td class="py-1.5 text-gray-700 font-mono">' + escapeHtml(String(d.cfop || '')) + '</td>';
@@ -2062,7 +2062,7 @@
         const emptyEl = document.getElementById('dnf-comp-empty');
 
         try {
-            const resp = await fetch('/app/notas-fiscais/dashboard/compliance?' + params, {
+            const resp = await fetch('/app/notas/dashboard/compliance?' + params, {
                 headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
             });
             if (!resp.ok) throw new Error('Erro ao carregar compliance');

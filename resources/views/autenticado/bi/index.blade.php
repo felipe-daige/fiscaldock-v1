@@ -35,14 +35,8 @@
 
         {{-- KPIs Consolidados --}}
         @php
-        $compactBrl = function(float $value): string {
-            $abs = abs($value);
-            $sign = $value < 0 ? '-' : '';
-            if ($abs >= 1e9) return $sign . 'R$ ' . number_format($abs / 1e9, 1, ',', '.') . ' bi';
-            if ($abs >= 1e6) return $sign . 'R$ ' . number_format($abs / 1e6, 1, ',', '.') . ' mi';
-            if ($abs >= 1e4) return $sign . 'R$ ' . number_format($abs / 1e3, 1, ',', '.') . ' mil';
-            return $sign . 'R$ ' . number_format($abs, 2, ',', '.');
-        };
+        // KPIs exibem o valor exato COM centavos, inclusive grandes (mesmo critério do bi.js).
+        $compactBrl = fn (float $value): string => 'R$ ' . number_format($value, 2, ',', '.');
         @endphp
         <div class="bg-white rounded border border-gray-300 overflow-hidden mb-6 sm:mb-10">
             <div class="grid grid-cols-2 lg:grid-cols-4 divide-x divide-y lg:divide-y-0 divide-gray-200">

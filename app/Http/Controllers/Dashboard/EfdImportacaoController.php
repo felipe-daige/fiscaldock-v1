@@ -9,6 +9,8 @@ use App\Models\EfdNota;
 use App\Models\Participante;
 use App\Models\XmlImportacao;
 use App\Services\CreditService;
+use App\Services\EfdProgressoBuilder;
+use App\Services\SpedDetectorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -25,6 +27,7 @@ class EfdImportacaoController extends Controller
 
     public function __construct(
         protected CreditService $creditService,
+        protected SpedDetectorService $spedDetector,
     ) {}
 
     /**
@@ -287,6 +290,25 @@ class EfdImportacaoController extends Controller
         $arquivo = $request->file('arquivo');
         $tipoEfd = $request->tipo_efd;
 
+        $deteccao = $this->spedDetector->detectar(file_get_contents($arquivo->path()));
+
+        if (! $deteccao['valido']) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Arquivo invalido: nao parece ser um SPED. '.implode(' ', $deteccao['erros']),
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        if ($deteccao['tipo'] !== null && $deteccao['tipo'] !== $tipoEfd) {
+            Log::info('tipo_efd corrigido pelo detector', [
+                'user_id' => $user->id,
+                'escolhido' => $tipoEfd,
+                'detectado' => $deteccao['tipo'],
+                'arquivo' => $arquivo->getClientOriginalName(),
+            ]);
+            $tipoEfd = $deteccao['tipo'];
+        }
+
         // Selecionar webhook baseado no tipo de EFD (extração completa sempre)
         $webhookUrl = $tipoEfd === 'EFD ICMS/IPI'
             ? config('services.webhook.importacao_efd_fiscal_url')
@@ -466,46 +488,39 @@ class EfdImportacaoController extends Controller
             ], Response::HTTP_UNAUTHORIZED);
         }
 
-        $userId = auth()->id();
-        $tabId = $request->query('tab_id');
+        $userId = (int) auth()->id();
+        $importacaoId = (int) $request->query('importacao_id');
 
-        if (! $tabId) {
+        if ($importacaoId <= 0) {
             return response()->json([
                 'success' => false,
-                'error' => 'tab_id obrigatório.',
+                'error' => 'importacao_id obrigatório.',
             ], Response::HTTP_BAD_REQUEST);
         }
 
-        // importacao_id opcional: usado para refletir status=erro do banco
-        // (importações marcadas como travadas pelo comando importacao:expirar-travadas).
-        $importacaoId = $request->query('importacao_id');
-        if ($importacaoId !== null) {
-            $importacaoId = (int) $importacaoId;
-            $pertence = EfdImportacao::where('id', $importacaoId)
-                ->where('user_id', $userId)
-                ->exists();
-            if (! $pertence) {
-                $importacaoId = null;
-            }
-        }
+        $importacao = EfdImportacao::where('id', $importacaoId)
+            ->where('user_id', $userId)
+            ->first();
 
-        // Chave do cache: progresso:{user_id}:{tab_id}
-        $cacheKey = "progresso:{$userId}:{$tabId}";
+        if (! $importacao) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Importação não encontrada.',
+            ], Response::HTTP_NOT_FOUND);
+        }
 
         Log::info('SSE streamProgresso iniciado', [
             'user_id' => $userId,
-            'tab_id' => $tabId,
-            'cache_key' => $cacheKey,
+            'importacao_id' => $importacaoId,
         ]);
 
-        return response()->stream(function () use ($cacheKey, $userId, $tabId, $importacaoId) {
+        return response()->stream(function () use ($importacaoId, $userId) {
+            $builder = app(EfdProgressoBuilder::class);
             $tentativas = 0;
-            $maxTentativas = 3600; // 30 minutos (3600 × 0.5s)
-            $lastDataHash = null; // Para evitar enviar dados repetidos
-            $ciclosAguardandoResumo = 0; // Grace period aguardando resumo_final da fase 2
+            $maxTentativas = 900; // 30 min (900 × 2s)
+            $lastDataHash = null;
 
-            // Enviar comentário inicial + retry hint para o browser
-            echo ": SSE connection established for progress stream (user:{$userId}, tab:{$tabId})\n";
+            echo ": SSE connection established (user:{$userId}, importacao:{$importacaoId})\n";
             echo "retry: 3000\n\n";
             if (ob_get_level() > 0) {
                 ob_flush();
@@ -514,131 +529,66 @@ class EfdImportacaoController extends Controller
 
             while ($tentativas < $maxTentativas) {
                 try {
-                    // Se a importação foi marcada como erro no banco (ex.: comando
-                    // importacao:expirar-travadas), encerrar o stream refletindo isso.
-                    if ($importacaoId !== null && $tentativas % 4 === 0) {
-                        $statusBanco = EfdImportacao::where('id', $importacaoId)->value('status');
-                        if ($statusBanco === 'erro') {
-                            echo 'data: '.json_encode([
-                                'status' => 'erro',
-                                'progresso' => 0,
-                                'mensagem' => 'Importação interrompida — o processamento ficou sem resposta.',
-                            ])."\n\n";
-                            if (ob_get_level() > 0) {
-                                ob_flush();
-                            }
-                            flush();
-                            Log::info('SSE streamProgresso: importação marcada como erro no banco', [
-                                'user_id' => $userId,
-                                'tab_id' => $tabId,
-                                'importacao_id' => $importacaoId,
-                            ]);
-                            break;
+                    $imp = EfdImportacao::find($importacaoId);
+                    if (! $imp) {
+                        echo 'data: '.json_encode([
+                            'status' => 'erro',
+                            'progresso' => 0,
+                            'mensagem' => 'Importação removida.',
+                        ])."\n\n";
+                        if (ob_get_level() > 0) {
+                            ob_flush();
                         }
-                    }
-
-                    // Lê dados do cache (n8n envia via API)
-                    $data = Cache::get($cacheKey);
-
-                    if ($data) {
-                        // Lê progresso dos blocos de notas e adiciona ao payload.
-                        // Começa com notas_blocos do cache principal (inclui 'participantes'
-                        // e status enviados pelo payload final do n8n), depois sobrescreve
-                        // com entradas individuais por bloco (atualizações intermediárias).
-                        $notasBlocos = $data['notas_blocos'] ?? [];
-                        foreach (['participantes', 'notas_servicos', 'notas_mercadorias', 'notas_transportes', 'catalogo', 'apuracao_icms', 'retencoes_fonte', 'apuracao_pis_cofins'] as $bloco) {
-                            $blocoKey = "efd_notas_progress:{$userId}:{$tabId}:{$bloco}";
-                            $blocoData = Cache::get($blocoKey);
-                            if ($blocoData !== null) {
-                                $notasBlocos[$bloco] = $blocoData;
-                            }
-                        }
-                        if (! empty($notasBlocos)) {
-                            $data['notas_blocos'] = $notasBlocos;
-                        }
-
-                        // Calcular hash para detectar mudanças (exclui updated_at para não
-                        // reenviar dados idênticos quando n8n escreve o mesmo progresso várias vezes)
-                        $hashData = array_diff_key($data, ['updated_at' => true]);
-                        $currentHash = md5(json_encode($hashData));
-
-                        // Só enviar se os dados mudaram
-                        if ($currentHash !== $lastDataHash) {
-                            $lastDataHash = $currentHash;
-
-                            // Enviar dados de progresso
-                            echo 'data: '.json_encode($data)."\n\n";
-
-                            if (ob_get_level() > 0) {
-                                ob_flush();
-                            }
-                            flush();
-
-                            // Se status é final, encerrar a conexão
-                            if (($data['status'] ?? '') === 'erro') {
-                                Log::info('SSE streamProgresso: status final recebido', [
-                                    'user_id' => $userId,
-                                    'tab_id' => $tabId,
-                                    'status' => $data['status'],
-                                ]);
-                                Cache::forget($cacheKey);
-                                break;
-                            }
-                            if (($data['status'] ?? '') === 'concluido') {
-                                // Sempre aguardar resumo_final antes de encerrar (n8n sempre envia
-                                // o aggregation step, mesmo quando feature de notas está desabilitada).
-                                $aguardandoResumo = empty($data['resumo_final']);
-                                if (! $aguardandoResumo) {
-                                    Log::info('SSE streamProgresso: status final recebido', [
-                                        'user_id' => $userId,
-                                        'tab_id' => $tabId,
-                                        'status' => $data['status'],
-                                    ]);
-                                    Cache::forget($cacheKey);
-                                    break;
-                                }
-                                // Fase 1 concluída, aguardando resumo_final da fase 2
-                                $ciclosAguardandoResumo++;
-                                if ($ciclosAguardandoResumo > 60) { // 30s de grace (60 × 0.5s)
-                                    Log::warning('SSE streamProgresso: timeout aguardando resumo_final', [
-                                        'user_id' => $userId,
-                                        'tab_id' => $tabId,
-                                    ]);
-                                    Cache::forget($cacheKey);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-
-                    // Verificar se a conexão ainda está ativa
-                    if (connection_aborted()) {
-                        Log::info('SSE streamProgresso: conexão abortada pelo cliente', [
-                            'user_id' => $userId,
-                            'tab_id' => $tabId,
-                        ]);
+                        flush();
                         break;
                     }
 
-                    usleep(500000); // 0.5s por ciclo
-                    $tentativas++;
+                    $payload = $builder->build($imp);
+                    $hash = md5(json_encode(array_diff_key($payload, ['mensagem' => true])));
 
-                    // Heartbeat a cada 15 ciclos (~7.5s) para manter proxy/LB vivos
-                    if ($tentativas % 15 === 0) {
-                        echo ": ping\n\n";
+                    if ($hash !== $lastDataHash) {
+                        $lastDataHash = $hash;
+                        echo 'data: '.json_encode($payload)."\n\n";
                         if (ob_get_level() > 0) {
                             ob_flush();
                         }
                         flush();
                     }
 
+                    if (in_array($payload['status'], ['concluido', 'erro'], true)) {
+                        Log::info('SSE streamProgresso: status final', [
+                            'user_id' => $userId,
+                            'importacao_id' => $importacaoId,
+                            'status' => $payload['status'],
+                        ]);
+                        break;
+                    }
+
+                    if (connection_aborted()) {
+                        Log::info('SSE streamProgresso: conexão abortada pelo cliente', [
+                            'user_id' => $userId,
+                            'importacao_id' => $importacaoId,
+                        ]);
+                        break;
+                    }
+
+                    sleep(2);
+                    $tentativas++;
+
+                    if ($tentativas % 4 === 0) {
+                        echo ": ping\n\n";
+                        if (ob_get_level() > 0) {
+                            ob_flush();
+                        }
+                        flush();
+                    }
                 } catch (\Exception $e) {
                     Log::error('SSE streamProgresso: erro no loop', [
                         'user_id' => $userId,
-                        'tab_id' => $tabId,
+                        'importacao_id' => $importacaoId,
                         'error' => $e->getMessage(),
                     ]);
-                    usleep(500000);
+                    sleep(2);
                     $tentativas++;
                     if (connection_aborted()) {
                         break;
@@ -659,7 +609,7 @@ class EfdImportacaoController extends Controller
                 flush();
                 Log::warning('SSE streamProgresso: timeout', [
                     'user_id' => $userId,
-                    'tab_id' => $tabId,
+                    'importacao_id' => $importacaoId,
                 ]);
             }
         }, 200, [

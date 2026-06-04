@@ -5,12 +5,14 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Cliente;
 use App\Models\ConsultaLote;
+use App\Models\EfdDivergencia;
 use App\Models\EfdImportacao;
 use App\Models\MonitoramentoConsulta;
 use App\Models\Participante;
 use App\Models\User;
 use App\Models\XmlImportacao;
 use App\Services\CreditService;
+use App\Services\EfdResumoBuilder;
 use App\Support\SystemCriticalError;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -35,15 +37,12 @@ class DataReceiverController extends Controller
         $token = config('services.api.token');
         $sanitized = $token ? trim(trim($token), '"\'') : '';
 
+        // Endpoint público: expõe apenas liveness + se o token está configurado.
+        // Nunca devolver prefixo/tamanho do token, versão do PHP ou ambiente —
+        // são dados de reconhecimento para um atacante não autenticado.
         return response()->json([
             'status' => 'ok',
             'api_token_configured' => ! empty($sanitized),
-            'token_prefix' => $sanitized ? substr($sanitized, 0, 8).'...' : '(vazio)',
-            'token_length' => strlen($sanitized),
-            'raw_length' => strlen($token ?? ''),
-            'had_quotes_or_whitespace' => strlen($token ?? '') !== strlen($sanitized),
-            'php_version' => PHP_VERSION,
-            'laravel_env' => config('app.env'),
             'timestamp' => now()->toIso8601String(),
         ]);
     }
@@ -63,11 +62,11 @@ class DataReceiverController extends Controller
 
         $isValid = ! empty($apiToken) && ! empty($expectedToken) && hash_equals($expectedToken, $apiToken);
 
+        // Diagnóstico para log interno — NUNCA inclui material do token esperado
+        // (prefixo/segredo não deve ser escrito em log). Só sinaliza presença/tamanho.
         $debug = [
-            'received_prefix' => $apiToken ? substr($apiToken, 0, 8).'...' : '(vazio)',
-            'expected_prefix' => $expectedToken ? substr($expectedToken, 0, 8).'...' : '(vazio)',
             'received_length' => strlen($apiToken),
-            'expected_length' => strlen($expectedToken),
+            'expected_configured' => ! empty($expectedToken),
         ];
 
         if (! $isValid) {
@@ -76,7 +75,7 @@ class DataReceiverController extends Controller
             } elseif (empty($apiToken)) {
                 $debug['hint'] = 'Header X-API-Token nao enviado ou vazio';
             } else {
-                $debug['hint'] = 'Token recebido difere do esperado — compare os prefixos acima';
+                $debug['hint'] = 'Token recebido difere do esperado';
             }
 
             Log::warning('Token validation failed', $debug);
@@ -114,12 +113,13 @@ class DataReceiverController extends Controller
      */
     private function unauthorizedResponse(Request $request): \Illuminate\Http\JsonResponse
     {
-        $validation = $this->validateToken($request);
+        // Valida (e loga server-side o diagnóstico); a resposta ao cliente NÃO
+        // expõe prefixo/tamanho do token esperado — isso vazaria parte do segredo.
+        $this->validateToken($request);
 
         return response()->json([
             'success' => false,
             'message' => 'Token de API inválido.',
-            'debug' => $validation['debug'],
         ], Response::HTTP_UNAUTHORIZED);
     }
 
@@ -210,6 +210,162 @@ class DataReceiverController extends Controller
 
     /**
      * Recebe progresso de extração de notas EFD por bloco (A, C, D).
+     * Registra uma divergência detectada durante a extração EFD.
+     *
+     * Auditor do n8n compara input/output de cada subworkflow e reporta itens
+     * descartados (duplicação, constraint, órfão, cancelada). Idempotente via
+     * (importacao_id, bloco, chave_acesso, numero_item, motivo).
+     *
+     * POST /api/importacao/efd/divergencia
+     * Headers: X-API-Token
+     * Body: { user_id, importacao_id, bloco, motivo, severidade, chave_acesso?,
+     *         numero_documento?, numero_item?, payload_descartado, mensagem? }
+     */
+    public function receiveEfdDivergencia(Request $request): JsonResponse
+    {
+        if (! $this->isTokenValid($request)) {
+            return response()->json(['error' => 'Unauthorized', 'message' => 'Token inválido'], 401);
+        }
+
+        $data = $request->validate([
+            'user_id' => 'required|integer|exists:users,id',
+            'importacao_id' => 'required|integer|exists:efd_importacoes,id',
+            'bloco' => 'required|string|max:8',
+            'motivo' => 'required|in:'.implode(',', [
+                EfdDivergencia::MOTIVO_CANCELADA_DESCARTADA,
+                EfdDivergencia::MOTIVO_COMPLEMENTAR_DESCARTADA,
+                EfdDivergencia::MOTIVO_REGULARIZACAO_DESCARTADA,
+                EfdDivergencia::MOTIVO_DUPLICADA_PROCESSAMENTO,
+                EfdDivergencia::MOTIVO_CONSTRAINT_VIOLADA,
+                EfdDivergencia::MOTIVO_PAI_NAO_ENCONTRADO,
+                EfdDivergencia::MOTIVO_PARSE_INCONSISTENTE,
+                EfdDivergencia::MOTIVO_VALOR_DIVERGENTE,
+            ]),
+            'severidade' => 'required|in:info,aviso,erro',
+            'chave_acesso' => 'nullable|string|max:44',
+            'numero_documento' => 'nullable|integer',
+            'numero_item' => 'nullable|integer',
+            'payload_descartado' => 'required|array',
+            'mensagem' => 'nullable|string|max:1000',
+        ]);
+
+        $div = EfdDivergencia::updateOrCreate(
+            [
+                'importacao_id' => $data['importacao_id'],
+                'bloco' => $data['bloco'],
+                'motivo' => $data['motivo'],
+                'chave_acesso' => $data['chave_acesso'] ?? null,
+                'numero_item' => $data['numero_item'] ?? null,
+            ],
+            [
+                'user_id' => $data['user_id'],
+                'severidade' => $data['severidade'],
+                'numero_documento' => $data['numero_documento'] ?? null,
+                'payload_descartado' => $data['payload_descartado'],
+                'mensagem' => $data['mensagem'] ?? null,
+                'detectado_em' => now(),
+            ]
+        );
+
+        return response()->json([
+            'success' => true,
+            'divergencia_id' => $div->id,
+            'created' => $div->wasRecentlyCreated,
+        ]);
+    }
+
+    /**
+     * Finaliza importação EFD: n8n chama no fim do orquestrador, Laravel constrói
+     * o resumo_final a partir do banco (single source of truth), persiste, e
+     * atualiza o cache do SSE pra UI fechar.
+     *
+     * POST /api/importacao/efd/finalizar
+     * Headers: X-API-Token
+     * Body: { user_id, tab_id, importacao_id, tipo_efd? }
+     */
+    public function finalizarImportacaoEfd(Request $request, EfdResumoBuilder $builder): JsonResponse
+    {
+        if (! $this->isTokenValid($request)) {
+            return response()->json(['error' => 'Unauthorized', 'message' => 'Token inválido'], 401);
+        }
+
+        $data = $request->validate([
+            'user_id' => 'required|integer',
+            'tab_id' => 'required|string|max:36',
+            'importacao_id' => 'required|integer',
+            'tipo_efd' => 'nullable|string|max:50',
+        ]);
+
+        $imp = EfdImportacao::where('id', $data['importacao_id'])
+            ->where('user_id', $data['user_id'])
+            ->first();
+
+        if (! $imp) {
+            return response()->json([
+                'error' => 'NotFound',
+                'message' => 'Importação não encontrada para este usuário.',
+            ], 404);
+        }
+
+        $cacheKey = "progresso:{$data['user_id']}:{$data['tab_id']}";
+
+        // Idempotência: já concluída → devolve o resumo persistido, não reconstrói
+        if ($imp->status === 'concluido' && ! empty($imp->resumo_final)) {
+            return response()->json([
+                'status' => 'ok',
+                'importacao_id' => $imp->id,
+                'status_final' => 'concluido',
+                'resumo_final' => $imp->resumo_final,
+                'concluido_em' => optional($imp->concluido_em)->toIso8601String(),
+                'tempo_processamento_segundos' => $imp->tempo_processamento_segundos,
+                'idempotent' => true,
+            ]);
+        }
+
+        $resumo = $builder->build($imp);
+        $tempoSegundos = $imp->iniciado_em
+            ? (int) $imp->iniciado_em->diffInSeconds(now())
+            : null;
+
+        $est = $resumo['estatisticas'] ?? [];
+        $imp->update([
+            'status' => 'concluido',
+            'resumo_final' => $resumo,
+            'concluido_em' => now(),
+            'tempo_processamento_segundos' => $tempoSegundos,
+            'total_participantes' => $est['total_participantes_processados'] ?? 0,
+            'total_cnpjs_unicos' => $est['total_cnpjs_unicos'] ?? 0,
+            'total_cpfs_unicos' => $est['total_cpfs_unicos'] ?? 0,
+            'novos' => $est['participantes_novos'] ?? 0,
+            'duplicados' => $est['participantes_repetidos'] ?? 0,
+            'total_notas' => $est['total_notas_processadas'] ?? 0,
+            'notas_extraidas' => $est['notas_novas'] ?? 0,
+            'participante_ids' => $resumo['participante_ids'] ?? [],
+        ]);
+
+        $existing = Cache::get($cacheKey, []);
+        Cache::put($cacheKey, array_merge($existing, [
+            'user_id' => $data['user_id'],
+            'tab_id' => $data['tab_id'],
+            'importacao_id' => $imp->id,
+            'status' => 'concluido',
+            'progresso' => 100,
+            'mensagem' => $resumo['mensagem'] ?? 'Importação concluída.',
+            'resumo_final' => $resumo,
+            'updated_at' => now()->toIso8601String(),
+        ]), 600);
+
+        return response()->json([
+            'status' => 'ok',
+            'importacao_id' => $imp->id,
+            'status_final' => 'concluido',
+            'resumo_final' => $resumo,
+            'concluido_em' => $imp->concluido_em?->toIso8601String(),
+            'tempo_processamento_segundos' => $tempoSegundos,
+        ]);
+    }
+
+    /**
      * n8n envia fase/status e contadores por bloco; Laravel armazena em cache para SSE.
      *
      * POST /api/importacao/efd/notas/progresso

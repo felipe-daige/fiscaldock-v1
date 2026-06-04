@@ -3,19 +3,19 @@
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\CreditController;
 use App\Http\Controllers\Dashboard\BiController;
+use App\Http\Controllers\Dashboard\CatalogoController;
+use App\Http\Controllers\Dashboard\ClearanceController;
 use App\Http\Controllers\Dashboard\ClienteController;
 use App\Http\Controllers\Dashboard\ConsultaController;
 use App\Http\Controllers\Dashboard\DashboardController;
 use App\Http\Controllers\Dashboard\DashboardNotasFiscaisController;
-use App\Http\Controllers\Dashboard\ResumoFiscalController;
-use App\Http\Controllers\Dashboard\MinhaEmpresaController;
 use App\Http\Controllers\Dashboard\EfdImportacaoController;
+use App\Http\Controllers\Dashboard\MinhaEmpresaController;
 use App\Http\Controllers\Dashboard\MonitoramentoController;
 use App\Http\Controllers\Dashboard\NotaFiscalController;
-use App\Http\Controllers\Dashboard\CatalogoController;
-use App\Http\Controllers\Dashboard\ClearanceController;
 use App\Http\Controllers\Dashboard\ParticipanteController;
 use App\Http\Controllers\Dashboard\ParticipanteGrupoController;
+use App\Http\Controllers\Dashboard\ResumoFiscalController;
 use App\Http\Controllers\Dashboard\SupportController;
 use App\Http\Controllers\Landing\BlogController;
 use App\Http\Controllers\Landing\LandingPageController;
@@ -53,9 +53,9 @@ Route::get('/clearance/{any?}', function ($any = '') {
 })->where('any', '.*');
 
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-Route::post('/login', [AuthController::class, 'login'])->name('login.post');
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1')->name('login.post');
 Route::get('/criar-conta', [AuthController::class, 'showSignup'])->name('signup');
-Route::post('/criar-conta', [AuthController::class, 'signup'])->name('signup.post');
+Route::post('/criar-conta', [AuthController::class, 'signup'])->middleware('throttle:5,10')->name('signup.post');
 Route::get('/agendar', [AuthController::class, 'showAgendar'])->name('agendar');
 Route::post('/agendar', [AuthController::class, 'agendar'])->name('agendar.post');
 Route::get('/termos', [AuthController::class, 'showTerms'])->name('termos');
@@ -188,19 +188,19 @@ Route::middleware('auth')->group(function () {
     });
 
     // Notas Fiscais (listagem unificada EFD + XML)
-    Route::get('app/notas-fiscais', [NotaFiscalController::class, 'index'])->name('app.notas-fiscais.index');
-    Route::get('app/notas-fiscais/{origem}/{id}', [NotaFiscalController::class, 'detalhes'])
-        ->name('app.notas-fiscais.detalhes')
+    Route::get('app/notas', [NotaFiscalController::class, 'index'])->name('app.notas.index');
+    Route::get('app/notas/{origem}/{id}', [NotaFiscalController::class, 'detalhes'])
+        ->name('app.notas.detalhes')
         ->where('origem', 'efd|xml');
 
     // Dashboard de Notas Fiscais
-    Route::get('app/notas-fiscais/dashboard', [DashboardNotasFiscaisController::class, 'index'])->name('app.notas-fiscais.dashboard');
-    Route::get('app/notas-fiscais/dashboard/visao-geral', [DashboardNotasFiscaisController::class, 'visaoGeral'])->name('app.notas-fiscais.dashboard.visao-geral');
-    Route::get('app/notas-fiscais/dashboard/cfop', [DashboardNotasFiscaisController::class, 'cfop'])->name('app.notas-fiscais.dashboard.cfop');
-    Route::get('app/notas-fiscais/dashboard/participantes', [DashboardNotasFiscaisController::class, 'participantes'])->name('app.notas-fiscais.dashboard.participantes');
-    Route::get('app/notas-fiscais/dashboard/tributario', [DashboardNotasFiscaisController::class, 'tributario'])->name('app.notas-fiscais.dashboard.tributario');
-    Route::get('app/notas-fiscais/dashboard/alertas', [DashboardNotasFiscaisController::class, 'alertas'])->name('app.notas-fiscais.dashboard.alertas');
-    Route::get('app/notas-fiscais/dashboard/compliance', [DashboardNotasFiscaisController::class, 'compliance'])->name('app.notas-fiscais.dashboard.compliance');
+    Route::get('app/notas/dashboard', [DashboardNotasFiscaisController::class, 'index'])->name('app.notas.dashboard');
+    Route::get('app/notas/dashboard/visao-geral', [DashboardNotasFiscaisController::class, 'visaoGeral'])->name('app.notas.dashboard.visao-geral');
+    Route::get('app/notas/dashboard/cfop', [DashboardNotasFiscaisController::class, 'cfop'])->name('app.notas.dashboard.cfop');
+    Route::get('app/notas/dashboard/participantes', [DashboardNotasFiscaisController::class, 'participantes'])->name('app.notas.dashboard.participantes');
+    Route::get('app/notas/dashboard/tributario', [DashboardNotasFiscaisController::class, 'tributario'])->name('app.notas.dashboard.tributario');
+    Route::get('app/notas/dashboard/alertas', [DashboardNotasFiscaisController::class, 'alertas'])->name('app.notas.dashboard.alertas');
+    Route::get('app/notas/dashboard/compliance', [DashboardNotasFiscaisController::class, 'compliance'])->name('app.notas.dashboard.compliance');
 
     // Painel Fiscal por Competência
     Route::get('app/resumo-fiscal', [ResumoFiscalController::class, 'index'])->name('app.resumo-fiscal');
@@ -250,6 +250,8 @@ Route::middleware('auth')->group(function () {
 
     // Catálogo de Produtos/Serviços
     Route::get('app/catalogo', [CatalogoController::class, 'index'])->name('app.catalogo.index');
+    Route::get('app/catalogo/historico/{codItem}', [CatalogoController::class, 'historico'])
+        ->where('codItem', '.*')->name('app.catalogo.historico');
 
     // Suporte
     Route::get('/app/suporte', [SupportController::class, 'index'])->name('app.suporte.index');

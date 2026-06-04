@@ -151,7 +151,7 @@ function _efdRenderNotas(contentDiv, notas, biHtml, cache, pid) {
                 var tipoHtml = n.tipo_operacao === 'entrada'
                     ? '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: #047857">Entrada</span>'
                     : '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: #d97706">Saída</span>';
-                return '<tr class="hover:bg-gray-50 cursor-pointer" onclick="window.location=\'/app/notas-fiscais/efd/' + n.id + '\'">' +
+                return '<tr class="hover:bg-gray-50 cursor-pointer" onclick="window.location=\'/app/notas/efd/' + n.id + '\'">' +
                     '<td class="px-2 py-1 font-mono text-gray-900">' + (n.numero || '-') + '</td>' +
                     '<td class="px-2 py-1 text-gray-700">' + (n.serie || '-') + '</td>' +
                     '<td class="px-2 py-1 text-gray-700">' + (n.modelo || '-') + '</td>' +
@@ -188,6 +188,11 @@ function _efdInitCollapseToggles() {
 }
 
 function _efdInitScrollSpy() {
+    // Idempotente: remove um scroll listener anterior antes de registrar (esta página não
+    // tem guard de re-entrada e pode re-inicializar no SPA).
+    if (window._cleanupFunctions && window._cleanupFunctions.efdDetalhesScroll) {
+        window._cleanupFunctions.efdDetalhesScroll();
+    }
     var nav = document.getElementById('efd-sticky-nav');
     if (!nav) return;
     var links = nav.querySelectorAll('.efd-nav-link');
@@ -248,6 +253,12 @@ function _efdInitScrollSpy() {
 
     window.addEventListener('scroll', updateActive, { passive: true });
     updateActive();
+    // SPA: remover o listener de scroll de window ao navegar (spa.js → limparRecursos),
+    // senão acumula um novo a cada visita à página de detalhes.
+    if (!window._cleanupFunctions) window._cleanupFunctions = {};
+    window._cleanupFunctions.efdDetalhesScroll = function () {
+        window.removeEventListener('scroll', updateActive);
+    };
 }
 
 function _efdInitCatalogoSearch() {

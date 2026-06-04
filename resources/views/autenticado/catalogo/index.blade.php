@@ -32,7 +32,7 @@
                 <h1 class="text-lg sm:text-xl font-bold text-gray-900 uppercase tracking-wide">Catálogo de Produtos</h1>
                 <p class="text-xs text-gray-500 mt-0.5">Registro 0200 do SPED &mdash; painel fiscal consolidado</p>
             </div>
-            <a href="/app/notas-fiscais/dashboard" data-link class="text-xs text-gray-600 hover:text-gray-900 hover:underline hidden sm:inline-flex items-center gap-1">
+            <a href="/app/notas/dashboard" data-link class="text-xs text-gray-600 hover:text-gray-900 hover:underline hidden sm:inline-flex items-center gap-1">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
                 Dashboard
             </a>
@@ -65,12 +65,40 @@
                 <p class="text-[10px] uppercase text-gray-400 font-semibold tracking-wide">Alíq. Divergente</p>
                 <p class="text-lg font-bold text-gray-900 mt-0.5">{{ number_format($kpis['aliq_divergente'] ?? 0, 0, ',', '.') }}</p>
             </div>
-            <div class="p-3 sm:p-4">
-                <p class="text-[10px] uppercase text-gray-400 font-semibold tracking-wide">Sem NCM</p>
-                <p class="text-lg font-bold text-gray-900 mt-0.5">{{ number_format($kpis['sem_ncm'] ?? 0, 0, ',', '.') }}</p>
+            <div class="p-3 sm:p-4" title="Mercadoria/produto (tipo 00–06) sem NCM no 0200 — gap fiscal real. Itens que não exigem NCM (uso/consumo, ativo, serviços, outras) não entram.">
+                <p class="text-[10px] uppercase text-gray-400 font-semibold tracking-wide">NCM faltando</p>
+                <p class="text-lg font-bold mt-0.5" style="color: {{ ($kpis['ncm_faltando'] ?? 0) > 0 ? '#b45309' : '#111827' }}">{{ number_format($kpis['ncm_faltando'] ?? 0, 0, ',', '.') }}</p>
             </div>
         </div>
     </div>
+
+    {{-- ═══ BLOCO 1b: Drift de Cadastro (só aparece quando há mudanças) ═══ --}}
+    @if(($drift['total'] ?? 0) > 0)
+    @php
+        $driftLabels = ['cod_ncm' => ['NCM', '#b91c1c'], 'aliq_icms' => ['Alíquota', '#b45309'], 'unid_inv' => ['Unidade', '#4338ca'], 'descr_item' => ['Descrição', '#374151']];
+    @endphp
+    <div class="border border-amber-300 rounded overflow-hidden mb-4">
+        <div class="bg-amber-50 px-4 py-2 border-b border-amber-200 flex items-center justify-between">
+            <span class="text-[10px] font-semibold text-amber-700 uppercase tracking-widest">Mudanças de Cadastro (drift entre importações)</span>
+            <span class="text-[10px] text-amber-700">{{ $drift['itens_afetados'] }} item(ns) afetado(s)</span>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-5 divide-x divide-gray-200 bg-white">
+            <div class="p-3 sm:p-4">
+                <p class="text-[10px] uppercase text-gray-400 font-semibold tracking-wide">Total Mudanças</p>
+                <p class="text-lg font-bold text-gray-900 mt-0.5">{{ number_format($drift['total'], 0, ',', '.') }}</p>
+            </div>
+            @foreach($driftLabels as $campo => [$label, $hex])
+            <div class="p-3 sm:p-4">
+                <p class="text-[10px] uppercase text-gray-400 font-semibold tracking-wide">{{ $label }}</p>
+                <p class="text-lg font-bold mt-0.5" style="color: {{ ($drift['por_campo'][$campo] ?? 0) > 0 ? $hex : '#9ca3af' }}">{{ number_format($drift['por_campo'][$campo] ?? 0, 0, ',', '.') }}</p>
+            </div>
+            @endforeach
+        </div>
+        <div class="bg-gray-50 px-4 py-1.5 border-t border-gray-200">
+            <span class="text-[11px] text-gray-500">Abra um produto (“Ver detalhes”) para a linha do tempo das mudanças. NCM alterado pode indicar reclassificação ou erro de cadastro (risco fiscal).</span>
+        </div>
+    </div>
+    @endif
 
     {{-- ═══ Filtros ═══ --}}
     <div class="border border-gray-300 rounded overflow-hidden mb-4">
@@ -78,10 +106,10 @@
             <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Filtros</span>
         </div>
         <div class="bg-white p-3 sm:p-4">
-            <form method="GET" action="/app/catalogo" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+            <form method="GET" action="/app/catalogo" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 items-end">
                 <div>
-                    <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Cliente</label>
-                    <select name="cliente_id" class="w-full text-sm border border-gray-300 rounded px-3 py-2 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                    <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Cliente</label>
+                    <select name="cliente_id" class="w-full text-[13px] border border-gray-300 rounded py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
                         <option value="">Todos</option>
                         @foreach($clientes as $c)
                         <option value="{{ $c->id }}" {{ ($filtros['cliente_id'] ?? '') == $c->id ? 'selected' : '' }}>{{ $c->razao_social }}</option>
@@ -89,8 +117,17 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Tipo</label>
-                    <select name="tipo_item" class="w-full text-sm border border-gray-300 rounded px-3 py-2 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                    <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Importação</label>
+                    <select name="importacao_id" class="w-full text-[13px] border border-gray-300 rounded py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                        <option value="">Todas</option>
+                        @foreach($importacoes as $imp)
+                        <option value="{{ $imp->id }}" {{ ($filtros['importacao_id'] ?? '') == $imp->id ? 'selected' : '' }}>{{ $imp->filename }} · {{ $imp->tipo_efd }} · {{ $imp->created_at?->format('d/m/Y') }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Tipo</label>
+                    <select name="tipo_item" class="w-full text-[13px] border border-gray-300 rounded py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
                         <option value="">Todos</option>
                         @foreach($tipoLabels as $cod => $label)
                         <option value="{{ $cod }}" {{ ($filtros['tipo_item'] ?? '') == $cod ? 'selected' : '' }}>{{ $cod }} - {{ $label }}</option>
@@ -98,14 +135,14 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">NCM</label>
+                    <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">NCM</label>
                     <input type="text" name="ncm" value="{{ $filtros['ncm'] ?? '' }}" placeholder="Ex: 39269090"
-                        class="w-full text-sm border border-gray-300 rounded px-3 py-2 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                        class="w-full text-[13px] border border-gray-300 rounded py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
                 </div>
                 <div>
-                    <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Busca</label>
+                    <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Busca</label>
                     <input type="text" name="busca" value="{{ $filtros['busca'] ?? '' }}" placeholder="Código, descrição..."
-                        class="w-full text-sm border border-gray-300 rounded px-3 py-2 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                        class="w-full text-[13px] border border-gray-300 rounded py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
                 </div>
                 <div>
                     <button type="submit" class="w-full px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 font-medium transition-colors">

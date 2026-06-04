@@ -27,6 +27,11 @@
     <meta name="twitter:description" content="{{ $seo['og_description'] ?? $seo['description'] ?? 'Monitore CNPJs, emita CND, CNDT e FGTS numa só consulta e detecte inconsistências no SPED antes da malha fiscal. Créditos prepagos, sem mensalidade.' }}">
     <meta name="twitter:image" content="{{ $seo['og_image'] ?? asset('binary_files/logo/Logo FiscalDock.png') }}">
 
+    <!-- Tipografia: Instrument Sans (corpo, design system) + Fraunces (headline editorial do hero) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Instrument+Sans:wght@400;500;600;700&display=swap">
+
     <!-- Fallback crítico do CTA (caso o CSS do Vite não carregue) -->
     <style>
         .btn-cta{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;border-radius:8px;padding:.875rem 1.5rem;min-height:48px;font-size:1rem;border:2px solid #facc15;background:#facc15;color:#0b1f3a;font-weight:700;letter-spacing:normal;line-height:1.1;text-decoration:none;transform:translateY(0);box-shadow:0 20px 50px -20px rgba(250,204,21,.55);transition:transform .16s ease,box-shadow .16s ease,background-color .16s ease,border-color .16s ease;-webkit-tap-highlight-color:transparent}

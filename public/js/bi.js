@@ -273,7 +273,7 @@
                 },
                 yaxis: {
                     labels: {
-                        formatter: (val) => formatCurrency(val)
+                        formatter: (val) => formatAxisCurrency(val)
                     }
                 },
                 dataLabels: { enabled: false },
@@ -299,7 +299,7 @@
                     labels: { rotate: -45, style: { fontSize: '10px' } }
                 },
                 yaxis: {
-                    labels: { formatter: (val) => formatCurrency(val) }
+                    labels: { formatter: (val) => formatAxisCurrency(val) }
                 },
                 plotOptions: { bar: { horizontal: false, columnWidth: '60%' } },
                 dataLabels: { enabled: false },
@@ -338,7 +338,7 @@
                     categories: data.entradas_vs_saidas.map(d => d.mes_formatado)
                 },
                 yaxis: {
-                    labels: { formatter: (val) => formatCurrency(val) }
+                    labels: { formatter: (val) => formatAxisCurrency(val) }
                 },
                 plotOptions: { bar: { horizontal: false, columnWidth: '50%' } },
                 dataLabels: { enabled: false },
@@ -362,7 +362,7 @@
                     labels: { rotate: -45, style: { fontSize: '10px' } }
                 },
                 yaxis: {
-                    labels: { formatter: (val) => formatCurrency(val) }
+                    labels: { formatter: (val) => formatAxisCurrency(val) }
                 },
                 plotOptions: { bar: { horizontal: false, columnWidth: '60%' } },
                 dataLabels: { enabled: false },
@@ -385,7 +385,7 @@
                     categories: data.devolucoes.map(d => d.mes_formatado)
                 },
                 yaxis: {
-                    labels: { formatter: (val) => formatCurrency(val) }
+                    labels: { formatter: (val) => formatAxisCurrency(val) }
                 },
                 stroke: { curve: 'smooth', width: 2 },
                 markers: { size: 4 },
@@ -411,7 +411,7 @@
                     categories: data.carga_tributaria.map(d => d.mes_formatado)
                 },
                 yaxis: {
-                    labels: { formatter: (val) => formatCurrency(val) }
+                    labels: { formatter: (val) => formatAxisCurrency(val) }
                 },
                 plotOptions: { bar: { columnWidth: '50%' } },
                 dataLabels: { enabled: false },
@@ -509,7 +509,7 @@
                     categories: data.fluxo_mensal.map(d => d.label)
                 },
                 yaxis: {
-                    labels: { formatter: (val) => formatCurrency(val) }
+                    labels: { formatter: (val) => formatAxisCurrency(val) }
                 },
                 plotOptions: { bar: { horizontal: false, columnWidth: '50%' } },
                 dataLabels: { enabled: false },
@@ -578,7 +578,7 @@
                     labels: { rotate: -45, style: { fontSize: '10px' } }
                 },
                 yaxis: {
-                    labels: { formatter: (val) => formatCurrency(val) }
+                    labels: { formatter: (val) => formatAxisCurrency(val) }
                 },
                 plotOptions: { bar: { horizontal: false, columnWidth: '60%' } },
                 dataLabels: { enabled: false },
@@ -609,7 +609,7 @@
                     labels: { rotate: -45, style: { fontSize: '10px' } }
                 },
                 yaxis: {
-                    labels: { formatter: (val) => formatCurrency(val) }
+                    labels: { formatter: (val) => formatAxisCurrency(val) }
                 },
                 plotOptions: { bar: { horizontal: false, columnWidth: '60%' } },
                 dataLabels: { enabled: false },
@@ -683,7 +683,7 @@
                 const notaId = parseInt(actionLink.dataset.notaId, 10);
 
                 if (action === 'nota' && notaId) {
-                    window.location.href = `/app/notas-fiscais/efd/${notaId}`;
+                    window.location.href = `/app/notas/efd/${notaId}`;
                     return;
                 }
 
@@ -906,7 +906,7 @@
                     { name: 'Saídas',   data: evolucao.map(d => d.saidas) },
                 ],
                 xaxis: { categories: evolucao.map(d => d.label) },
-                yaxis: { labels: { formatter: (val) => formatCurrency(val) } },
+                yaxis: { labels: { formatter: (val) => formatAxisCurrency(val) } },
                 plotOptions: { bar: { horizontal: false, columnWidth: '50%' } },
                 dataLabels: { enabled: false },
                 colors: ['#047857', '#d97706'],
@@ -1222,7 +1222,7 @@
                 { name: 'COFINS', data: mensal.map(d => d.cofins) },
             ],
             xaxis: { categories: mensal.map(d => d.label) },
-            yaxis: { labels: { formatter: (val) => formatCurrency(val) } },
+            yaxis: { labels: { formatter: (val) => formatAxisCurrency(val) } },
             plotOptions: { bar: { horizontal: false, columnWidth: '60%' } },
             dataLabels: { enabled: false },
             colors: ['#374151', '#d97706', '#dc2626'],
@@ -1325,16 +1325,24 @@
     }
 
     // Utilitários
+    // Valor exato SEMPRE com centavos (KPIs, tabelas, tooltips), inclusive grandes.
     function formatCurrency(value) {
         return new Intl.NumberFormat('pt-BR', {
             style: 'currency',
             currency: 'BRL',
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
         }).format(value);
     }
 
+    // KPIs também exibem o valor completo com centavos (pedido do usuário).
     function formatCompactCurrency(value) {
+        return formatCurrency(value);
+    }
+
+    // SOMENTE para rótulos de eixo de gráfico, onde o valor completo não cabe:
+    // forma abreviada (mi/mil) para não sobrepor os ticks. Tooltips/KPIs usam o valor exato.
+    function formatAxisCurrency(value) {
         const abs = Math.abs(value);
         const sign = value < 0 ? '-' : '';
         if (abs >= 1e9) {

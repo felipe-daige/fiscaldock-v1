@@ -4,16 +4,18 @@ namespace App\Services;
 
 use App\Models\EfdApuracaoContribuicao;
 use App\Models\EfdApuracaoIcms;
-use App\Models\EfdNota;
 use App\Models\EfdRetencaoFonte;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 
 class ResumoFiscalService
 {
+    public function __construct(
+        protected EfdAgregadorService $efd
+    ) {}
+
     private function periodoDates(string $competencia): array
     {
-        $inicio = Carbon::parse($competencia . '-01')->startOfMonth();
+        $inicio = Carbon::parse($competencia.'-01')->startOfMonth();
         $fim = $inicio->copy()->endOfMonth();
 
         return [$inicio, $fim];
@@ -57,10 +59,13 @@ class ResumoFiscalService
         $pisRecolher = (float) ($contrib->pis_total_recolher ?? 0);
         $cofinsRecolher = (float) ($contrib->cofins_total_recolher ?? 0);
         $retencoesVal = (float) ($retencoes->pis ?? 0) + (float) ($retencoes->cofins ?? 0);
-        $saldoLiquido = $icmsRecolher + $pisRecolher + $cofinsRecolher - $retencoesVal;
+        // saldo a pagar = soma dos "a recolher". NÃO subtrair as retenções de novo:
+        // pis/cofins_total_recolher JÁ são líquidos da retenção deduzida na apuração
+        // (M200/M600). `retencoes_compensaveis` é só informativo. Ver F2-A2.
+        $saldoLiquido = $icmsRecolher + $pisRecolher + $cofinsRecolher;
 
         // Mês anterior para deltas
-        $prevComp = Carbon::parse($competencia . '-01')->subMonth()->format('Y-m');
+        $prevComp = Carbon::parse($competencia.'-01')->subMonth()->format('Y-m');
         $prevIcms = $this->getApuracaoIcms($userId, $clienteId, $prevComp);
         $prevContrib = $this->getApuracaoContrib($userId, $clienteId, $prevComp);
         [$prevInicio, $prevFim] = $this->periodoDates($prevComp);
@@ -75,7 +80,7 @@ class ResumoFiscalService
         $prevPisRecolher = (float) ($prevContrib->pis_total_recolher ?? 0);
         $prevCofinsRecolher = (float) ($prevContrib->cofins_total_recolher ?? 0);
         $prevRetencoesVal = (float) ($prevRetencoes->pis ?? 0) + (float) ($prevRetencoes->cofins ?? 0);
-        $prevSaldoLiquido = $prevIcmsRecolher + $prevPisRecolher + $prevCofinsRecolher - $prevRetencoesVal;
+        $prevSaldoLiquido = $prevIcmsRecolher + $prevPisRecolher + $prevCofinsRecolher;
 
         return [
             'tem_dados' => $icms !== null || $contrib !== null,
@@ -274,44 +279,32 @@ class ResumoFiscalService
     {
         [$inicio, $fim] = $this->periodoDates($competencia);
 
-        // 5a. ICMS declarado vs soma notas
-        $icms = $this->getApuracaoIcms($userId, $clienteId, $competencia);
+        $di = $inicio->toDateString();
+        $df = $fim->toDateString();
 
-        $notasIcms = DB::table('efd_notas_itens as i')
-            ->join('efd_notas as n', 'n.id', '=', 'i.efd_nota_id')
-            ->where('n.user_id', $userId)
-            ->where('n.cliente_id', $clienteId)
-            ->where('n.origem_arquivo', 'fiscal')
-            ->whereBetween('n.data_emissao', [$inicio, $fim])
-            ->selectRaw("
-                SUM(CASE WHEN n.tipo_operacao = 'saida' THEN COALESCE(i.valor_icms, 0) ELSE 0 END) as debito_notas,
-                SUM(CASE WHEN n.tipo_operacao = 'entrada' THEN COALESCE(i.valor_icms, 0) ELSE 0 END) as credito_notas
-            ")
-            ->first();
+        // 5a. ICMS declarado (E110) vs notas. Lado "notas" vem do C190 (consolidado
+        // fiscal), NÃO dos itens — no perfil B o ICMS do item é ~0 (P2), o que dava
+        // notas=0 e falsa divergência de 100%. C190 saída bate 1:1 com E110. Ver F2.
+        $icms = $this->getApuracaoIcms($userId, $clienteId, $competencia);
+        $icmsNotas = $this->efd->tributarioCreditoDebito($userId, $di, $df, $clienteId)['icms'];
 
         $icmsDecDebito = $icms ? (float) $icms->icms_tot_debitos : null;
         $icmsDecCredito = $icms ? (float) $icms->icms_tot_creditos : null;
-        $icmsNotasDebito = (float) ($notasIcms->debito_notas ?? 0);
-        $icmsNotasCredito = (float) ($notasIcms->credito_notas ?? 0);
+        $icmsNotasDebito = $icmsNotas['debito'];
+        $icmsNotasCredito = $icmsNotas['credito'];
 
-        // 5b. PIS/COFINS declarado vs soma notas
+        // 5b. PIS/COFINS declarado vs notas. Compara GROSS×GROSS: lado "notas" é o
+        // débito sobre saídas (itens da origem contribuicoes), e lado "declarado" é
+        // o devido bruto da apuração (M200/M600 = nao_cumulativo + cumulativo), NÃO
+        // o "a recolher" (que é líquido de retenção → divergência falsa). Antes
+        // somava itens de todas as origens (entrada+saída) → inflado. Ver F2.
         $contrib = $this->getApuracaoContrib($userId, $clienteId, $competencia);
+        $pcNotas = $this->efd->tributarioCreditoDebito($userId, $di, $df, $clienteId);
 
-        $notasPisCofins = DB::table('efd_notas_itens as i')
-            ->join('efd_notas as n', 'n.id', '=', 'i.efd_nota_id')
-            ->where('n.user_id', $userId)
-            ->where('n.cliente_id', $clienteId)
-            ->whereBetween('n.data_emissao', [$inicio, $fim])
-            ->selectRaw('
-                SUM(COALESCE(i.valor_pis, 0)) as total_pis_notas,
-                SUM(COALESCE(i.valor_cofins, 0)) as total_cofins_notas
-            ')
-            ->first();
-
-        $pisDeclarado = $contrib ? (float) $contrib->pis_total_recolher : null;
-        $cofinsDeclarado = $contrib ? (float) $contrib->cofins_total_recolher : null;
-        $pisNotas = (float) ($notasPisCofins->total_pis_notas ?? 0);
-        $cofinsNotas = (float) ($notasPisCofins->total_cofins_notas ?? 0);
+        $pisDeclarado = $contrib ? (float) $contrib->pis_nao_cumulativo + (float) $contrib->pis_cumulativo : null;
+        $cofinsDeclarado = $contrib ? (float) $contrib->cofins_nao_cumulativo + (float) $contrib->cofins_cumulativo : null;
+        $pisNotas = $pcNotas['pis']['debito'];
+        $cofinsNotas = $pcNotas['cofins']['debito'];
 
         // 5c. Retenções vs deduzido na apuração
         $retencoesTotal = 0;
@@ -377,7 +370,7 @@ class ResumoFiscalService
                 'severidade' => 'alta',
                 'categoria' => 'ICMS',
                 'titulo' => 'Divergência ICMS débitos',
-                'descricao' => 'Diferença de ' . number_format($cruzamentos['icms']['divergencia_debito_pct'], 1) . '% entre apuração declarada e soma dos itens das notas fiscais.',
+                'descricao' => 'Diferença de '.number_format($cruzamentos['icms']['divergencia_debito_pct'], 1).'% entre apuração declarada (E110) e o consolidado das saídas (C190).',
                 'valor' => $cruzamentos['icms']['divergencia_debito'],
             ];
         }
@@ -388,7 +381,7 @@ class ResumoFiscalService
                 'severidade' => 'alta',
                 'categoria' => 'ICMS',
                 'titulo' => 'Divergência ICMS créditos',
-                'descricao' => 'Diferença de ' . number_format($cruzamentos['icms']['divergencia_credito_pct'], 1) . '% entre créditos declarados e soma dos itens das notas de entrada.',
+                'descricao' => 'Diferença de '.number_format($cruzamentos['icms']['divergencia_credito_pct'], 1).'% entre créditos declarados (E110) e o consolidado das entradas (C190).',
                 'valor' => $cruzamentos['icms']['divergencia_credito'],
             ];
         }
@@ -399,7 +392,7 @@ class ResumoFiscalService
                 'severidade' => 'media',
                 'categoria' => 'PIS/COFINS',
                 'titulo' => 'Divergência PIS a recolher vs notas',
-                'descricao' => 'O PIS a recolher na apuração diverge em ' . number_format($cruzamentos['pis_cofins']['pis_divergencia_pct'], 1) . '% do PIS calculado nos itens das notas.',
+                'descricao' => 'O PIS devido na apuração (M200) diverge em '.number_format($cruzamentos['pis_cofins']['pis_divergencia_pct'], 1).'% do débito de PIS nas saídas.',
             ];
         }
 
@@ -409,7 +402,7 @@ class ResumoFiscalService
                 'severidade' => 'media',
                 'categoria' => 'PIS/COFINS',
                 'titulo' => 'Divergência COFINS a recolher vs notas',
-                'descricao' => 'O COFINS a recolher na apuração diverge em ' . number_format($cruzamentos['pis_cofins']['cofins_divergencia_pct'], 1) . '% do COFINS calculado nos itens.',
+                'descricao' => 'O COFINS devido na apuração (M600) diverge em '.number_format($cruzamentos['pis_cofins']['cofins_divergencia_pct'], 1).'% do débito de COFINS nas saídas.',
             ];
         }
 
@@ -419,7 +412,7 @@ class ResumoFiscalService
                 'severidade' => 'media',
                 'categoria' => 'Retenções',
                 'titulo' => 'Retenções na fonte não compensadas',
-                'descricao' => 'R$ ' . number_format($cruzamentos['retencoes']['nao_compensado'], 2, ',', '.') . ' em retenções PIS/COFINS que não foram deduzidas na apuração do período.',
+                'descricao' => 'R$ '.number_format($cruzamentos['retencoes']['nao_compensado'], 2, ',', '.').' em retenções PIS/COFINS que não foram deduzidas na apuração do período.',
                 'valor' => $cruzamentos['retencoes']['nao_compensado'],
             ];
         }
@@ -438,7 +431,7 @@ class ResumoFiscalService
                                 'severidade' => 'alta',
                                 'categoria' => 'Obrigações',
                                 'titulo' => 'Obrigação ICMS vencida',
-                                'descricao' => 'Vencimento em ' . $vencimento->format('d/m/Y') . ' — valor R$ ' . number_format((float) ($ob['vl_or'] ?? $ob['valor_obrigacao'] ?? 0), 2, ',', '.'),
+                                'descricao' => 'Vencimento em '.$vencimento->format('d/m/Y').' — valor R$ '.number_format((float) ($ob['vl_or'] ?? $ob['valor_obrigacao'] ?? 0), 2, ',', '.'),
                                 'valor' => (float) ($ob['vl_or'] ?? $ob['valor_obrigacao'] ?? 0),
                             ];
                         } elseif ($vencimento->diffInDays(now()) <= 7) {
@@ -446,7 +439,7 @@ class ResumoFiscalService
                                 'severidade' => 'media',
                                 'categoria' => 'Obrigações',
                                 'titulo' => 'Obrigação ICMS próxima ao vencimento',
-                                'descricao' => 'Vence em ' . $vencimento->format('d/m/Y') . ' (' . $vencimento->diffInDays(now()) . ' dias) — valor R$ ' . number_format((float) ($ob['vl_or'] ?? $ob['valor_obrigacao'] ?? 0), 2, ',', '.'),
+                                'descricao' => 'Vence em '.$vencimento->format('d/m/Y').' ('.$vencimento->diffInDays(now()).' dias) — valor R$ '.number_format((float) ($ob['vl_or'] ?? $ob['valor_obrigacao'] ?? 0), 2, ',', '.'),
                                 'valor' => (float) ($ob['vl_or'] ?? $ob['valor_obrigacao'] ?? 0),
                             ];
                         }

@@ -76,7 +76,7 @@
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6 mb-6 sm:mb-10">
 
             {{-- Notas Fiscais --}}
-            <a href="/app/notas-fiscais" data-link class="bg-white rounded border border-gray-300 p-4 sm:p-6 hover:border-gray-400 transition-all group">
+            <a href="/app/notas" data-link class="bg-white rounded border border-gray-300 p-4 sm:p-6 hover:border-gray-400 transition-all group">
                 <div class="flex items-center gap-3 mb-3">
                     <div>
                         <h3 class="text-sm font-semibold text-gray-900 group-hover:text-gray-600 transition-colors uppercase tracking-wide">Notas Fiscais</h3>

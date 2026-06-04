@@ -13,9 +13,11 @@
         }
     }
 
-    $tipoLabel = $importacao->tipo_efd === 'efd-contrib' ? 'EFD PIS/COFINS' : 'EFD ICMS/IPI';
+    $tipoLabel = (str_contains(strtolower($importacao->tipo_efd ?? ''), 'pis') || $importacao->tipo_efd === 'efd-contrib')
+        ? 'EFD PIS/COFINS'
+        : 'EFD ICMS/IPI';
     $arquivoLabel = $isSped
-        ? 'SPED-FISCAL | '.$spedPeriodo.' | '.$spedHash.'.txt'
+        ? trim($parts[0]).' | '.$spedPeriodo.' | '.$spedHash.'.txt'
         : ($importacao->filename ?: 'Arquivo não informado');
 @endphp
 

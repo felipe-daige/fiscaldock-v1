@@ -42,7 +42,7 @@ class NotaFiscalService
         $items = $merged->slice(($page - 1) * $perPage, $perPage)->values();
 
         return new LengthAwarePaginator($items, $total, $perPage, $page, [
-            'path' => $paginatorPath ?? url('/app/notas-fiscais'),
+            'path' => $paginatorPath ?? url('/app/notas'),
             'query' => array_filter($filtros),
         ]);
     }
@@ -93,6 +93,73 @@ class NotaFiscalService
         ];
     }
 
+    /**
+     * Query base do histórico de consultas DF-e (snapshots SEFAZ) — union NF-e + CT-e.
+     *
+     * Cada linha representa a última verificação de um documento (UPSERT por
+     * `(user_id, chave_acesso)`). Expõe colunas estáveis usadas pelos filtros
+     * do histórico, do detalhe de lote e do alimentador de status: chave_acesso,
+     * numero, serie, modelo, tipo_documento, status, valor_total, data_emissao,
+     * emit_*, dest_*, tomador_*, cliente_nome, consulta_lote_id, fluxo_origem,
+     * consultado_em, created_at, id.
+     */
+    public function consultaDfeHistoricoQuery(int $userId): \Illuminate\Database\Query\Builder
+    {
+        $nfe = DB::table('nfe_consultas as consulta')
+            ->leftJoin('clientes as cliente', 'cliente.id', '=', 'consulta.cliente_id')
+            ->selectRaw("
+                consulta.id,
+                consulta.consulta_lote_id,
+                CASE WHEN consulta.consulta_lote_id IS NULL THEN 'avulsa' ELSE 'lote' END as fluxo_origem,
+                consulta.chave_acesso,
+                UPPER(COALESCE(consulta.tipo_documento, 'NFE')) as tipo_documento,
+                COALESCE(consulta.modelo, '55') as modelo,
+                consulta.numero,
+                consulta.serie,
+                consulta.status,
+                consulta.valor_total,
+                consulta.data_emissao,
+                consulta.emit_nome,
+                consulta.emit_cnpj,
+                consulta.dest_nome,
+                consulta.dest_cnpj,
+                NULL::varchar as tomador_nome,
+                NULL::varchar as tomador_cnpj,
+                cliente.razao_social as cliente_nome,
+                consulta.consultado_em,
+                consulta.created_at
+            ")
+            ->where('consulta.user_id', $userId);
+
+        $cte = DB::table('cte_consultas as consulta')
+            ->leftJoin('clientes as cliente', 'cliente.id', '=', 'consulta.cliente_id')
+            ->selectRaw("
+                consulta.id,
+                consulta.consulta_lote_id,
+                CASE WHEN consulta.consulta_lote_id IS NULL THEN 'avulsa' ELSE 'lote' END as fluxo_origem,
+                consulta.chave_acesso,
+                UPPER(COALESCE(consulta.tipo_documento, 'CTE')) as tipo_documento,
+                COALESCE(consulta.modelo, '57') as modelo,
+                consulta.numero,
+                consulta.serie,
+                consulta.status,
+                consulta.valor_prestacao as valor_total,
+                consulta.data_emissao,
+                consulta.emit_nome,
+                consulta.emit_cnpj,
+                consulta.dest_nome,
+                consulta.dest_cnpj,
+                consulta.tomador_nome,
+                consulta.tomador_cnpj,
+                cliente.razao_social as cliente_nome,
+                consulta.consultado_em,
+                consulta.created_at
+            ")
+            ->where('consulta.user_id', $userId);
+
+        return DB::query()->fromSub($nfe->unionAll($cte), 'consultas');
+    }
+
     public function normalizarEfd(EfdNota $nota): array
     {
         return [
@@ -127,19 +194,19 @@ class NotaFiscalService
         // Contraparte: se emitente é empresa própria, mostrar destinatário; caso contrário, emitente
         if ($nota->relationLoaded('emitCliente') && $nota->emitCliente?->is_empresa_propria) {
             $partNome = $nota->dest_razao_social;
-            $partDoc = $nota->dest_cnpj_formatado;
+            $partDoc = $nota->dest_documento_formatado;
             $partId = $nota->dest_participante_id;
         } else {
             $partNome = $nota->emit_razao_social;
-            $partDoc = $nota->emit_cnpj_formatado;
+            $partDoc = $nota->emit_documento_formatado;
             $partId = $nota->emit_participante_id;
         }
 
         return [
             'id' => $nota->id,
             'origem' => 'xml',
-            'chave_acesso' => $nota->nfe_id,
-            'numero' => $nota->numero_nota,
+            'chave_acesso' => $nota->chave_acesso,
+            'numero' => $nota->numero_documento,
             'serie' => $nota->serie,
             'data_emissao' => $nota->data_emissao,
             'tipo_operacao' => $tipoOperacao,
@@ -157,7 +224,9 @@ class NotaFiscalService
 
     private function calcularOperacoesEfd(int $userId, array $filtros): array
     {
+        // Valor-de-nota → deduplica origem (P1). Sem isso as saídas dobram (medido: 36,2mi → 25,69mi).
         $base = $this->queryEfdBase($userId, $filtros);
+        $this->aplicarDedupOrigem($base, $userId);
 
         $porTipo = (clone $base)
             ->selectRaw('tipo_operacao, COUNT(*) as qtd, SUM(valor_total) as valor')
@@ -189,29 +258,35 @@ class NotaFiscalService
 
     private function calcularTributosEfd(int $userId, array $filtros): array
     {
-        $base = $this->queryEfdBase($userId, $filtros);
-        $noteIds = (clone $base)->select('id');
+        // Leitura de tributo NÃO deduplica origem: ICMS vive no C190 (origem fiscal),
+        // PIS/COFINS nos itens da origem 'contribuicoes' — precisa das duas origens.
+        // Ler ICMS dos itens (P2) ou somar PIS/COFINS de ambas as origens (P8) infla o
+        // crédito (medido: PIS crédito 34.355 → 168, COFINS 158.919 → 777).
+        $noteIds = (clone $this->queryEfdBase($userId, $filtros))->select('id');
 
-        $result = DB::table('efd_notas_itens')
-            ->join('efd_notas', 'efd_notas.id', '=', 'efd_notas_itens.efd_nota_id')
-            ->whereIn('efd_notas_itens.efd_nota_id', $noteIds)
-            ->selectRaw('
-                efd_notas.tipo_operacao,
-                SUM(COALESCE(efd_notas_itens.valor_icms, 0)) as icms,
-                SUM(COALESCE(efd_notas_itens.valor_pis, 0)) as pis,
-                SUM(COALESCE(efd_notas_itens.valor_cofins, 0)) as cofins
-            ')
-            ->groupBy('efd_notas.tipo_operacao')
+        // ICMS do C190 (efd_notas_consolidados) — só existe na escrituração fiscal.
+        $icms = DB::table('efd_notas_consolidados as c')
+            ->join('efd_notas as n', 'n.id', '=', 'c.efd_nota_id')
+            ->whereIn('c.efd_nota_id', $noteIds)
+            ->selectRaw('n.tipo_operacao, SUM(COALESCE(c.valor_icms, 0)) as icms')
+            ->groupBy('n.tipo_operacao')
             ->get()
             ->keyBy('tipo_operacao');
 
-        $entrada = $result->get('entrada');
-        $saida = $result->get('saida');
+        // PIS/COFINS apenas dos itens da origem 'contribuicoes'.
+        $pc = DB::table('efd_notas_itens as i')
+            ->join('efd_notas as n', 'n.id', '=', 'i.efd_nota_id')
+            ->whereIn('i.efd_nota_id', $noteIds)
+            ->where('n.origem_arquivo', 'contribuicoes')
+            ->selectRaw('n.tipo_operacao, SUM(COALESCE(i.valor_pis, 0)) as pis, SUM(COALESCE(i.valor_cofins, 0)) as cofins')
+            ->groupBy('n.tipo_operacao')
+            ->get()
+            ->keyBy('tipo_operacao');
 
         return [
-            'icms' => ['credito' => (float) ($entrada->icms ?? 0), 'debito' => (float) ($saida->icms ?? 0)],
-            'pis' => ['credito' => (float) ($entrada->pis ?? 0), 'debito' => (float) ($saida->pis ?? 0)],
-            'cofins' => ['credito' => (float) ($entrada->cofins ?? 0), 'debito' => (float) ($saida->cofins ?? 0)],
+            'icms' => ['credito' => (float) ($icms->get('entrada')->icms ?? 0), 'debito' => (float) ($icms->get('saida')->icms ?? 0)],
+            'pis' => ['credito' => (float) ($pc->get('entrada')->pis ?? 0), 'debito' => (float) ($pc->get('saida')->pis ?? 0)],
+            'cofins' => ['credito' => (float) ($pc->get('entrada')->cofins ?? 0), 'debito' => (float) ($pc->get('saida')->cofins ?? 0)],
         ];
     }
 
@@ -322,7 +397,9 @@ class NotaFiscalService
 
     private function queryEfdBase(int $userId, array $filtros)
     {
-        $query = EfdNota::where('user_id', $userId);
+        // P4: canceladas (cod_sit 02/03/04/05) não entram em listagem, KPI nem tributo.
+        $query = EfdNota::where('user_id', $userId)
+            ->where('cancelada', false);
 
         if (! empty($filtros['data_inicio']) && ! empty($filtros['data_fim'])) {
             $query->periodo($filtros['data_inicio'], $filtros['data_fim']);
@@ -360,6 +437,10 @@ class NotaFiscalService
             $query->where('participante_id', $filtros['participante_id']);
         }
 
+        if (! empty($filtros['importacao_id'])) {
+            $query->where('importacao_id', $filtros['importacao_id']);
+        }
+
         if (! empty($filtros['busca'])) {
             $q = $filtros['busca'];
             $query->where(function ($sub) use ($q) {
@@ -371,9 +452,28 @@ class NotaFiscalService
         return $query;
     }
 
+    /**
+     * Dedup de origem (P1) — mesma regra canônica de EfdAgregadorService::notasDedup.
+     * A MESMA NF-e é escriturada em 'fiscal' e 'contribuicoes'; mantém a fiscal e
+     * só inclui documentos que SÓ existem no PIS/COFINS (NFS-e, NF-e órfãs) por não
+     * terem gêmea de mesma chave na origem 'fiscal'. Aplicar APENAS em métricas de
+     * VALOR-de-nota (listagem, operações) — NUNCA na leitura de tributo, que precisa
+     * das duas origens (ICMS no C190 fiscal, PIS/COFINS nos itens contribuicoes).
+     */
+    private function aplicarDedupOrigem($query, int $userId): void
+    {
+        $query->where(function ($q) use ($userId) {
+            $q->where('origem_arquivo', 'fiscal')
+                ->orWhereRaw('NOT EXISTS (SELECT 1 FROM efd_notas f WHERE f.user_id = ? AND f.origem_arquivo = ? AND f.chave_acesso IS NOT NULL AND f.chave_acesso = efd_notas.chave_acesso)', [$userId, 'fiscal']);
+        });
+    }
+
     private function queryEfd(int $userId, array $filtros)
     {
-        return $this->queryEfdBase($userId, $filtros)
+        $query = $this->queryEfdBase($userId, $filtros);
+        $this->aplicarDedupOrigem($query, $userId);
+
+        return $query
             ->with(['participante', 'cliente'])
             ->orderBy('data_emissao', 'desc');
     }
@@ -381,6 +481,12 @@ class NotaFiscalService
     private function queryXmlBase(int $userId, array $filtros)
     {
         $query = XmlNota::doUsuario($userId);
+
+        // O filtro de importação aponta para uma importação EFD; notas XML não
+        // pertencem a ela, então são removidas da listagem/KPIs quando ativo.
+        if (! empty($filtros['importacao_id'])) {
+            $query->whereRaw('1 = 0');
+        }
 
         if (! empty($filtros['data_inicio']) && ! empty($filtros['data_fim'])) {
             $query->noPeriodo($filtros['data_inicio'], $filtros['data_fim']);
@@ -426,8 +532,8 @@ class NotaFiscalService
         if (! empty($filtros['busca'])) {
             $q = $filtros['busca'];
             $query->where(function ($sub) use ($q) {
-                $sub->where('nfe_id', 'ilike', "%{$q}%")
-                    ->orWhere('numero_nota', is_numeric($q) ? (int) $q : 0);
+                $sub->where('chave_acesso', 'ilike', "%{$q}%")
+                    ->orWhere('numero_documento', is_numeric($q) ? (int) $q : 0);
             });
         }
 

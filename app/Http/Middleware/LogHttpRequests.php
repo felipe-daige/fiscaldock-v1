@@ -17,6 +17,9 @@ class LogHttpRequests
         'password_confirmation',
         'current_password',
         'new_password',
+        // Campos em português (signup usa `senha`/`senha_confirmation`).
+        // `str_contains` cobre `senha`, `nova_senha`, `senha_atual`, etc.
+        'senha',
         'token',
         'api_token',
         'access_token',
@@ -72,10 +75,10 @@ class LogHttpRequests
         string $logLevel
     ): void {
         $logFile = storage_path('logs/laravel.log');
-        
+
         // Garante que o diretório existe
         $logDir = dirname($logFile);
-        if (!is_dir($logDir)) {
+        if (! is_dir($logDir)) {
             @mkdir($logDir, 0755, true);
         }
 
@@ -89,7 +92,7 @@ class LogHttpRequests
 
         // Linha principal do log
         $logEntry = sprintf(
-            "[%s] %s.%s: %s %s | IP: %s | Status: %d | Duration: %.2fms | User-Agent: %s",
+            '[%s] %s.%s: %s %s | IP: %s | Status: %d | Duration: %.2fms | User-Agent: %s',
             $timestamp,
             config('app.env', 'local'),
             strtoupper($logLevel),
@@ -99,43 +102,43 @@ class LogHttpRequests
             $statusCode,
             $duration,
             $userAgent
-        ) . PHP_EOL;
+        ).PHP_EOL;
 
         // Adiciona informações adicionais
-        if (!empty($requestData['query'])) {
+        if (! empty($requestData['query'])) {
             $logEntry .= sprintf(
-                "  Query: %s",
+                '  Query: %s',
                 json_encode($requestData['query'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
-            ) . PHP_EOL;
+            ).PHP_EOL;
         }
 
-        if (!empty($requestData['body']) && in_array($request->method(), ['POST', 'PUT', 'PATCH', 'DELETE'])) {
+        if (! empty($requestData['body']) && in_array($request->method(), ['POST', 'PUT', 'PATCH', 'DELETE'])) {
             $logEntry .= sprintf(
-                "  Body: %s",
+                '  Body: %s',
                 json_encode($requestData['body'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
-            ) . PHP_EOL;
+            ).PHP_EOL;
         }
 
-        if (!empty($requestData['user'])) {
+        if (! empty($requestData['user'])) {
             $logEntry .= sprintf(
-                "  User: ID=%d, Email=%s",
+                '  User: ID=%d, Email=%s',
                 $requestData['user']['id'],
                 $requestData['user']['email'] ?? 'N/A'
-            ) . PHP_EOL;
+            ).PHP_EOL;
         }
 
-        if (!empty($requestData['headers'])) {
+        if (! empty($requestData['headers'])) {
             $logEntry .= sprintf(
-                "  Headers: %s",
+                '  Headers: %s',
                 json_encode($requestData['headers'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
-            ) . PHP_EOL;
+            ).PHP_EOL;
         }
 
-        $logEntry .= "---" . PHP_EOL;
+        $logEntry .= '---'.PHP_EOL;
 
         // Escreve apenas no laravel.log
         @file_put_contents($logFile, $logEntry, FILE_APPEND | LOCK_EX);
-        
+
         // Também usa o sistema de log do Laravel para aparecer no laravel.log com formatação padrão
         try {
             Log::{$logLevel}(
@@ -182,7 +185,7 @@ class LogHttpRequests
         $queryString = $request->getQueryString();
         if ($queryString) {
             parse_str($queryString, $queryParams);
-            if (!empty($queryParams)) {
+            if (! empty($queryParams)) {
                 $data['query'] = $this->sanitizeData($queryParams);
             }
         }
@@ -225,7 +228,7 @@ class LogHttpRequests
             if ($authHeader) {
                 // Extrai apenas o tipo (Bearer, Basic, etc.)
                 $authType = explode(' ', $authHeader, 2)[0] ?? 'Unknown';
-                $headers['authorization'] = $authType . ' [REDACTED]';
+                $headers['authorization'] = $authType.' [REDACTED]';
             }
         }
 
@@ -258,7 +261,7 @@ class LogHttpRequests
             } else {
                 // Limita o tamanho de strings muito grandes (ex: arquivos base64)
                 if (is_string($value) && strlen($value) > 1000) {
-                    $sanitized[$key] = substr($value, 0, 1000) . '...[TRUNCATED]';
+                    $sanitized[$key] = substr($value, 0, 1000).'...[TRUNCATED]';
                 } else {
                     $sanitized[$key] = $value;
                 }

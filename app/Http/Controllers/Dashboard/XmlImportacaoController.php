@@ -1066,15 +1066,15 @@ class XmlImportacaoController extends Controller
 
             $notasFiscais[] = [
                 'id' => $nota->id,
-                'numero_nota' => $nota->numero_nota,
+                'numero_nota' => $nota->numero_documento,
                 'serie' => $nota->serie,
                 'data_emissao' => $nota->data_emissao?->format('d/m/Y'),
-                'emit_cnpj' => $nota->emit_cnpj,
-                'emit_cnpj_formatado' => $nota->emit_cnpj_formatado,
+                'emit_cnpj' => $nota->emit_documento,
+                'emit_cnpj_formatado' => $nota->emit_documento_formatado,
                 'emit_razao_social' => $nota->emit_razao_social,
                 'emit_uf' => $nota->emit_uf,
-                'dest_cnpj' => $nota->dest_cnpj,
-                'dest_cnpj_formatado' => $nota->dest_cnpj_formatado,
+                'dest_cnpj' => $nota->dest_documento,
+                'dest_cnpj_formatado' => $nota->dest_documento_formatado,
                 'dest_razao_social' => $nota->dest_razao_social,
                 'dest_uf' => $nota->dest_uf,
                 'valor_total' => (float) $nota->valor_total,
@@ -1207,7 +1207,7 @@ class XmlImportacaoController extends Controller
                     // Atualizar xml_notas: preencher FKs onde CNPJ coincide e participante_id e NULL
                     XmlNota::where('importacao_xml_id', $importacaoId)
                         ->where('user_id', $userId)
-                        ->where('emit_cnpj', $cnpj)
+                        ->where('emit_documento', $cnpj)
                         ->whereNull('emit_participante_id')
                         ->update([
                             'emit_participante_id' => $participante->id,
@@ -1216,7 +1216,7 @@ class XmlImportacaoController extends Controller
 
                     XmlNota::where('importacao_xml_id', $importacaoId)
                         ->where('user_id', $userId)
-                        ->where('dest_cnpj', $cnpj)
+                        ->where('dest_documento', $cnpj)
                         ->whereNull('dest_participante_id')
                         ->update([
                             'dest_participante_id' => $participante->id,

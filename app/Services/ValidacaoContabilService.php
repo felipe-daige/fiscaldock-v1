@@ -146,6 +146,17 @@ class ValidacaoContabilService
     /**
      * Obtem estatisticas de validacao para um usuario (XML + EFD).
      */
+    /**
+     * Predicado de dedup de origem (P1) para `efd_notas`: a MESMA NF-e coexiste em
+     * 'fiscal' e 'contribuicoes' — mantém a fiscal e só inclui quem não tem gêmea
+     * fiscal por chave (NFS-e, NF-e órfãs). Mesma regra de EfdAgregadorService::notasDedup.
+     * Usa `efd_notas.user_id` na subquery → sem bind extra, reusável em raw/builder/eloquent.
+     */
+    private function efdOrigemDedupSql(): string
+    {
+        return "(efd_notas.origem_arquivo = 'fiscal' OR NOT EXISTS (SELECT 1 FROM efd_notas f WHERE f.user_id = efd_notas.user_id AND f.origem_arquivo = 'fiscal' AND f.chave_acesso IS NOT NULL AND f.chave_acesso = efd_notas.chave_acesso))";
+    }
+
     public function getEstatisticas(int $userId): array
     {
         $xml = XmlNota::where('user_id', $userId)
@@ -160,7 +171,16 @@ class ValidacaoContabilService
             )
             ->first();
 
+        // P1: dedup fiscal×contribuicoes; P4: exclui cancelada; dedup contra XML (acervo do contador).
         $efd = EfdNota::where('user_id', $userId)
+            ->where('cancelada', false)
+            ->whereRaw($this->efdOrigemDedupSql())
+            ->whereNotExists(function ($q) use ($userId) {
+                $q->select(DB::raw(1))
+                    ->from('xml_notas')
+                    ->whereColumn('xml_notas.chave_acesso', 'efd_notas.chave_acesso')
+                    ->where('xml_notas.user_id', $userId);
+            })
             ->select(
                 DB::raw('COUNT(*) as total'),
                 DB::raw('COUNT(CASE WHEN validacao IS NOT NULL THEN 1 END) as validadas'),
@@ -193,17 +213,20 @@ class ValidacaoContabilService
      */
     public function getKpisStatusReceita(int $userId): array
     {
+        $dedup = $this->efdOrigemDedupSql(); // P1 fiscal×contribuicoes — fragmento sem bind
         $row = DB::selectOne("
             WITH xml AS (
-                SELECT nfe_id AS chave, validacao->>'situacao' AS situacao
+                SELECT chave_acesso AS chave, validacao->>'situacao' AS situacao
                 FROM xml_notas WHERE user_id = ?
             ),
             efd AS (
                 SELECT chave_acesso AS chave, validacao->>'situacao' AS situacao
                 FROM efd_notas WHERE user_id = ?
+                  AND cancelada = false
+                  AND {$dedup}
                   AND NOT EXISTS (
                     SELECT 1 FROM xml_notas xn
-                    WHERE xn.user_id = ? AND xn.nfe_id = efd_notas.chave_acesso
+                    WHERE xn.user_id = ? AND xn.chave_acesso = efd_notas.chave_acesso
                   )
             ),
             u AS (SELECT * FROM xml UNION ALL SELECT * FROM efd)
@@ -271,8 +294,8 @@ class ValidacaoContabilService
             ->selectRaw("
                 'xml'::text AS origem,
                 xml_notas.id AS id,
-                xml_notas.nfe_id AS chave,
-                xml_notas.numero_nota::text AS numero,
+                xml_notas.chave_acesso AS chave,
+                xml_notas.numero_documento::text AS numero,
                 xml_notas.serie::text AS serie,
                 xml_notas.emit_razao_social AS emit_razao_social,
                 xml_notas.validacao AS validacao
@@ -294,10 +317,12 @@ class ValidacaoContabilService
                 efd_notas.validacao AS validacao
             ")
             ->where('efd_notas.user_id', $userId)
+            ->where('efd_notas.cancelada', false)        // P4
+            ->whereRaw($this->efdOrigemDedupSql())       // P1 fiscal×contribuicoes
             ->whereNotExists(function ($q) use ($userId) {
                 $q->select(DB::raw(1))
                     ->from('xml_notas')
-                    ->whereColumn('xml_notas.nfe_id', 'efd_notas.chave_acesso')
+                    ->whereColumn('xml_notas.chave_acesso', 'efd_notas.chave_acesso')
                     ->where('xml_notas.user_id', $userId);
             });
 
@@ -404,8 +429,8 @@ class ValidacaoContabilService
             'payload' => $payload,
             'emit_participante_id' => $nota->emit_participante_id,
             'dest_participante_id' => $nota->dest_participante_id,
-            'emit_cnpj' => $nota->emit_cnpj,
-            'dest_cnpj' => $nota->dest_cnpj,
+            'emit_cnpj' => $nota->emit_documento,
+            'dest_cnpj' => $nota->dest_documento,
             'emit_uf' => $nota->emit_uf,
             'dest_uf' => $nota->dest_uf,
             'natureza_operacao' => $nota->natureza_operacao,

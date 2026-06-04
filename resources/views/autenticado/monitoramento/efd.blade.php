@@ -40,7 +40,7 @@
                     <div class="flex-1 min-w-0">
                         <p class="text-sm font-semibold uppercase tracking-wide" style="color: #92400e;">Módulo em manutenção</p>
                         <p class="text-xs sm:text-[13px] mt-1" style="color: #78350f;">
-                            Estamos reestruturando o pipeline de extração EFD (participantes, notas, catálogo e apurações) para corrigir inconsistências detectadas em 2026-05-17.
+                            O pipeline de extração EFD (participantes, notas, catálogo e apurações) foi auditado e corrigido contra o SPED bruto; estamos em validação final antes de reabrir os uploads para todos.
                             @if ($podeImportarEfd)
                                 Você está na lista de usuários autorizados a importar durante a manutenção para validar o novo pipeline.
                             @else
@@ -448,13 +448,16 @@
     function atualizarUITxt(file) {
         if (!file) {
             if (txtFileMeta) txtFileMeta.classList.add('hidden');
+            if (txtDropzone) txtDropzone.classList.remove('hidden');
             updateImportButtonState();
             return;
         }
         if (txtFileName) txtFileName.textContent = file.name;
         if (txtFileSize) txtFileSize.textContent = (file.size / 1024 / 1024).toFixed(2) + ' MB';
         if (txtFileMeta) txtFileMeta.classList.remove('hidden');
+        if (txtDropzone) txtDropzone.classList.add('hidden');
         updateImportButtonState();
+        if (txtImportarBtn) txtImportarBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
     function limparArquivoTxt() {

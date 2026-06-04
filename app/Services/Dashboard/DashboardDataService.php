@@ -4,11 +4,11 @@ namespace App\Services\Dashboard;
 
 use App\Models\ConsultaLote;
 use App\Models\EfdImportacao;
-use App\Models\EfdNota;
 use App\Models\Participante;
 use App\Models\User;
 use App\Services\AlertaCentralService;
 use App\Services\CreditService;
+use App\Services\EfdAgregadorService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -17,7 +17,8 @@ class DashboardDataService
 {
     public function __construct(
         protected CreditService $creditService,
-        protected AlertaCentralService $alertaCentralService
+        protected AlertaCentralService $alertaCentralService,
+        protected EfdAgregadorService $efd
     ) {}
 
     /**
@@ -28,9 +29,10 @@ class DashboardDataService
         $mesInicio = now()->startOfMonth();
         $mesFim = now()->endOfMonth();
 
-        // Volume processado
-        $volumeNotas = EfdNota::where('user_id', $userId)->count();
-        $volumeValor = (float) EfdNota::where('user_id', $userId)->sum('valor_total');
+        // Volume processado — base canônica deduplicada (P1: mesma NF-e nas 2 origens não dobra;
+        // P4: sem cancelada). Cru dava 10.118/R$53,2mi vs 7.488/R$42,6mi real.
+        $volumeNotas = $this->efd->notasDedup($userId)->count();
+        $volumeValor = (float) $this->efd->notasDedup($userId)->sum('n.valor_total');
 
         // Participantes
         $participantesTotal = $this->getTotalParticipantes($userId);

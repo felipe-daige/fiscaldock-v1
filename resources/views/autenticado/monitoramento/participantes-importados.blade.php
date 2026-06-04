@@ -1108,23 +1108,31 @@
             }
         });
 
-        document.addEventListener('click', function(e) {
+        function _piOnDocClick(e) {
             if (dropdownAcoes && !dropdownAcoes.classList.contains('hidden') && !dropdownAcoes.contains(e.target)) {
                 fecharDropdownAcoes();
             }
-        });
-
-        document.addEventListener('keydown', function(e) {
+        }
+        function _piOnDocKeydown(e) {
             if (e.key === 'Escape' && dropdownAcoes && !dropdownAcoes.classList.contains('hidden')) {
                 fecharDropdownAcoes();
             }
-        });
-
-        window.addEventListener('scroll', function() {
+        }
+        function _piOnScroll() {
             if (dropdownAcoes && !dropdownAcoes.classList.contains('hidden')) {
                 fecharDropdownAcoes();
             }
-        }, true);
+        }
+        document.addEventListener('click', _piOnDocClick);
+        document.addEventListener('keydown', _piOnDocKeydown);
+        window.addEventListener('scroll', _piOnScroll, true);
+        // SPA: remover do document/window ao navegar (spa.js → limparRecursos) p/ não acumular.
+        if (!window._cleanupFunctions) window._cleanupFunctions = {};
+        window._cleanupFunctions.participantesImportados = function () {
+            document.removeEventListener('click', _piOnDocClick);
+            document.removeEventListener('keydown', _piOnDocKeydown);
+            window.removeEventListener('scroll', _piOnScroll, true);
+        };
 
         if (dropdownAcoesVer) {
             dropdownAcoesVer.addEventListener('click', fecharDropdownAcoes);

@@ -372,10 +372,12 @@ class AlertaCentralService
      */
     private function detectarSituacaoIrregular(int $userId): Collection
     {
+        // Critério canônico de irregularidade: NOT IN ('02','ATIVA') — o código '02' da Receita
+        // É "ATIVA". Usar `!= 'ATIVA'` flagrava '02' como irregular (falso) e divergia dos demais
+        // detectores (detectarFornecedoresIrregularesComNotas / BiService).
         return Participante::where('user_id', $userId)
             ->whereNotNull('situacao_cadastral')
-            ->where('situacao_cadastral', '!=', '')
-            ->where('situacao_cadastral', '!=', 'ATIVA')
+            ->whereRaw("UPPER(situacao_cadastral) NOT IN ('', '02', 'ATIVA')")
             ->whereHas('efdNotas')
             ->get(['id', 'razao_social', 'documento as documento', 'situacao_cadastral', 'cliente_id']);
     }
@@ -469,6 +471,9 @@ class AlertaCentralService
         return DB::table('efd_notas as n')
             ->join('participantes as p', 'p.id', '=', 'n.participante_id')
             ->where('n.user_id', $userId)
+            ->where('n.cancelada', false) // P4: nota cancelada não é valor em risco
+            // P1: a MESMA NF-e está nas 2 origens — sem dedup o "valor em risco" e a contagem dobram.
+            ->whereRaw("(n.origem_arquivo = 'fiscal' OR NOT EXISTS (SELECT 1 FROM efd_notas f WHERE f.user_id = n.user_id AND f.origem_arquivo = 'fiscal' AND f.chave_acesso IS NOT NULL AND f.chave_acesso = n.chave_acesso))")
             ->whereNotNull('p.situacao_cadastral')
             ->whereRaw("UPPER(p.situacao_cadastral) NOT IN ('02', 'ATIVA')")
             ->select([

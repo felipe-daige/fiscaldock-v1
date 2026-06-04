@@ -273,6 +273,209 @@
     margin-top: -3.875rem;
 }
 
+/* ===================== Hero — polish editorial-técnico ===================== */
+#hero {
+    position: relative;
+    isolation: isolate;
+}
+
+/* Camada 1 — malha "blueprint" (evoca planilha / SPED), some nas bordas */
+#hero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background-image:
+        linear-gradient(to right, rgba(148, 197, 255, 0.07) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(148, 197, 255, 0.07) 1px, transparent 1px);
+    background-size: 46px 46px;
+    -webkit-mask-image: radial-gradient(125% 95% at 78% 16%, #000 32%, transparent 80%);
+    mask-image: radial-gradient(125% 95% at 78% 16%, #000 32%, transparent 80%);
+    pointer-events: none;
+}
+
+/* Camada 2 — brilho de "radar" no topo direito + leve calor âmbar embaixo */
+#hero::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background:
+        radial-gradient(48% 44% at 84% 12%, rgba(96, 165, 250, 0.24), transparent 70%),
+        radial-gradient(34% 34% at 10% 96%, rgba(250, 204, 21, 0.07), transparent 72%);
+    pointer-events: none;
+}
+
+/* Camada 3 — grão fino para textura */
+.hero-grain {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    opacity: 0.05;
+    mix-blend-mode: overlay;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* conteúdo acima das camadas atmosféricas */
+.hero-shell {
+    position: relative;
+    z-index: 1;
+}
+
+/* Headline editorial */
+.hero-copy h1 {
+    font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
+    font-weight: 600;
+    letter-spacing: -0.018em;
+    font-optical-sizing: auto;
+}
+
+/* Linha de destaque em ouro (amarra ao CTA âmbar) */
+.hero-accent-line {
+    display: block;
+    background: linear-gradient(92deg, #fde68a 0%, #facc15 52%, #eaa916 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: #facc15;                 /* fallback se background-clip falhar */
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 2px 10px rgba(250, 204, 21, 0.20));
+}
+
+/* Pulso "ao vivo" no ponto do badge */
+.hero-badge-dot {
+    position: relative;
+}
+.hero-badge-dot::after {
+    content: "";
+    position: absolute;
+    inset: -5px;
+    border-radius: 9999px;
+    border: 1px solid rgba(96, 165, 250, 0.65);
+    animation: heroPulse 2.4s ease-out infinite;
+}
+@keyframes heroPulse {
+    0%   { transform: scale(0.55); opacity: 0.9; }
+    70%  { opacity: 0; }
+    100% { transform: scale(2); opacity: 0; }
+}
+
+/* Revelação orquestrada no load */
+@keyframes heroReveal {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: none; }
+}
+.hero-copy > * {
+    animation: heroReveal 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.hero-copy > *:nth-child(1) { animation-delay: 0.05s; }
+.hero-copy > *:nth-child(2) { animation-delay: 0.13s; }
+.hero-copy > *:nth-child(3) { animation-delay: 0.21s; }
+.hero-copy > *:nth-child(4) { animation-delay: 0.29s; }
+.hero-copy > *:nth-child(5) { animation-delay: 0.37s; }
+.hero-copy > *:nth-child(6) { animation-delay: 0.45s; }
+.hero-visual {
+    animation: heroReveal 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: 0.22s;
+}
+
+/* Cartões flutuantes sobre o mockup (prova do produto em ação) */
+.hero-floaties {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    display: none;
+}
+.hero-float {
+    position: absolute;
+    opacity: 0;
+    border-radius: 0.95rem;
+    background: rgba(11, 22, 44, 0.74);
+    backdrop-filter: blur(12px) saturate(140%);
+    -webkit-backdrop-filter: blur(12px) saturate(140%);
+    border: 1px solid rgba(255, 255, 255, 0.13);
+    box-shadow: 0 22px 48px -20px rgba(0, 0, 0, 0.65);
+}
+.hf-inner {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.72rem 0.95rem;
+}
+.hf-icon {
+    width: 2.1rem;
+    height: 2.1rem;
+    border-radius: 0.65rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.hf-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: #fff;
+    line-height: 1.15;
+}
+.hf-sub {
+    font-size: 0.68rem;
+    color: rgba(255, 255, 255, 0.58);
+    margin-top: 2px;
+    line-height: 1.2;
+}
+.hf-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 9999px;
+    flex-shrink: 0;
+    position: relative;
+}
+.hf-dot::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border-radius: 9999px;
+    border: 1px solid currentColor;
+    opacity: 0.5;
+    animation: heroPulse 2.2s ease-out infinite;
+}
+.hero-float--alert {
+    top: 7%;
+    left: 1%;
+    animation: heroReveal 0.7s 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.hero-float--ok {
+    bottom: 13%;
+    right: 1%;
+    animation: heroReveal 0.7s 1.0s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.hero-float--alert .hf-inner { animation: heroDrift 7s 1.4s ease-in-out infinite; }
+.hero-float--ok .hf-inner    { animation: heroDrift 8.5s 1.8s ease-in-out infinite; }
+@keyframes heroDrift {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-7px); }
+}
+@media (min-width: 1024px) {
+    .hero-floaties { display: block; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hero-copy > *,
+    .hero-visual,
+    .hero-float {
+        animation: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+    }
+    .hf-inner,
+    .hero-badge-dot::after,
+    .hf-dot::after {
+        animation: none !important;
+    }
+}
+
 /* ── Como Funciona ── */
 .cf-step {
     opacity: 0;
@@ -365,6 +568,38 @@
     .official-sources-track {
         animation: none;
         transform: none;
+    }
+}
+
+/* iPad landscape (Mini 1024px / Air ~1180px): the xl tuning only kicks in at 1280px,
+   so this range gets cramped. Tune copy width, h1 size, gap and mockup explicitly. */
+@media (min-width: 1024px) and (max-width: 1279.98px) {
+    .hero-shell {
+        min-height: auto;
+        padding-top: 2.5rem;
+        padding-bottom: 3rem;
+    }
+
+    .hero-grid {
+        gap: 2.25rem;
+        align-items: center;
+    }
+
+    .hero-copy > * {
+        max-width: 32rem;
+    }
+
+    .hero-copy h1 {
+        font-size: 2.75rem;
+        line-height: 1.05;
+    }
+
+    .hero-visual {
+        justify-content: flex-end;
+    }
+
+    .hero-mockup {
+        width: min(100%, 40rem);
     }
 }
 
@@ -554,6 +789,15 @@
         min-height: auto;
     }
 
+    .hero-visual {
+        justify-content: center;
+    }
+
+    .hero-mockup {
+        width: min(100%, 34rem);
+        margin-inline: auto;
+    }
+
     .official-sources-section {
         margin-top: -2.25rem;
     }
@@ -576,20 +820,21 @@
 <div class="hero-first-fold">
 <!-- Hero Section (refeito) -->
 <section id="hero" class="relative overflow-hidden bg-gradient-to-br from-primary-700 to-primary-500 text-white" style="background: linear-gradient(135deg, #0f172a 0%, #1e5a9a 50%, #0f172a 100%);">
-    <div class="hero-shell mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-12 sm:pt-8 sm:pb-12 lg:pt-8 lg:pb-12">
+    <div class="hero-grain" aria-hidden="true"></div>
+    <div class="hero-shell mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-16 sm:pt-12 sm:pb-16 lg:pt-14 lg:pb-20">
         <div class="hero-grid grid grid-cols-1 lg:grid-cols-12 gap-8 items-center justify-center">
             <!-- Coluna Esquerda: Texto -->
-            <div class="hero-copy lg:col-span-5 xl:col-span-6">
+            <div class="hero-copy lg:col-span-6 xl:col-span-6">
                 <!-- Badge -->
                 <div class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold mb-4">
-                    <span class="w-2 h-2 rounded-full bg-blue-400"></span>
+                    <span class="hero-badge-dot w-2 h-2 rounded-full bg-blue-400"></span>
                     Inteligência fiscal para contadores
                 </div>
 
                 <!-- Título -->
                 <h1 class="font-extrabold leading-tight tracking-tight text-3xl sm:text-4xl xl:text-5xl">
                     Importe seu SPED e descubra
-                    <span class="block text-white [text-shadow:0_1px_4px_rgba(0,0,0,0.45),0_0_1px_rgba(0,0,0,0.35),0_0_8px_rgba(0,0,0,0.25)]">riscos fiscais em minutos</span>
+                    <span class="hero-accent-line">riscos fiscais em minutos</span>
                 </h1>
 
                 <!-- Subtítulo -->
@@ -613,7 +858,7 @@
                 </p>
 
                 <!-- Social Proof: Avatares + Avaliação -->
-                <div class="mt-6 mb-6 lg:mb-8 flex items-center gap-4 flex-wrap">
+                <div class="mt-8 mb-12 lg:mb-16 flex items-center gap-4 flex-wrap">
                     <!-- Grupo de Avatares -->
                     <div class="flex items-center -space-x-2">
                         <img src="{{ asset('binary_files/people-pictures/random_person-1.jpg') }}" alt="Avaliador" class="w-12 h-12 rounded-full border-2 border-white object-cover">
@@ -654,7 +899,7 @@
             </div>
 
             <!-- Coluna Direita: Mockup -->
-            <div class="hero-visual lg:col-span-7 xl:col-span-6">
+            <div class="hero-visual lg:col-span-6 xl:col-span-6">
                 <div class="hero-visual-glow" aria-hidden="true"></div>
                 <img
                     src="{{ asset('binary_files/mockups/macbook-mockup.png') }}"
@@ -664,6 +909,39 @@
                     decoding="async"
                     class="hero-mockup w-full h-auto drop-shadow-2xl"
                 >
+
+                <!-- Cartões flutuantes: o produto pegando risco em tempo real -->
+                <div class="hero-floaties" aria-hidden="true">
+                    <div class="hero-float hero-float--alert">
+                        <div class="hf-inner">
+                            <span class="hf-icon" style="background-color: rgba(239, 68, 68, 0.16);">
+                                <svg width="18" height="18" fill="none" stroke="#f87171" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m0 3.75h.008M10.34 3.94 1.7 18.06A1.5 1.5 0 0 0 3 20.25h18a1.5 1.5 0 0 0 1.3-2.19L13.66 3.94a1.5 1.5 0 0 0-2.62 0Z"/>
+                                </svg>
+                            </span>
+                            <div>
+                                <div class="hf-title" style="display:flex; align-items:center; gap:.4rem;">
+                                    <span class="hf-dot" style="background-color:#f87171; color:#f87171;"></span>
+                                    Fornecedor inapto
+                                </div>
+                                <div class="hf-sub">CNPJ 12.345.678/0001-90 · Receita Federal</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="hero-float hero-float--ok">
+                        <div class="hf-inner">
+                            <span class="hf-icon" style="background-color: rgba(16, 185, 129, 0.16);">
+                                <svg width="18" height="18" fill="none" stroke="#34d399" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
+                                </svg>
+                            </span>
+                            <div>
+                                <div class="hf-title">CND Federal emitida</div>
+                                <div class="hf-sub">Certidão negativa · há 2 min</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -1124,7 +1402,7 @@
 <!-- Métricas Banner -->
 <section id="metricas" class="relative py-8 sm:py-10" style="background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), inset 0 -1px 0 rgba(255,255,255,0.05);">
     <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-8 text-center">
             <div>
                 <div class="text-3xl sm:text-4xl font-extrabold" style="color: #ffffff;">R$ 47M+</div>
                 <p class="mt-2 text-xs sm:text-sm font-medium" style="color: rgba(255,255,255,0.55);">em notas fiscais importadas</p>
@@ -1156,7 +1434,7 @@
             </p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 lg:gap-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-6">
             <!-- Escritórios Contábeis -->
             <div class="rounded-2xl border border-gray-200 p-6 lg:p-8 hover:-translate-y-1 hover:shadow-xl transition-all duration-300 flex flex-col">
                 <div class="w-14 h-14 rounded-xl flex items-center justify-center mb-5" style="background-color: #eef2f7; border: 1px solid #dce3ed;">

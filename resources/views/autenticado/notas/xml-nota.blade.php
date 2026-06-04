@@ -30,7 +30,7 @@
         default => 'Documento fiscal importado via XML',
     };
 
-    $chaveFormatada = $nota->nfe_id ? implode(' ', str_split($nota->nfe_id, 4)) : null;
+    $chaveFormatada = $nota->chave_acesso ? implode(' ', str_split($nota->chave_acesso, 4)) : null;
     $notaRef = $nota->notaReferenciada();
 
     $temTributos = ($nota->icms_valor ?? 0) > 0
@@ -57,7 +57,7 @@
 <div class="bg-gray-100 min-h-screen">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         <div class="mb-4 sm:mb-8">
-            <a href="/app/notas-fiscais" data-link class="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-900 hover:underline">
+            <a href="/app/notas" data-link class="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-900 hover:underline">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                 </svg>
@@ -67,7 +67,7 @@
             <div class="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                     <h1 class="text-lg sm:text-xl font-bold text-gray-900 uppercase tracking-wide">
-                        Nota Fiscal {{ $nota->numero_nota ?? 'Sem numero' }}{{ $nota->serie ? ' / Serie ' . $nota->serie : '' }}
+                        Nota Fiscal {{ $nota->numero_documento ?? 'Sem numero' }}{{ $nota->serie ? ' / Serie ' . $nota->serie : '' }}
                     </h1>
                     <p class="text-xs text-gray-500">{{ $modeloSubtitulo }}</p>
                 </div>
@@ -146,7 +146,7 @@
                     <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4">
                         <div>
                             <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">CNPJ</p>
-                            <p class="text-sm font-mono text-gray-700">{{ $nota->emit_cnpj_formatado ?? '—' }}</p>
+                            <p class="text-sm font-mono text-gray-700">{{ $nota->emit_documento_formatado ?? '—' }}</p>
                         </div>
                         <div>
                             <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">UF</p>
@@ -188,7 +188,7 @@
                     <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4">
                         <div>
                             <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">CNPJ</p>
-                            <p class="text-sm font-mono text-gray-700">{{ $nota->dest_cnpj_formatado ?? '—' }}</p>
+                            <p class="text-sm font-mono text-gray-700">{{ $nota->dest_documento_formatado ?? '—' }}</p>
                         </div>
                         <div>
                             <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">UF</p>
@@ -268,8 +268,8 @@
                         <p class="text-xs font-mono text-gray-700 break-all">{{ implode(' ', str_split($nota->chave_referenciada, 4)) }}</p>
                     @endif
                     @if($notaRef)
-                        <a href="/app/notas-fiscais/xml/{{ $notaRef->id }}" data-link class="inline-flex items-center mt-2 text-xs text-gray-700 hover:text-gray-900 hover:underline">
-                            Ver nota original: Nº {{ $notaRef->numero_nota }}{{ $notaRef->serie ? ' / ' . $notaRef->serie : '' }}
+                        <a href="/app/notas/xml/{{ $notaRef->id }}" data-link class="inline-flex items-center mt-2 text-xs text-gray-700 hover:text-gray-900 hover:underline">
+                            Ver nota original: Nº {{ $notaRef->numero_documento }}{{ $notaRef->serie ? ' / ' . $notaRef->serie : '' }}
                         </a>
                     @endif
                 </div>

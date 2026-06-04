@@ -545,10 +545,10 @@
         var el = document.getElementById('rf-cruzamentos-content');
         var html = '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">';
 
-        html += cruzamentoCard('ICMS Débitos', 'Apuração (E110) vs Soma das Notas de Saída', data.icms.tem_dados, data.icms.declarado_debito, data.icms.notas_debito, data.icms.divergencia_debito_pct, data.icms.status_debito);
-        html += cruzamentoCard('ICMS Créditos', 'Apuração (E110) vs Soma das Notas de Entrada', data.icms.tem_dados, data.icms.declarado_credito, data.icms.notas_credito, data.icms.divergencia_credito_pct, data.icms.status_credito);
-        html += cruzamentoCard('PIS a Recolher', 'Apuração (M200) vs Soma dos Itens', data.pis_cofins.tem_dados, data.pis_cofins.pis_declarado, data.pis_cofins.pis_notas, data.pis_cofins.pis_divergencia_pct, data.pis_cofins.pis_status);
-        html += cruzamentoCard('COFINS a Recolher', 'Apuração (M600) vs Soma dos Itens', data.pis_cofins.tem_dados, data.pis_cofins.cofins_declarado, data.pis_cofins.cofins_notas, data.pis_cofins.cofins_divergencia_pct, data.pis_cofins.cofins_status);
+        html += cruzamentoCard('ICMS Débitos', 'Apuração (E110) vs Consolidado das Saídas (C190)', data.icms.tem_dados, data.icms.declarado_debito, data.icms.notas_debito, data.icms.divergencia_debito_pct, data.icms.status_debito);
+        html += cruzamentoCard('ICMS Créditos', 'Apuração (E110) vs Consolidado das Entradas (C190)', data.icms.tem_dados, data.icms.declarado_credito, data.icms.notas_credito, data.icms.divergencia_credito_pct, data.icms.status_credito);
+        html += cruzamentoCard('PIS Devido', 'Apuração (M200) vs Débito nas Saídas', data.pis_cofins.tem_dados, data.pis_cofins.pis_declarado, data.pis_cofins.pis_notas, data.pis_cofins.pis_divergencia_pct, data.pis_cofins.pis_status);
+        html += cruzamentoCard('COFINS Devido', 'Apuração (M600) vs Débito nas Saídas', data.pis_cofins.tem_dados, data.pis_cofins.cofins_declarado, data.pis_cofins.cofins_notas, data.pis_cofins.cofins_divergencia_pct, data.pis_cofins.cofins_status);
 
         var ret = data.retencoes;
         html += '<div class="bg-white rounded border border-gray-300 overflow-hidden md:col-span-2 lg:col-span-2">';

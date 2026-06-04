@@ -3,7 +3,7 @@
         ? ['label' => strtoupper($nota->tipo_nota_descricao), 'hex' => '#047857']
         : ['label' => strtoupper($nota->tipo_nota_descricao), 'hex' => '#d97706'];
 
-    $chaveFormatada = $nota->nfe_id ? implode(' ', str_split($nota->nfe_id, 4)) : null;
+    $chaveFormatada = $nota->chave_acesso ? implode(' ', str_split($nota->chave_acesso, 4)) : null;
 
     $temTributos = ($nota->icms_valor ?? 0) > 0 || ($nota->icms_st_valor ?? 0) > 0 ||
         ($nota->pis_valor ?? 0) > 0 || ($nota->cofins_valor ?? 0) > 0 ||
@@ -67,7 +67,7 @@
                 <div class="grid grid-cols-2 gap-4 mt-3">
                     <div>
                         <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">CNPJ</p>
-                        <p class="text-sm font-mono text-gray-700">{{ $nota->emit_cnpj_formatado ?? '—' }}</p>
+                        <p class="text-sm font-mono text-gray-700">{{ $nota->emit_documento_formatado ?? '—' }}</p>
                     </div>
                     @if($nota->emit_uf)
                         <div>
@@ -92,7 +92,7 @@
                 <div class="grid grid-cols-2 gap-4 mt-3">
                     <div>
                         <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">CNPJ</p>
-                        <p class="text-sm font-mono text-gray-700">{{ $nota->dest_cnpj_formatado ?? '—' }}</p>
+                        <p class="text-sm font-mono text-gray-700">{{ $nota->dest_documento_formatado ?? '—' }}</p>
                     </div>
                     @if($nota->dest_uf)
                         <div>
@@ -164,8 +164,8 @@
                 <p class="text-xs font-mono text-gray-700 break-all">{{ implode(' ', str_split($nota->chave_referenciada, 4)) }}</p>
                 @php $notaRef = $nota->notaReferenciada(); @endphp
                 @if($notaRef)
-                    <a href="/app/notas-fiscais/xml/{{ $notaRef->id }}" data-link class="inline-flex items-center mt-2 text-xs text-gray-700 hover:text-gray-900 hover:underline">
-                        Ver nota original: Nº {{ $notaRef->numero_nota }}{{ $notaRef->serie ? '/' . $notaRef->serie : '' }}
+                    <a href="/app/notas/xml/{{ $notaRef->id }}" data-link class="inline-flex items-center mt-2 text-xs text-gray-700 hover:text-gray-900 hover:underline">
+                        Ver nota original: Nº {{ $notaRef->numero_documento }}{{ $notaRef->serie ? '/' . $notaRef->serie : '' }}
                     </a>
                 @endif
             </div>
@@ -187,7 +187,7 @@
     @endif
 
     <div class="flex justify-end pt-2 border-t border-gray-200">
-        <a href="/app/notas-fiscais/xml/{{ $nota->id }}" data-link class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 hover:text-gray-900 hover:underline">
+        <a href="/app/notas/xml/{{ $nota->id }}" data-link class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 hover:text-gray-900 hover:underline">
             Ver detalhes completos
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>

@@ -11,31 +11,37 @@ return new class extends Migration
             return;
         }
 
-        DB::unprepared("
+        // origem_arquivo faz parte da identidade: a MESMA NF-e aparece no EFD ICMS/IPI
+        // ('fiscal') e no EFD PIS/COFINS ('contribuicoes'). Sem origem_arquivo na checagem,
+        // o trigger descartava (RETURN NULL) as notas da 2ª escrituração antes do INSERT.
+        // IS NOT DISTINCT FROM trata NULL como valor comparável.
+        // Ver docs/n8n/extracao-efd-icms-ipi/auditoria-2026-06-01.md.
+        DB::unprepared('
             CREATE OR REPLACE FUNCTION efd_notas_ignore_duplicate()
-            RETURNS TRIGGER AS \$\$
+            RETURNS TRIGGER AS $$
             BEGIN
                 IF EXISTS (
                     SELECT 1 FROM efd_notas
-                    WHERE cliente_id   = NEW.cliente_id
-                      AND chave_acesso = NEW.chave_acesso
-                      AND modelo       = NEW.modelo
-                      AND numero       = NEW.numero
-                      AND serie        = NEW.serie
+                    WHERE cliente_id     = NEW.cliente_id
+                      AND chave_acesso   = NEW.chave_acesso
+                      AND modelo         = NEW.modelo
+                      AND numero         = NEW.numero
+                      AND serie          = NEW.serie
+                      AND origem_arquivo IS NOT DISTINCT FROM NEW.origem_arquivo
                 ) THEN
                     RETURN NULL;
                 END IF;
                 RETURN NEW;
             END;
-            \$\$ LANGUAGE plpgsql;
-        ");
+            $$ LANGUAGE plpgsql;
+        ');
 
-        DB::unprepared("
+        DB::unprepared('
             DROP TRIGGER IF EXISTS trg_efd_notas_ignore_duplicate ON efd_notas;
             CREATE TRIGGER trg_efd_notas_ignore_duplicate
                 BEFORE INSERT ON efd_notas
                 FOR EACH ROW EXECUTE FUNCTION efd_notas_ignore_duplicate();
-        ");
+        ');
     }
 
     public function down(): void

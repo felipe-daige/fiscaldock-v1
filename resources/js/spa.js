@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
         consultas: '/js/consulta-lote.js',
         consultaLote: '/js/consulta-lote.js',
         bi: null, // Script carregado como tag externa na view — nao tentar recarregar no SPA
-        notasFiscais: null, // Código inline na view
+        notas: null, // Código inline na view
         alertas: null, // Código inline na view
         clearance: null, // Código inline/script externo por view de clearance
     };
@@ -113,8 +113,8 @@ document.addEventListener('DOMContentLoaded', () => {
         '/app/perfil': 'initPerfil',
         '/app/bi/dashboard': 'initBi',
         '/app/dashboard': 'initDashboard',
-        '/app/notas-fiscais': null, // IIFE inline na view, sem init function
-        '/app/notas-fiscais/dashboard': null, // IIFE inline na view
+        '/app/notas': null, // IIFE inline na view, sem init function
+        '/app/notas/dashboard': null, // IIFE inline na view
         '/app/alertas': null, // IIFE inline na view
         '/app/clearance/dashboard': null, // Clearance dashboard — IIFE inline
         '/app/clearance/notas': 'initClearanceNotas', // Clearance notas — reinicializa via initClearanceNotas no SPA
@@ -249,7 +249,29 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
-    
+
+    // 1.0.1. INTERCEPTAR LINKS DE PAGINAÇÃO DENTRO DE [data-spa-list]
+    document.body.addEventListener('click', (e) => {
+        const link = e.target.closest('[data-spa-list] a[href]');
+        if (!link) return;
+
+        const url = new URL(link.href, window.location.origin);
+
+        // Só links de paginação (têm ?page=) de rotas autenticadas
+        if (!url.searchParams.has('page')) return;
+        if (!url.pathname.startsWith('/app/')) return;
+
+        const container = link.closest('[data-spa-list]');
+        if (!container || !container.id) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+        navegarLista(link, container).catch((error) => {
+            console.error('[SPA] Falha em navegarLista:', error);
+            window.location.href = link.href;
+        });
+    });
+
     // 1.1. INTERCEPTAR FORMULÁRIO DE LOGOUT
     document.body.addEventListener('submit', async (e) => {
         const form = e.target;
@@ -492,6 +514,12 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // 4. EXECUTAR SCRIPTS
     function executarScripts() {
+        // Remover os <script> inline já executados da navegação anterior. Eles ficam inertes
+        // no <head> após rodar (a IIFE já executou; estado/listeners são limpos por limparRecursos),
+        // então acumulavam ~1 tag por navegação. Os scripts externos (src) NÃO são tocados —
+        // são deduplicados por src e reusados entre navegações.
+        document.head.querySelectorAll('script[data-spa-inline]').forEach((s) => s.remove());
+
         const scripts = app.querySelectorAll('script');
         const loadPromises = [];
 
@@ -518,6 +546,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const novoScript = document.createElement('script');
                 novoScript.textContent = script.textContent;
+                novoScript.setAttribute('data-spa-inline', '1'); // marca p/ remoção na próxima navegação
 
                 // Validar se o script tem conteúdo válido antes de executar
                 if (script.textContent && script.textContent.trim() !== '') {
@@ -707,6 +736,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const novoScript = document.createElement('script');
                 novoScript.textContent = script.textContent;
+                novoScript.setAttribute('data-spa-inline', '1'); // marca p/ remoção na próxima navegação
 
                 // Validar se o script tem conteúdo válido antes de executar
                 if (script.textContent && script.textContent.trim() !== '') {

@@ -73,5 +73,6 @@
         ]);
     </script>
     <script src="{{ asset('js/error-inline.js') }}?v={{ filemtime(public_path('js/error-inline.js')) }}"></script>
+    <script src="{{ asset('js/nota-catalogo.js') }}?v={{ filemtime(public_path('js/nota-catalogo.js')) }}"></script>
 </body>
 </html>

@@ -27,17 +27,34 @@ return new class extends Migration
             $table->decimal('valor_desconto', 15, 2)->default(0);
             $table->jsonb('metadados')->nullable();
             $table->jsonb('validacao')->nullable();
+            $table->boolean('cancelada')->default(false);
             $table->timestamps();
 
             $table->index(['cliente_id', 'data_emissao', 'tipo_operacao'], 'efd_notas_cliente_data_tipo_idx');
         });
 
-        // Índice único parcial: NULL em chave_acesso = NFS-e sem chave (não conta para unicidade)
+        // Índice único parcial: NULL em chave_acesso = NFS-e sem chave (não conta para unicidade).
+        // origem_arquivo faz parte da chave: a MESMA NF-e é escriturada tanto no EFD ICMS/IPI
+        // ('fiscal', com ICMS) quanto no EFD PIS/COFINS ('contribuicoes', com PIS/COFINS) da
+        // mesma empresa/período. Sem origem_arquivo aqui, a 2ª importação perdia as notas por
+        // colisão de chave (ver docs/n8n/extracao-efd-icms-ipi/auditoria-2026-06-01.md).
         DB::statement('
             CREATE UNIQUE INDEX efd_notas_unique_nota
-            ON efd_notas (cliente_id, chave_acesso, modelo, numero, serie)
+            ON efd_notas (cliente_id, chave_acesso, modelo, numero, serie, origem_arquivo)
             WHERE chave_acesso IS NOT NULL
         ');
+
+        // Índice único parcial para NFS-e (modelo 00) e demais sem chave: dedup por
+        // (cliente, modelo, numero, serie, participante) + origem_arquivo. Mesmo motivo do
+        // unique_nota — a NF-e/NFS-e pode aparecer em escriturações diferentes (fiscal/contrib).
+        DB::statement('
+            CREATE UNIQUE INDEX efd_notas_unique_nfse
+            ON efd_notas (cliente_id, modelo, numero, serie, participante_id, origem_arquivo)
+            WHERE chave_acesso IS NULL
+        ');
+
+        // Index parcial pra filtrar canceladas rapidamente (poucas linhas vs total)
+        DB::statement('CREATE INDEX efd_notas_cancelada_idx ON efd_notas (cancelada) WHERE cancelada = true');
 
         // Itens/produtos (Registros A170, C170)
         Schema::create('efd_notas_itens', function (Blueprint $table) {
@@ -238,14 +255,121 @@ return new class extends Migration
             $table->unique(['cliente_id', 'cod_item'], 'efd_catalogo_itens_unique');
             $table->index(['cliente_id', 'cod_ncm'], 'efd_catalogo_itens_ncm_idx');
         });
+
+        // Change-log do catálogo (0200): registra mudança de NCM/alíquota/unidade/descrição
+        // de um item entre importações. Capturado por trigger no UPDATE de efd_catalogo_itens
+        // (re-importação com ON CONFLICT DO UPDATE). Mantém efd_catalogo_itens com 1 versão por
+        // item (sem fan-out no consumo); o histórico vive aqui. Não recalculável após sobrescrita.
+        Schema::create('efd_catalogo_historico', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('cliente_id')->constrained('clientes')->cascadeOnDelete();
+            $table->string('cod_item', 60);
+            $table->string('campo', 20); // cod_ncm | aliq_icms | unid_inv | descr_item
+            $table->text('valor_anterior')->nullable();
+            $table->text('valor_novo')->nullable();
+            $table->foreignId('importacao_id')->nullable()->constrained('efd_importacoes')->nullOnDelete();
+            $table->timestamp('changed_at')->useCurrent();
+
+            $table->index(['user_id', 'cod_item', 'changed_at'], 'efd_catalogo_historico_item_idx');
+        });
+
+        DB::statement(<<<'SQL'
+            CREATE OR REPLACE FUNCTION efd_catalogo_log_mudanca() RETURNS trigger AS $$
+            BEGIN
+                IF NEW.cod_ncm IS DISTINCT FROM OLD.cod_ncm THEN
+                    INSERT INTO efd_catalogo_historico (user_id, cliente_id, cod_item, campo, valor_anterior, valor_novo, importacao_id, changed_at)
+                    VALUES (NEW.user_id, NEW.cliente_id, NEW.cod_item, 'cod_ncm', OLD.cod_ncm, NEW.cod_ncm, NEW.importacao_id, (NOW() AT TIME ZONE 'UTC'));
+                END IF;
+                IF NEW.aliq_icms IS DISTINCT FROM OLD.aliq_icms THEN
+                    INSERT INTO efd_catalogo_historico (user_id, cliente_id, cod_item, campo, valor_anterior, valor_novo, importacao_id, changed_at)
+                    VALUES (NEW.user_id, NEW.cliente_id, NEW.cod_item, 'aliq_icms', OLD.aliq_icms::text, NEW.aliq_icms::text, NEW.importacao_id, (NOW() AT TIME ZONE 'UTC'));
+                END IF;
+                IF NEW.unid_inv IS DISTINCT FROM OLD.unid_inv THEN
+                    INSERT INTO efd_catalogo_historico (user_id, cliente_id, cod_item, campo, valor_anterior, valor_novo, importacao_id, changed_at)
+                    VALUES (NEW.user_id, NEW.cliente_id, NEW.cod_item, 'unid_inv', OLD.unid_inv, NEW.unid_inv, NEW.importacao_id, (NOW() AT TIME ZONE 'UTC'));
+                END IF;
+                IF NEW.descr_item IS DISTINCT FROM OLD.descr_item THEN
+                    INSERT INTO efd_catalogo_historico (user_id, cliente_id, cod_item, campo, valor_anterior, valor_novo, importacao_id, changed_at)
+                    VALUES (NEW.user_id, NEW.cliente_id, NEW.cod_item, 'descr_item', OLD.descr_item, NEW.descr_item, NEW.importacao_id, (NOW() AT TIME ZONE 'UTC'));
+                END IF;
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql;
+        SQL);
+
+        DB::statement('DROP TRIGGER IF EXISTS efd_catalogo_historico_trg ON efd_catalogo_itens');
+        DB::statement('CREATE TRIGGER efd_catalogo_historico_trg AFTER UPDATE ON efd_catalogo_itens FOR EACH ROW EXECUTE FUNCTION efd_catalogo_log_mudanca()');
+
+        // Analítico consolidado de ICMS (C190/D190): agregado por CST+CFOP+alíquota.
+        // SPED-Fiscal permite escriturar saídas via C190 sem C170 — esta tabela
+        // captura esse nível. Filho de efd_notas (1 nota → N consolidados).
+        Schema::create('efd_notas_consolidados', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('efd_nota_id')->constrained('efd_notas')->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            $table->string('cst_icms', 3);
+            $table->integer('cfop');
+            $table->decimal('aliquota_icms', 6, 2)->nullable();
+            $table->decimal('valor_operacao', 19, 2)->default(0);
+            $table->decimal('valor_bc_icms', 19, 2)->default(0);
+            $table->decimal('valor_icms', 19, 2)->default(0);
+            $table->decimal('valor_bc_icms_st', 19, 2)->default(0);
+            $table->decimal('valor_icms_st', 19, 2)->default(0);
+            $table->decimal('valor_reducao_bc', 19, 2)->default(0);
+            $table->decimal('valor_ipi', 19, 2)->default(0);
+            $table->string('cod_obs', 6)->nullable();
+            $table->timestamps();
+
+            $table->index('user_id', 'efd_notas_consolidados_user_idx');
+            $table->index('cfop', 'efd_notas_consolidados_cfop_idx');
+        });
+
+        // Unique com NULLS NOT DISTINCT (PG15+) — aliquota_icms pode ser NULL e
+        // ainda assim deduplicar. Permite ON CONFLICT com colunas simples no n8n.
+        DB::statement('CREATE UNIQUE INDEX efd_notas_consolidados_unique ON efd_notas_consolidados (efd_nota_id, cst_icms, cfop, aliquota_icms) NULLS NOT DISTINCT');
+
+        // Divergências detectadas entre SPED bruto e estado persistido.
+        // Cobre canceladas descartadas, duplicações de pipeline, constraints,
+        // órfãos do Merge, parse inconsistente e reconciliação de valor.
+        Schema::create('efd_divergencias', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('importacao_id')->constrained('efd_importacoes')->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            $table->string('bloco', 8);                  // 'C100', 'C170', 'C190', 'D100', etc.
+            $table->string('motivo', 40);                // ver enum no Model
+            $table->string('severidade', 10);            // 'info' | 'aviso' | 'erro'
+            $table->string('chave_acesso', 44)->nullable();
+            $table->bigInteger('numero_documento')->nullable();
+            $table->integer('numero_item')->nullable();
+            $table->jsonb('payload_descartado');
+            $table->text('mensagem')->nullable();
+            $table->timestamp('detectado_em')->useCurrent();
+            $table->timestamp('resolvido_em')->nullable();
+            $table->timestamps();
+
+            $table->index('importacao_id', 'efd_divergencias_importacao_idx');
+            $table->index('chave_acesso', 'efd_divergencias_chave_idx');
+            $table->index(['user_id', 'motivo'], 'efd_divergencias_user_motivo_idx');
+        });
+
+        // Dedup idempotente pro INSERT direto do n8n (Auditor). NULLS NOT DISTINCT
+        // garante que chave_acesso/numero_item nulos colidam (PG15+).
+        DB::statement('CREATE UNIQUE INDEX efd_divergencias_dedup ON efd_divergencias (importacao_id, bloco, motivo, chave_acesso, numero_item) NULLS NOT DISTINCT');
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('efd_divergencias');
+        Schema::dropIfExists('efd_notas_consolidados');
+        DB::statement('DROP TRIGGER IF EXISTS efd_catalogo_historico_trg ON efd_catalogo_itens');
+        DB::statement('DROP FUNCTION IF EXISTS efd_catalogo_log_mudanca()');
+        Schema::dropIfExists('efd_catalogo_historico');
         Schema::dropIfExists('efd_catalogo_itens');
         Schema::dropIfExists('efd_retencoes_fonte');
         Schema::dropIfExists('efd_apuracoes_icms');
         Schema::dropIfExists('efd_apuracoes_contribuicoes');
+        DB::statement('DROP INDEX IF EXISTS efd_notas_unique_nfse');
         DB::statement('DROP INDEX IF EXISTS efd_notas_unique_nota');
         Schema::dropIfExists('efd_notas_itens');
         Schema::dropIfExists('efd_notas');

@@ -30,7 +30,9 @@
         default => ($nota->origem_arquivo ?? '') === 'contribuicoes' ? 'Documento de servico escriturado via EFD' : 'Documento fiscal escriturado via EFD',
     };
 
-    $totalIcms = $nota->itens->sum('valor_icms');
+    // ICMS do C190 (consolidados) — no perfil comercial o C170 não carrega ICMS (P2).
+    // Fallback aos itens só quando não há C190 (NF-e antiga sem consolidado).
+    $totalIcms = $nota->consolidados->sum('valor_icms') ?: $nota->itens->sum('valor_icms');
     $totalPis = $nota->itens->sum('valor_pis');
     $totalCofins = $nota->itens->sum('valor_cofins');
     $totalTributos = $totalIcms + $totalPis + $totalCofins;
@@ -41,7 +43,7 @@
 <div class="bg-gray-100 min-h-screen">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         <div class="mb-4 sm:mb-8">
-            <a href="/app/notas-fiscais" data-link class="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-900 hover:underline">
+            <a href="/app/notas" data-link class="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-900 hover:underline">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                 </svg>
@@ -91,7 +93,7 @@
                 <div class="p-4">
                     <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Tributos</p>
                     <p class="text-lg font-bold text-gray-900">R$ {{ number_format($totalTributos, 2, ',', '.') }}</p>
-                    <p class="text-[11px] text-gray-500">Soma de ICMS, PIS e COFINS dos itens</p>
+                    <p class="text-[11px] text-gray-500">ICMS do consolidado (C190) + PIS/COFINS dos itens</p>
                 </div>
             </div>
             @if($nota->chave_acesso)
@@ -295,94 +297,91 @@
                 </div>
             </div>
 
-            @if($nota->itens->isNotEmpty())
-                <div class="md:hidden divide-y divide-gray-100">
-                    @foreach($nota->itens as $item)
-                        <div class="px-4 py-3">
-                            <div class="flex items-start justify-between gap-3">
+            @php
+                $itensExibir = $nota->itensDetalhe();
+                $viaTwin = $nota->itensViaTwin();
+                $catalogoMap = $nota->catalogoPorItem();
+                $tabValor = $itensExibir->sum('valor_total');
+                $tabIcms = $itensExibir->sum('valor_icms');
+                $tabPis = $itensExibir->sum('valor_pis');
+                $tabCofins = $itensExibir->sum('valor_cofins');
+                $aliqDiv = fn ($cat, $item) => $cat && $cat->aliq_icms !== null && $item->aliquota_icms !== null && (float) $item->aliquota_icms > 0 && abs((float) $cat->aliq_icms - (float) $item->aliquota_icms) > 0.01;
+            @endphp
+            @if($itensExibir->isNotEmpty())
+                @if($viaTwin)<div class="px-4 py-2 bg-amber-50 border-b border-amber-200 text-[11px] text-amber-700">Itens detalhados via EFD PIS/COFINS (a saída fiscal foi escriturada por C190).</div>@endif
+                <div class="p-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
+                    @foreach($itensExibir as $item)
+                        @php $cat = $catalogoMap[$item->codigo_item] ?? null; $div = $aliqDiv($cat, $item); @endphp
+                        <div class="border border-gray-200 rounded-md p-2.5">
+                            <div class="flex items-start justify-between gap-2">
                                 <div class="min-w-0">
-                                    <p class="text-sm text-gray-900">{{ $item->descricao ?? '—' }}</p>
-                                    <p class="text-[11px] text-gray-500 mt-1">
-                                        Item {{ $item->numero_item ?? '—' }} · Cod. {{ $item->codigo_item ?? '—' }}
-                                    </p>
+                                    <p class="text-sm text-gray-900 leading-snug">{{ $item->descricao ?: ($cat?->descr_item ?? '—') }}</p>
+                                    <p class="text-[10px] text-gray-500 font-mono mt-0.5">#{{ $item->numero_item ?? '—' }} · {{ $item->codigo_item ?? '—' }}</p>
                                 </div>
-                                @if($item->cfop)
-                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: #4338ca">{{ $item->cfop }}</span>
-                                @endif
-                            </div>
-                            <div class="grid grid-cols-2 gap-x-4 gap-y-2 mt-3">
-                                <div>
-                                    <p class="text-[10px] text-gray-400 uppercase">Quantidade</p>
-                                    <p class="text-sm text-gray-700">{{ $item->quantidade !== null ? number_format($item->quantidade, 2, ',', '.') : '—' }} {{ $item->unidade_medida ?? '' }}</p>
-                                </div>
-                                <div>
-                                    <p class="text-[10px] text-gray-400 uppercase">Unitario</p>
-                                    <p class="text-sm text-gray-700">R$ {{ $item->valor_unitario !== null ? number_format($item->valor_unitario, 2, ',', '.') : '—' }}</p>
-                                </div>
-                                <div>
-                                    <p class="text-[10px] text-gray-400 uppercase">Total</p>
-                                    <p class="text-sm font-mono font-semibold text-gray-900">{{ $item->valor_total !== null ? number_format($item->valor_total, 2, ',', '.') : '—' }}</p>
-                                </div>
-                                <div>
-                                    <p class="text-[10px] text-gray-400 uppercase">Tributos</p>
-                                    <p class="text-sm text-gray-700">
-                                        ICMS {{ $item->valor_icms !== null ? number_format($item->valor_icms, 2, ',', '.') : '—' }}
-                                        / PIS {{ $item->valor_pis !== null ? number_format($item->valor_pis, 2, ',', '.') : '—' }}
-                                    </p>
+                                <div class="flex flex-col items-end gap-1 shrink-0">
+                                    @if($cat && $cat->cod_ncm)
+                                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold text-white" style="background-color: #4338ca" title="NCM do catálogo">{{ $cat->cod_ncm }}</span>
+                                    @elseif($cat && $cat->exigeNcm())
+                                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold text-white" style="background-color: #b45309" title="Tipo {{ $cat->tipo_item }} ({{ $cat->tipo_label }}) é mercadoria/produto — NCM deveria estar preenchido no 0200">NCM faltando</span>
+                                    @elseif($cat)
+                                        <span class="px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-600" style="background-color: #f3f4f6" title="Tipo {{ $cat->tipo_item }} ({{ $cat->tipo_label }}) — NCM não é exigido p/ este tipo de item">não exige NCM</span>
+                                    @else
+                                        <span class="text-amber-600 text-[10px] font-semibold" title="Sem catálogo 0200">sem cat.</span>
+                                    @endif
+                                    @if($div)<span class="px-1.5 py-0.5 rounded text-[10px] font-bold text-white" style="background-color: #b45309" title="Alíquota do item difere do catálogo">alíq ≠</span>@endif
                                 </div>
                             </div>
+                            <div class="grid grid-cols-2 gap-x-3 gap-y-1 mt-2 text-[11px]">
+                                <div><span class="text-gray-400">Qtd</span> <span class="text-gray-700">{{ $item->quantidade !== null ? number_format($item->quantidade, 2, ',', '.') : '—' }} {{ $item->unidade_medida ?? '' }}</span></div>
+                                <div><span class="text-gray-400">CFOP</span> <span class="font-mono text-gray-700">{{ $item->cfop ?? '—' }}</span></div>
+                                <div><span class="text-gray-400">Alíq</span> <span class="font-mono {{ $div ? 'text-amber-700 font-semibold' : 'text-gray-700' }}">{{ $item->aliquota_icms !== null ? number_format((float)$item->aliquota_icms, 1, ',', '.') : '—' }}@if($cat && $cat->aliq_icms !== null)<span class="text-gray-400">/{{ number_format((float)$cat->aliq_icms, 1, ',', '.') }}</span>@endif</span></div>
+                                <div><span class="text-gray-400">Total</span> <span class="font-mono font-semibold text-gray-900">{{ $item->valor_total !== null ? number_format($item->valor_total, 2, ',', '.') : '—' }}</span></div>
+                                <div><span class="text-gray-400">Unit.</span> <span class="font-mono text-gray-700">{{ $item->valor_unitario !== null ? number_format($item->valor_unitario, 2, ',', '.') : '—' }}</span></div>
+                                <div><span class="text-gray-400">ICMS</span> <span class="font-mono text-gray-700">{{ $item->valor_icms !== null ? number_format($item->valor_icms, 2, ',', '.') : '—' }}</span></div>
+                                <div><span class="text-gray-400">PIS</span> <span class="font-mono text-gray-700">{{ $item->valor_pis !== null ? number_format($item->valor_pis, 2, ',', '.') : '—' }}</span></div>
+                                <div><span class="text-gray-400">COFINS</span> <span class="font-mono text-gray-700">{{ $item->valor_cofins !== null ? number_format($item->valor_cofins, 2, ',', '.') : '—' }}</span></div>
+                            </div>
+                            @if($cat)
+                                <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="mt-2 text-[11px] font-medium text-indigo-600 hover:underline">Ver catálogo ▾</button>
+                                <div class="hidden mt-2 pt-2 border-t border-gray-100 text-[11px] space-y-2">
+                                    <p class="text-gray-700">{{ $cat->descr_item }}</p>
+                                    <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-gray-500">
+                                        <span>NCM <span class="font-mono text-gray-700">{{ $cat->cod_ncm ?: '—' }}</span></span>
+                                        <span>Tipo <span class="text-gray-700">{{ $cat->tipo_item }} · {{ $cat->tipo_label }}</span></span>
+                                        <span>Unidade <span class="text-gray-700">{{ $cat->unid_inv ?: '—' }}</span></span>
+                                        <span>Alíq. cat. <span class="text-gray-700">{{ $cat->aliq_icms !== null ? number_format((float)$cat->aliq_icms, 2, ',', '.') . '%' : '—' }}</span></span>
+                                        <span>Cód. barras <span class="font-mono text-gray-700">{{ $cat->cod_barra ?: '—' }}</span></span>
+                                        <span>Cód. genérico <span class="font-mono text-gray-700">{{ $cat->cod_gen ?: '—' }}</span></span>
+                                    </div>
+                                    <button type="button" data-cat-hist="{{ $cat->cod_item }}" data-cat-cliente="{{ $cat->cliente_id }}" class="font-medium text-indigo-600 hover:underline">Histórico, movimentação e drift ▾</button>
+                                    <div class="cat-hist-panel hidden border border-gray-200 rounded bg-gray-50/50"></div>
+                                </div>
+                            @endif
                         </div>
                     @endforeach
                 </div>
-
-                <div class="hidden md:block overflow-x-auto">
-                    <table class="min-w-full">
-                        <thead>
-                            <tr class="border-b border-gray-300">
-                                <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">N</th>
-                                <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Codigo</th>
-                                <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Descricao</th>
-                                <th class="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Qtd</th>
-                                <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">UN</th>
-                                <th class="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Vlr Unit.</th>
-                                <th class="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Vlr Total</th>
-                                <th class="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">CFOP</th>
-                                <th class="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">CST ICMS</th>
-                                <th class="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">ICMS</th>
-                                <th class="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">PIS</th>
-                                <th class="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">COFINS</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100">
-                            @foreach($nota->itens as $item)
-                                <tr class="hover:bg-gray-50/50 transition-colors">
-                                    <td class="px-3 py-2 text-sm text-gray-700">{{ $item->numero_item ?? '—' }}</td>
-                                    <td class="px-3 py-2 text-sm font-mono text-gray-700">{{ $item->codigo_item ?? '—' }}</td>
-                                    <td class="px-3 py-2 text-sm text-gray-700 max-w-xs truncate">{{ $item->descricao ?? '—' }}</td>
-                                    <td class="px-3 py-2 text-sm text-right text-gray-700">{{ $item->quantidade !== null ? number_format($item->quantidade, 2, ',', '.') : '—' }}</td>
-                                    <td class="px-3 py-2 text-sm text-gray-700">{{ $item->unidade_medida ?? '—' }}</td>
-                                    <td class="px-3 py-2 text-sm text-right font-mono text-gray-700">{{ $item->valor_unitario !== null ? number_format($item->valor_unitario, 2, ',', '.') : '—' }}</td>
-                                    <td class="px-3 py-2 text-sm font-semibold text-gray-900 text-right font-mono">{{ $item->valor_total !== null ? number_format($item->valor_total, 2, ',', '.') : '—' }}</td>
-                                    <td class="px-3 py-2 text-sm text-center font-mono text-gray-700">{{ $item->cfop ?? '—' }}</td>
-                                    <td class="px-3 py-2 text-sm text-center text-gray-700">{{ $item->cst_icms ?? '—' }}</td>
-                                    <td class="px-3 py-2 text-sm text-right font-mono text-gray-700">{{ $item->valor_icms !== null ? number_format($item->valor_icms, 2, ',', '.') : '—' }}</td>
-                                    <td class="px-3 py-2 text-sm text-right font-mono text-gray-700">{{ $item->valor_pis !== null ? number_format($item->valor_pis, 2, ',', '.') : '—' }}</td>
-                                    <td class="px-3 py-2 text-sm text-right font-mono text-gray-700">{{ $item->valor_cofins !== null ? number_format($item->valor_cofins, 2, ',', '.') : '—' }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                        <tfoot>
-                            <tr class="border-t border-gray-300 bg-gray-50">
-                                <td class="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wide" colspan="6">Total</td>
-                                <td class="px-3 py-2 text-sm font-semibold text-gray-900 text-right font-mono">{{ number_format($totalItensValor, 2, ',', '.') }}</td>
-                                <td class="px-3 py-2"></td>
-                                <td class="px-3 py-2"></td>
-                                <td class="px-3 py-2 text-sm text-right font-mono text-gray-700">{{ number_format($totalIcms, 2, ',', '.') }}</td>
-                                <td class="px-3 py-2 text-sm text-right font-mono text-gray-700">{{ number_format($totalPis, 2, ',', '.') }}</td>
-                                <td class="px-3 py-2 text-sm text-right font-mono text-gray-700">{{ number_format($totalCofins, 2, ',', '.') }}</td>
-                            </tr>
-                        </tfoot>
-                    </table>
+                <div class="bg-gray-50 px-4 py-2 border-t border-gray-200 flex flex-wrap items-center justify-end gap-x-4 gap-y-1 text-[11px]">
+                    <span class="text-gray-500">Total itens <span class="font-mono font-semibold text-gray-900">R$ {{ number_format($tabValor, 2, ',', '.') }}</span></span>
+                    <span class="text-gray-500">ICMS <span class="font-mono text-gray-700">{{ number_format($tabIcms, 2, ',', '.') }}</span></span>
+                    <span class="text-gray-500">PIS <span class="font-mono text-gray-700">{{ number_format($tabPis, 2, ',', '.') }}</span></span>
+                    <span class="text-gray-500">COFINS <span class="font-mono text-gray-700">{{ number_format($tabCofins, 2, ',', '.') }}</span></span>
+                </div>
+            @elseif($nota->consolidados->isNotEmpty())
+                <div class="px-4 py-2 bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500">Escriturada por C190 (consolidado) — sem detalhe por item / catálogo.</div>
+                <div class="p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                    @foreach($nota->consolidados as $c)
+                        <div class="border border-gray-200 rounded-md p-2.5">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="px-1.5 py-0.5 rounded text-[10px] font-bold text-white" style="background-color: #4338ca">CFOP {{ $c->cfop ?? '—' }}</span>
+                                <span class="text-[11px] text-gray-500">CST {{ $c->cst_icms ?? '—' }} · {{ $c->aliquota_icms !== null ? number_format((float)$c->aliquota_icms, 2, ',', '.') . '%' : '—' }}</span>
+                            </div>
+                            <div class="grid grid-cols-3 gap-2 text-center">
+                                <div><p class="text-[9px] uppercase text-gray-400">Operação</p><p class="text-xs font-mono font-semibold text-gray-900">{{ number_format((float)($c->valor_operacao ?? 0), 2, ',', '.') }}</p></div>
+                                <div><p class="text-[9px] uppercase text-gray-400">ICMS</p><p class="text-xs font-mono text-gray-700">{{ number_format((float)($c->valor_icms ?? 0), 2, ',', '.') }}</p></div>
+                                <div><p class="text-[9px] uppercase text-gray-400">ICMS ST</p><p class="text-xs font-mono text-gray-700">{{ number_format((float)($c->valor_icms_st ?? 0), 2, ',', '.') }}</p></div>
+                            </div>
+                        </div>
+                    @endforeach
                 </div>
             @else
                 <div class="px-4 py-6 text-sm text-gray-500">

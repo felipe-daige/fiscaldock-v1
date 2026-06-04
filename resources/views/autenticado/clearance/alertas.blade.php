@@ -108,12 +108,12 @@
                                 @endphp
                                 <tr class="hover:bg-gray-50/50 transition-colors">
                                     <td class="px-3 py-3">
-                                        <div class="text-sm text-gray-900">NF {{ $nota->numero_nota }}</div>
+                                        <div class="text-sm text-gray-900">NF {{ $nota->numero_documento }}</div>
                                         <div class="text-[11px] text-gray-500">{{ $nota->data_emissao?->format('d/m/Y') }}</div>
                                     </td>
                                     <td class="px-3 py-3">
                                         <div class="text-sm text-gray-700">{{ $nota->emitente->razao_social ?? $nota->emit_razao_social ?? '-' }}</div>
-                                        <div class="text-[11px] font-mono text-gray-400">{{ $nota->emit_cnpj_formatado }}</div>
+                                        <div class="text-[11px] font-mono text-gray-400">{{ $nota->emit_documento_formatado }}</div>
                                     </td>
                                     <td class="px-3 py-3 text-center">
                                         <span class="text-sm font-semibold text-gray-900 font-mono">{{ $nota->validacao_score ?? '-' }}</span>
@@ -158,10 +158,10 @@
                         <div class="px-4 py-3">
                             <div class="flex items-start justify-between gap-3">
                                 <div class="min-w-0">
-                                    <p class="text-sm text-gray-900">NF {{ $nota->numero_nota }}</p>
+                                    <p class="text-sm text-gray-900">NF {{ $nota->numero_documento }}</p>
                                     <p class="text-[10px] text-gray-400 uppercase mt-1">Emitente</p>
                                     <p class="text-sm text-gray-700">{{ $nota->emitente->razao_social ?? $nota->emit_razao_social ?? '-' }}</p>
-                                    <p class="text-[11px] font-mono text-gray-400 mt-1">{{ $nota->emit_cnpj_formatado }}</p>
+                                    <p class="text-[11px] font-mono text-gray-400 mt-1">{{ $nota->emit_documento_formatado }}</p>
                                 </div>
                                 <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white shrink-0" style="background-color: {{ $badgeHex }}">
                                     {{ strtoupper($nota->validacao_classificacao_label ?? 'N/A') }}

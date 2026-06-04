@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -21,26 +22,29 @@ class AuthController extends Controller
         protected CreditService $creditService
     ) {}
 
-    public function showLogin(Request $request){
-        if(!view()->exists("landing_page.auth.login")){
+    public function showLogin(Request $request)
+    {
+        if (! view()->exists('landing_page.auth.login')) {
             abort(404);
         }
 
-        if(Auth::check()){
-            if($request->ajax()){
+        if (Auth::check()) {
+            if ($request->ajax()) {
                 return response()->json([
                     'success' => true,
                     'message' => 'Você já está logado',
-                    'redirect' => '/app/dashboard'
+                    'redirect' => '/app/dashboard',
                 ]);
             }
+
             return redirect('/app/dashboard');
         }
 
-        if($request->ajax()){
-            return view("landing_page.auth.login");
+        if ($request->ajax()) {
+            return view('landing_page.auth.login');
         }
-        return view("landing_page.layouts.public", [
+
+        return view('landing_page.layouts.public', [
             'initialView' => 'auth.login',
             'seo' => [
                 'title' => 'Login — FiscalDock',
@@ -50,8 +54,10 @@ class AuthController extends Controller
             ],
         ]);
     }
-    public function showAgendar(Request $request){
-        if(!view()->exists("landing_page.auth.agendar")){
+
+    public function showAgendar(Request $request)
+    {
+        if (! view()->exists('landing_page.auth.agendar')) {
             abort(404);
         }
 
@@ -62,12 +68,13 @@ class AuthController extends Controller
             $whatsAppMessage = "Olá! Quero falar com a FiscalDock sobre a plataforma. Meu e-mail é {$email}.";
         }
 
-        if($request->ajax()){
-            return view("landing_page.auth.agendar", [
-                'whatsAppUrl' => 'https://wa.me/5567999844366?text=' . rawurlencode($whatsAppMessage),
+        if ($request->ajax()) {
+            return view('landing_page.auth.agendar', [
+                'whatsAppUrl' => 'https://wa.me/5567999844366?text='.rawurlencode($whatsAppMessage),
             ]);
         }
-        return view("landing_page.layouts.public", [
+
+        return view('landing_page.layouts.public', [
             'initialView' => 'auth.agendar',
             'seo' => [
                 'title' => 'Contato Comercial — FiscalDock',
@@ -78,7 +85,7 @@ class AuthController extends Controller
                 'og_title' => 'Contato comercial — FiscalDock',
                 'og_image' => 'https://fiscaldock.com/binary_files/logo/Logo FiscalDock.png',
             ],
-            'whatsAppUrl' => 'https://wa.me/5567999844366?text=' . rawurlencode($whatsAppMessage),
+            'whatsAppUrl' => 'https://wa.me/5567999844366?text='.rawurlencode($whatsAppMessage),
         ]);
     }
 
@@ -170,7 +177,8 @@ class AuthController extends Controller
         ]);
     }
 
-    public function login(Request $request){
+    public function login(Request $request)
+    {
         try {
             $request->validate([
                 'email' => 'required|email',
@@ -182,58 +190,45 @@ class AuthController extends Controller
                 'password.min' => 'A senha deve ter pelo menos 8 caracteres',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
-            LOG::info($e->errors());
             if ($request->ajax()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Dados inválidos',
-                    'errors' => $e->errors()
+                    'errors' => $e->errors(),
                 ], 422);
             }
+
             return back()->withErrors($e->errors())->withInput();
         }
 
         $credentials = $request->only('email', 'password');
 
-        // Log para debug
-        Log::info('Tentativa de login', [
-            'email' => $credentials['email'] ?? 'não fornecido',
-            'password_length' => isset($credentials['password']) ? strlen($credentials['password']) : 0,
-            'credentials_keys' => array_keys($credentials)
-        ]);
-
         $user = Auth::attempt($credentials);
 
-        if(!$user){
-            // Verificar se o usuário existe
-            $userExists = User::where('email', $credentials['email'] ?? '')->first();
-            Log::warning('Falha no login', [
-                'email' => $credentials['email'] ?? 'não fornecido',
-                'user_exists' => $userExists ? 'sim' : 'não',
-                'user_id' => $userExists?->id
-            ]);
-
+        if (! $user) {
             if ($request->ajax()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Email ou senha inválidos',
                 ], 401);
             }
+
             return back()->withErrors(['email' => 'Email ou senha inválidos'])->withInput();
         }
 
-        Log::info('Login bem-sucedido', [
-            'user_id' => Auth::id(),
-            'email' => Auth::user()->email
-        ]);
+        // Anti session-fixation: novo ID de sessão após autenticar.
+        $request->session()->regenerate();
+
+        Log::info('Login bem-sucedido', ['user_id' => Auth::id()]);
 
         if ($request->ajax()) {
             return response()->json([
                 'success' => true,
                 'message' => 'Login realizado com sucesso',
-                'redirect' => '/app/dashboard'
+                'redirect' => '/app/dashboard',
             ]);
         }
+
         return redirect('/app/dashboard');
     }
 
@@ -245,7 +240,7 @@ class AuthController extends Controller
                 'sobrenome' => 'required|string|max:255',
                 'email' => 'required|email|max:255',
                 'telefone' => 'required|string|max:20',
-                'senha' => 'required|min:8|confirmed',
+                'senha' => ['required', 'confirmed', Password::min(8)->letters()->numbers()->uncompromised()],
                 'empresa' => 'required|string|max:255',
                 'cargo' => 'required|string|max:255',
                 'documento' => 'required|string|max:18',
@@ -287,7 +282,8 @@ class AuthController extends Controller
         return $this->createTrialAccount($request, $validated);
     }
 
-    public function agendar(Request $request){
+    public function agendar(Request $request)
+    {
         $message = 'O cadastro direto por /agendar foi desativado. Fale com a FiscalDock pelo WhatsApp ou e-mail nesta página.';
 
         if ($request->ajax() || $request->expectsJson()) {
@@ -383,26 +379,21 @@ class AuthController extends Controller
         $telefone = $validated['telefone'];
         $documento = $validated['documento'];
 
-        if (User::where('email', $email)->exists()) {
-            return 'Já existe uma conta ou trial para este e-mail. Faça login ou fale com nosso time.';
-        }
-
-        if (User::where('telefone', $telefone)->exists()) {
-            return 'Este telefone já foi usado em outra conta ou trial. Fale com nosso time se precisar de ajuda.';
-        }
-
-        if (User::where('cnpj', $documento)->exists()) {
-            return 'Este CPF/CNPJ já foi usado em outra conta ou trial. Fale com nosso time se precisar de ajuda.';
-        }
-
         $sameProfile = User::query()
             ->whereRaw('LOWER(name) = ?', [mb_strtolower(trim($validated['nome']))])
             ->whereRaw('LOWER(sobrenome) = ?', [mb_strtolower(trim($validated['sobrenome']))])
             ->whereRaw('LOWER(empresa) = ?', [mb_strtolower(trim($validated['empresa']))])
             ->exists();
 
-        if ($sameProfile) {
-            return 'Já encontramos um cadastro muito parecido com estes dados. Fale com nosso time para evitar duplicidade.';
+        // Mensagem única e genérica para não permitir enumerar quais dados
+        // (e-mail, telefone, CPF/CNPJ) já existem na base via tentativas de cadastro.
+        $jaExiste = $sameProfile
+            || User::where('email', $email)->exists()
+            || User::where('telefone', $telefone)->exists()
+            || User::where('cnpj', $documento)->exists();
+
+        if ($jaExiste) {
+            return 'Não foi possível concluir o cadastro com estes dados. Se você já tem conta, faça login ou fale com nosso time.';
         }
 
         return null;
@@ -418,19 +409,20 @@ class AuthController extends Controller
         return preg_replace('/\D/', '', (string) $value);
     }
 
-    public function logout(Request $request){
+    public function logout(Request $request)
+    {
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
-        
-        if($request->ajax()){
+
+        if ($request->ajax()) {
             return response()->json([
                 'success' => true,
                 'message' => 'Logout realizado com sucesso',
-                'redirect' => '/inicio'
+                'redirect' => '/inicio',
             ]);
         }
-        
+
         return redirect('/inicio');
     }
 }

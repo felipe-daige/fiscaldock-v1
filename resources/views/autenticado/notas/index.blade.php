@@ -4,6 +4,7 @@
     $modeloFiltro = $filtros['modelo'] ?? '';
     $clienteFiltro = $filtros['cliente_id'] ?? '';
     $participanteFiltro = $filtros['participante_id'] ?? '';
+    $importacaoFiltro = $filtros['importacao_id'] ?? '';
     $buscaFiltro = $filtros['busca'] ?? '';
     $dataInicio = $filtros['data_inicio'] ?? '';
     $dataFim = $filtros['data_fim'] ?? '';
@@ -124,32 +125,32 @@
                 <div id="nf-filtros-grid" class="hidden sm:block px-4 sm:px-5 py-4">
                     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
                         <div>
-                            <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Origem</label>
-                            <select name="origem" class="w-full border border-gray-300 rounded text-sm px-3 py-2 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white">
+                            <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Origem</label>
+                            <select name="origem" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white">
                                 <option value="">Todas</option>
                                 <option value="efd" {{ $origemFiltro === 'efd' ? 'selected' : '' }}>EFD</option>
                                 <option value="xml" {{ $origemFiltro === 'xml' ? 'selected' : '' }}>XML</option>
                             </select>
                         </div>
                         <div>
-                            <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">De</label>
-                            <input type="date" name="data_inicio" value="{{ $dataInicio }}" class="w-full border border-gray-300 rounded text-sm px-3 py-2 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                            <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">De</label>
+                            <input type="date" name="data_inicio" value="{{ $dataInicio }}" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
                         </div>
                         <div>
-                            <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Até</label>
-                            <input type="date" name="data_fim" value="{{ $dataFim }}" class="w-full border border-gray-300 rounded text-sm px-3 py-2 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                            <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Até</label>
+                            <input type="date" name="data_fim" value="{{ $dataFim }}" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
                         </div>
                         <div>
-                            <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Tipo</label>
-                            <select name="tipo_operacao" class="w-full border border-gray-300 rounded text-sm px-3 py-2 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white">
+                            <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Tipo</label>
+                            <select name="tipo_operacao" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white">
                                 <option value="">Todos</option>
                                 <option value="entrada" {{ $tipoFiltro === 'entrada' ? 'selected' : '' }}>Entrada</option>
                                 <option value="saida" {{ $tipoFiltro === 'saida' ? 'selected' : '' }}>Saída</option>
                             </select>
                         </div>
                         <div>
-                            <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Modelo</label>
-                            <select name="modelo" class="w-full border border-gray-300 rounded text-sm px-3 py-2 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white">
+                            <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Modelo</label>
+                            <select name="modelo" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white">
                                 <option value="">Todos</option>
                                 <option value="nfe" {{ $modeloFiltro === 'nfe' ? 'selected' : '' }}>NF-e</option>
                                 <option value="cte" {{ $modeloFiltro === 'cte' ? 'selected' : '' }}>CT-e</option>
@@ -158,8 +159,8 @@
                             </select>
                         </div>
                         <div>
-                            <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Cliente</label>
-                            <select name="cliente_id" class="w-full border border-gray-300 rounded text-sm px-3 py-2 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white">
+                            <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Cliente</label>
+                            <select name="cliente_id" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white">
                                 <option value="">Todos</option>
                                 @foreach($clientes as $c)
                                     <option value="{{ $c->id }}" {{ $clienteFiltro == $c->id ? 'selected' : '' }}>{{ $c->razao_social }}</option>
@@ -167,11 +168,20 @@
                             </select>
                         </div>
                         <div>
-                            <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Participante</label>
-                            <select name="participante_id" class="w-full border border-gray-300 rounded text-sm px-3 py-2 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white">
+                            <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Participante</label>
+                            <select name="participante_id" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white">
                                 <option value="">Todos</option>
                                 @foreach($participantes as $p)
                                     <option value="{{ $p->id }}" {{ $participanteFiltro == $p->id ? 'selected' : '' }}>{{ $p->razao_social }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Importação</label>
+                            <select name="importacao_id" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white">
+                                <option value="">Todas</option>
+                                @foreach($importacoes as $imp)
+                                    <option value="{{ $imp->id }}" {{ $importacaoFiltro == $imp->id ? 'selected' : '' }}>{{ $imp->filename }} · {{ $imp->tipo_efd }} · {{ $imp->created_at?->format('d/m/Y') }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -179,14 +189,14 @@
 
                     <div class="flex flex-col sm:flex-row items-end gap-3 mt-3">
                         <div class="flex-1 w-full">
-                            <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Busca</label>
-                            <input type="text" name="busca" value="{{ $buscaFiltro }}" placeholder="Chave de acesso ou número da nota" class="w-full border border-gray-300 rounded text-sm px-3 py-2 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                            <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Busca</label>
+                            <input type="text" name="busca" value="{{ $buscaFiltro }}" placeholder="Chave de acesso ou número da nota" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
                         </div>
                         <div class="flex gap-2 shrink-0 w-full sm:w-auto">
                             <button type="submit" class="flex-1 sm:flex-none px-4 py-2 bg-gray-800 text-white text-sm font-medium rounded hover:bg-gray-700 transition-colors">
                                 Filtrar
                             </button>
-                            <a href="/app/notas-fiscais" data-link class="flex-1 sm:flex-none px-4 py-2 bg-white border border-gray-300 text-gray-600 text-sm font-medium rounded hover:bg-gray-50 transition-colors text-center">
+                            <a href="/app/notas" data-link class="flex-1 sm:flex-none px-4 py-2 bg-white border border-gray-300 text-gray-600 text-sm font-medium rounded hover:bg-gray-50 transition-colors text-center">
                                 Limpar
                             </a>
                         </div>
@@ -226,7 +236,7 @@
                                         <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $origemBadge['hex'] }}">{{ $origemBadge['label'] }}</span>
                                     </td>
                                     <td class="px-3 py-3 text-sm font-mono whitespace-nowrap">
-                                        <a href="/app/notas-fiscais/{{ $n['origem'] }}/{{ $n['id'] }}" data-link class="text-gray-900 hover:text-gray-600 hover:underline">{{ $numero }}{{ $serie }}</a>
+                                        <a href="/app/notas/{{ $n['origem'] }}/{{ $n['id'] }}" data-link class="text-gray-900 hover:text-gray-600 hover:underline">{{ $numero }}{{ $serie }}</a>
                                     </td>
                                     <td class="px-3 py-3">
                                         <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: #374151">{{ $n['modelo_label'] }}</span>
@@ -296,7 +306,7 @@
                                 </button>
                             </div>
                             <div class="flex items-baseline justify-between gap-2">
-                                <a href="/app/notas-fiscais/{{ $n['origem'] }}/{{ $n['id'] }}" data-link class="text-sm font-mono font-medium text-gray-900 hover:text-gray-600 hover:underline">{{ $numero }}{{ $serie }}</a>
+                                <a href="/app/notas/{{ $n['origem'] }}/{{ $n['id'] }}" data-link class="text-sm font-mono font-medium text-gray-900 hover:text-gray-600 hover:underline">{{ $numero }}{{ $serie }}</a>
                                 <span class="text-sm font-semibold font-mono text-gray-900">R$ {{ number_format($n['valor_total'], 2, ',', '.') }}</span>
                             </div>
                             <div class="mt-1 text-[11px] text-gray-500">{{ $dataFormatada }}</div>
@@ -431,8 +441,8 @@
 
         contentEl.innerHTML = '<div class="px-6 py-4 text-sm text-gray-500">Carregando...</div>';
 
-        fetch('/app/notas-fiscais/' + origem + '/' + id, {
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        fetch('/app/notas/' + origem + '/' + id, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-Nota-Detalhe': 'inline' }
         })
         .then(function(r) {
             if (!r.ok) throw new Error('Erro ' + r.status);
@@ -474,7 +484,7 @@
         formData.forEach(function(value, key) {
             if (value) params.set(key, value);
         });
-        var url = '/app/notas-fiscais' + (params.toString() ? '?' + params.toString() : '');
+        var url = '/app/notas' + (params.toString() ? '?' + params.toString() : '');
         var link = document.createElement('a');
         link.href = url;
         link.setAttribute('data-link', '');

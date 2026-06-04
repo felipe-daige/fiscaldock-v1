@@ -915,7 +915,7 @@
 
     function getNotaUrl(notaId) {
         if (!notaId) return null;
-        return '/app/notas-fiscais/efd/' + notaId;
+        return '/app/notas/efd/' + notaId;
     }
 
     function renderNotaAction(notaId, label, compact) {

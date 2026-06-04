@@ -17,7 +17,8 @@ use Illuminate\Support\Facades\DB;
 
 class DashboardNotasFiscaisController extends Controller
 {
-    private const VIEW = 'autenticado.notas-fiscais.dashboard';
+    private const VIEW = 'autenticado.notas.dashboard';
+
     private const LAYOUT = 'autenticado.layouts.app';
 
     public function index(Request $request)
@@ -83,6 +84,7 @@ class DashboardNotasFiscaisController extends Controller
 
         $base = EfdNota::where('user_id', $userId);
         $this->aplicarFiltros($base, $filtros);
+        $this->aplicarDedupOrigem($base, $userId, $filtros);
 
         // KPIs agregados
         $kpis = (clone $base)
@@ -107,7 +109,7 @@ class DashboardNotasFiscaisController extends Controller
 
         // Breakdown por modelo de documento (com entradas/saidas)
         $porModeloRaw = (clone $base)
-            ->selectRaw("modelo, tipo_operacao, COUNT(*) as quantidade, SUM(valor_total) as valor_total")
+            ->selectRaw('modelo, tipo_operacao, COUNT(*) as quantidade, SUM(valor_total) as valor_total')
             ->groupBy('modelo', 'tipo_operacao')
             ->get();
 
@@ -141,7 +143,7 @@ class DashboardNotasFiscaisController extends Controller
         // Top 5 participantes por volume
         $topParticipantes = (clone $base)
             ->whereNotNull('participante_id')
-            ->selectRaw("participante_id, COUNT(*) as total_notas, SUM(valor_total) as valor_total")
+            ->selectRaw('participante_id, COUNT(*) as total_notas, SUM(valor_total) as valor_total')
             ->groupBy('participante_id')
             ->orderByDesc('valor_total')
             ->limit(5)
@@ -183,14 +185,18 @@ class DashboardNotasFiscaisController extends Controller
         $this->aplicarFiltros($baseNotas, $filtros);
         $notaIds = (clone $baseNotas)->select('id');
 
-        $baseItens = DB::table('efd_notas_itens')
+        // CFOP vem do C190/D190 (consolidado fiscal): é a fonte autoritativa de
+        // CFOP × valor por operação. Os itens (C170) são esparsos no perfil B e
+        // perdem CFOPs inteiros (ex.: 5916), além de não dobrar por origem (C190
+        // só existe no fiscal). `qtd_itens` = nº de linhas de consolidado. Ver F3/P2.
+        $baseItens = DB::table('efd_notas_consolidados')
             ->whereIn('efd_nota_id', $notaIds)
             ->whereNotNull('cfop');
 
         $totalGeral = (clone $baseItens)->count();
 
         $rows = (clone $baseItens)
-            ->selectRaw("cfop, COUNT(*) as qtd_itens, SUM(COALESCE(valor_total, 0)) as valor_total")
+            ->selectRaw('cfop, COUNT(*) as qtd_itens, SUM(COALESCE(valor_operacao, 0)) as valor_total')
             ->groupBy('cfop')
             ->orderByDesc('valor_total')
             ->get();
@@ -239,6 +245,7 @@ class DashboardNotasFiscaisController extends Controller
 
         $baseNotas = EfdNota::where('user_id', $userId)->whereNotNull('participante_id');
         $this->aplicarFiltros($baseNotas, $filtros);
+        $this->aplicarDedupOrigem($baseNotas, $userId, $filtros);
 
         $agregado = (clone $baseNotas)
             ->selectRaw("
@@ -263,11 +270,11 @@ class DashboardNotasFiscaisController extends Controller
         }
 
         if (! empty($busca)) {
-            $buscaTerm = '%' . $busca . '%';
+            $buscaTerm = '%'.$busca.'%';
             $subQuery->join('participantes', 'participantes.id', '=', 'agg.participante_id')
                 ->where(function ($q) use ($buscaTerm) {
                     $q->whereRaw('LOWER(participantes.razao_social) LIKE LOWER(?)', [$buscaTerm])
-                      ->orWhere('participantes.documento', 'like', $buscaTerm);
+                        ->orWhere('participantes.documento', 'like', $buscaTerm);
                 });
         }
 
@@ -346,56 +353,93 @@ class DashboardNotasFiscaisController extends Controller
         $this->aplicarFiltros($baseNotas, $filtros);
         $notaIdsSub = (clone $baseNotas)->select('id');
 
-        // Saldos gerais agrupados por tipo_operacao
-        $saldosRaw = DB::table('efd_notas_itens as i')
+        // Fonte canônica do tributo (ver F1/F3):
+        //  ICMS débito/crédito = C190 (consolidado fiscal) — NÃO os itens (perfil B
+        //    tem ICMS≈0 no item fiscal, P2).
+        //  PIS/COFINS débito/crédito = itens da origem 'contribuicoes' — os itens
+        //    FISCAIS carregam PIS/COFINS irrelevante (inflava o crédito ~200×, P8).
+        $icmsRaw = DB::table('efd_notas_consolidados as c')
+            ->join('efd_notas as n', 'n.id', '=', 'c.efd_nota_id')
+            ->whereIn('c.efd_nota_id', $notaIdsSub)
+            ->selectRaw('n.tipo_operacao, COALESCE(SUM(c.valor_icms), 0) as total_icms')
+            ->groupBy('n.tipo_operacao')
+            ->get()
+            ->keyBy('tipo_operacao');
+
+        $pcRaw = DB::table('efd_notas_itens as i')
             ->join('efd_notas as n', 'n.id', '=', 'i.efd_nota_id')
             ->whereIn('i.efd_nota_id', $notaIdsSub)
-            ->selectRaw("
+            ->where('n.origem_arquivo', 'contribuicoes')
+            ->selectRaw('
                 n.tipo_operacao,
-                COALESCE(SUM(i.valor_icms), 0) as total_icms,
                 COALESCE(SUM(i.valor_pis), 0) as total_pis,
                 COALESCE(SUM(i.valor_cofins), 0) as total_cofins,
                 COUNT(*) as total_itens,
                 SUM(CASE WHEN i.valor_pis IS NULL OR i.valor_pis = 0 THEN 1 ELSE 0 END) as pis_vazios,
                 SUM(CASE WHEN i.valor_cofins IS NULL OR i.valor_cofins = 0 THEN 1 ELSE 0 END) as cofins_vazios
-            ")
+            ')
             ->groupBy('n.tipo_operacao')
             ->get()
             ->keyBy('tipo_operacao');
 
-        $vazio = (object) ['total_icms' => 0, 'total_pis' => 0, 'total_cofins' => 0, 'total_itens' => 0, 'pis_vazios' => 0, 'cofins_vazios' => 0];
-        $entrada = $saldosRaw['entrada'] ?? $vazio;
-        $saida = $saldosRaw['saida'] ?? $vazio;
+        $icmsDebito = (float) ($icmsRaw['saida']->total_icms ?? 0);
+        $icmsCredito = (float) ($icmsRaw['entrada']->total_icms ?? 0);
+        $pisDebito = (float) ($pcRaw['saida']->total_pis ?? 0);
+        $pisCredito = (float) ($pcRaw['entrada']->total_pis ?? 0);
+        $cofinsDebito = (float) ($pcRaw['saida']->total_cofins ?? 0);
+        $cofinsCredito = (float) ($pcRaw['entrada']->total_cofins ?? 0);
 
-        $icmsDebito = (float) $saida->total_icms;
-        $icmsCredito = (float) $entrada->total_icms;
-        $pisDebito = (float) $saida->total_pis;
-        $pisCredito = (float) $entrada->total_pis;
-        $cofinsDebito = (float) $saida->total_cofins;
-        $cofinsCredito = (float) $entrada->total_cofins;
-
-        // Detecção de PIS/COFINS incompleto (>70% dos itens com valor zero/null)
-        $totalItens = (int) $entrada->total_itens + (int) $saida->total_itens;
-        $pisVazios = (int) $entrada->pis_vazios + (int) $saida->pis_vazios;
-        $cofinsVazios = (int) $entrada->cofins_vazios + (int) $saida->cofins_vazios;
+        // PIS/COFINS incompleto: avaliado só nos itens de contribuicoes (onde o
+        // tributo vive). Antes incluía itens fiscais (PIS/COFINS sempre 0) e dava
+        // falso-positivo ao filtrar a EFD ICMS/IPI. Ver F3/P8.
+        $totalItens = (int) ($pcRaw['entrada']->total_itens ?? 0) + (int) ($pcRaw['saida']->total_itens ?? 0);
+        $pisVazios = (int) ($pcRaw['entrada']->pis_vazios ?? 0) + (int) ($pcRaw['saida']->pis_vazios ?? 0);
+        $cofinsVazios = (int) ($pcRaw['entrada']->cofins_vazios ?? 0) + (int) ($pcRaw['saida']->cofins_vazios ?? 0);
         $alertaPisCofins = $totalItens > 0 && (($pisVazios / $totalItens) > 0.7 || ($cofinsVazios / $totalItens) > 0.7);
 
-        // Evolução mensal
-        $evolucao = DB::table('efd_notas_itens as i')
-            ->join('efd_notas as n', 'n.id', '=', 'i.efd_nota_id')
-            ->whereIn('i.efd_nota_id', (clone $baseNotas)->select('id'))
+        // Evolução mensal: ICMS do C190, PIS/COFINS dos itens contribuicoes.
+        $icmsMensal = DB::table('efd_notas_consolidados as c')
+            ->join('efd_notas as n', 'n.id', '=', 'c.efd_nota_id')
+            ->whereIn('c.efd_nota_id', $notaIdsSub)
             ->selectRaw("
                 TO_CHAR(n.data_emissao, 'YYYY-MM') as mes,
-                SUM(CASE WHEN n.tipo_operacao = 'saida' THEN COALESCE(i.valor_icms, 0) ELSE 0 END) as icms_debito,
-                SUM(CASE WHEN n.tipo_operacao = 'entrada' THEN COALESCE(i.valor_icms, 0) ELSE 0 END) as icms_credito,
+                SUM(CASE WHEN n.tipo_operacao = 'saida' THEN COALESCE(c.valor_icms, 0) ELSE 0 END) as icms_debito,
+                SUM(CASE WHEN n.tipo_operacao = 'entrada' THEN COALESCE(c.valor_icms, 0) ELSE 0 END) as icms_credito
+            ")
+            ->groupByRaw("TO_CHAR(n.data_emissao, 'YYYY-MM')")
+            ->get()
+            ->keyBy('mes');
+
+        $pcMensal = DB::table('efd_notas_itens as i')
+            ->join('efd_notas as n', 'n.id', '=', 'i.efd_nota_id')
+            ->whereIn('i.efd_nota_id', $notaIdsSub)
+            ->where('n.origem_arquivo', 'contribuicoes')
+            ->selectRaw("
+                TO_CHAR(n.data_emissao, 'YYYY-MM') as mes,
                 SUM(CASE WHEN n.tipo_operacao = 'saida' THEN COALESCE(i.valor_pis, 0) ELSE 0 END) as pis_debito,
                 SUM(CASE WHEN n.tipo_operacao = 'entrada' THEN COALESCE(i.valor_pis, 0) ELSE 0 END) as pis_credito,
                 SUM(CASE WHEN n.tipo_operacao = 'saida' THEN COALESCE(i.valor_cofins, 0) ELSE 0 END) as cofins_debito,
                 SUM(CASE WHEN n.tipo_operacao = 'entrada' THEN COALESCE(i.valor_cofins, 0) ELSE 0 END) as cofins_credito
             ")
             ->groupByRaw("TO_CHAR(n.data_emissao, 'YYYY-MM')")
-            ->orderByRaw("TO_CHAR(n.data_emissao, 'YYYY-MM')")
-            ->get();
+            ->get()
+            ->keyBy('mes');
+
+        $evolucao = collect($icmsMensal->keys()->merge($pcMensal->keys())->unique()->sort()->values())
+            ->map(function ($mes) use ($icmsMensal, $pcMensal) {
+                $i = $icmsMensal->get($mes);
+                $p = $pcMensal->get($mes);
+
+                return (object) [
+                    'mes' => $mes,
+                    'icms_debito' => (float) ($i->icms_debito ?? 0),
+                    'icms_credito' => (float) ($i->icms_credito ?? 0),
+                    'pis_debito' => (float) ($p->pis_debito ?? 0),
+                    'pis_credito' => (float) ($p->pis_credito ?? 0),
+                    'cofins_debito' => (float) ($p->cofins_debito ?? 0),
+                    'cofins_credito' => (float) ($p->cofins_credito ?? 0),
+                ];
+            });
 
         // Tabela consolidada por período (reusar evolução)
         $porPeriodo = $evolucao->map(fn ($e) => [
@@ -411,11 +455,12 @@ class DashboardNotasFiscaisController extends Controller
             'saldo_cofins' => (float) $e->cofins_debito - (float) $e->cofins_credito,
         ]);
 
-        // Análise por CST ICMS
-        $csts = DB::table('efd_notas_itens as i')
-            ->whereIn('i.efd_nota_id', (clone $baseNotas)->select('id'))
-            ->selectRaw("i.cst_icms as cst, COUNT(*) as qtd_itens, COALESCE(SUM(i.valor_total), 0) as valor_total")
-            ->groupBy('i.cst_icms')
+        // Análise por CST ICMS — do C190 (consolidado fiscal), onde o perfil B
+        // detalha CST/valor; os itens fiscais (C170) são esparsos. Ver F3/P2.
+        $csts = DB::table('efd_notas_consolidados as c')
+            ->whereIn('c.efd_nota_id', $notaIdsSub)
+            ->selectRaw('c.cst_icms as cst, COUNT(*) as qtd_itens, COALESCE(SUM(c.valor_operacao), 0) as valor_total')
+            ->groupBy('c.cst_icms')
             ->orderByDesc('valor_total')
             ->get()
             ->map(fn ($r) => [
@@ -453,6 +498,7 @@ class DashboardNotasFiscaisController extends Controller
 
         $baseNotas = EfdNota::where('user_id', $userId);
         $this->aplicarFiltros($baseNotas, $filtros);
+        $this->aplicarDedupOrigem($baseNotas, $userId, $filtros);
 
         $participanteIds = (clone $baseNotas)
             ->whereNotNull('participante_id')
@@ -566,11 +612,14 @@ class DashboardNotasFiscaisController extends Controller
 
     private function aplicarFiltros($query, array $filtros): void
     {
+        // Canceladas (cod_sit 02/03/04/05) nunca contam no acervo. Ver F3/P4.
+        $query->where('cancelada', false);
+
         if (! empty($filtros['periodo_inicio'])) {
-            $query->where('data_emissao', '>=', $filtros['periodo_inicio'] . '-01');
+            $query->where('data_emissao', '>=', $filtros['periodo_inicio'].'-01');
         }
         if (! empty($filtros['periodo_fim'])) {
-            $fim = Carbon::parse($filtros['periodo_fim'] . '-01')->endOfMonth();
+            $fim = Carbon::parse($filtros['periodo_fim'].'-01')->endOfMonth();
             $query->where('data_emissao', '<=', $fim);
         }
         if (! empty($filtros['tipo_efd']) && $filtros['tipo_efd'] !== 'todos') {
@@ -591,6 +640,29 @@ class DashboardNotasFiscaisController extends Controller
         if (! empty($filtros['participante_id'])) {
             $query->where('participante_id', $filtros['participante_id']);
         }
+    }
+
+    /**
+     * Deduplica a coexistência fiscal × contribuicoes (P1) para agregações de
+     * VALOR/CONTAGEM de nota. Aplicar SOMENTE quando o filtro de origem é "todos"
+     * (sem tipo_efd): a mesma NF-e existe nas 2 escriturações e dobraria.
+     * Com tipo_efd específico a origem já restringe → não deduplicar.
+     *
+     * NÃO usar nas abas que leem `efd_notas_itens`/C190 por imposto (Tributário,
+     * CFOP): lá o lado fiscal e o contribuicoes carregam tributos diferentes da
+     * MESMA nota; deduplicar perderia o lado certo. Ver F3 / docs.
+     */
+    private function aplicarDedupOrigem($query, int $userId, array $filtros): void
+    {
+        $tipo = $filtros['tipo_efd'] ?? null;
+        if (! empty($tipo) && $tipo !== 'todos') {
+            return;
+        }
+
+        $query->where(function ($q) use ($userId) {
+            $q->where('origem_arquivo', 'fiscal')
+                ->orWhereRaw('NOT EXISTS (SELECT 1 FROM efd_notas f WHERE f.user_id = ? AND f.origem_arquivo = ? AND f.chave_acesso IS NOT NULL AND f.chave_acesso = efd_notas.chave_acesso)', [$userId, 'fiscal']);
+        });
     }
 
     private function isAjaxRequest(Request $request): bool

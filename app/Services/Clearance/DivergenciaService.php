@@ -211,10 +211,10 @@ class DivergenciaService
 
         XmlNota::query()
             ->where('user_id', $userId)
-            ->whereIn('nfe_id', $chaves)
-            ->get(['id', 'nfe_id', 'valor_total'])
+            ->whereIn('chave_acesso', $chaves)
+            ->get(['id', 'chave_acesso', 'valor_total'])
             ->each(function ($nota) use (&$map) {
-                $map[$nota->nfe_id] = [
+                $map[$nota->chave_acesso] = [
                     'valor_total' => (float) $nota->valor_total,
                     'origem' => 'xml',
                     'id' => $nota->id,

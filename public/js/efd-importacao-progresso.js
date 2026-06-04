@@ -9,8 +9,8 @@
     const tipoEfd = container.dataset.tipo || '';
     const importacaoId = container.dataset.importacaoId || '';
 
-    if (!tabId) {
-        console.error('[EFD progresso] tab_id ausente — abortando SSE');
+    if (!importacaoId) {
+        console.error('[EFD progresso] importacao_id ausente — abortando SSE');
         return;
     }
 
@@ -192,10 +192,7 @@
     function conectar() {
         if (eventSource) eventSource.close();
 
-        let url = '/app/importacao/efd/progresso/stream?tab_id=' + encodeURIComponent(tabId);
-        if (importacaoId) {
-            url += '&importacao_id=' + encodeURIComponent(importacaoId);
-        }
+        const url = '/app/importacao/efd/progresso/stream?importacao_id=' + encodeURIComponent(importacaoId);
         eventSource = new EventSource(url);
 
         eventSource.onopen = function () {

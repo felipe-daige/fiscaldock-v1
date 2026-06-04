@@ -15,7 +15,7 @@ class ClienteController extends Controller
     public function todosIds(Request $request): JsonResponse
     {
         $user = Auth::user();
-        if (!$user) {
+        if (! $user) {
             return response()->json(['success' => false, 'message' => 'Nao autenticado'], 401);
         }
 
@@ -25,9 +25,14 @@ class ClienteController extends Controller
         $regime = trim($request->string('regime')->toString());
         $situacao = trim($request->string('situacao')->toString());
         $uf = strtoupper(trim($request->string('uf')->toString()));
+        $importacao = trim($request->string('importacao')->toString());
 
         $ids = Cliente::where('user_id', $user->id)
             ->where('is_empresa_propria', false)
+            ->when($importacao !== '', fn ($query) => $query->whereIn(
+                'id',
+                \App\Models\EfdImportacao::where('user_id', $user->id)->where('id', $importacao)->select('cliente_id')
+            ))
             ->when($status !== '', function ($query) use ($status) {
                 if ($status === 'ativos') {
                     $query->where('ativo', true);
@@ -113,10 +118,10 @@ class ClienteController extends Controller
             $validated = $request->validate($rules);
 
             $user = Auth::user();
-            if (!$user) {
+            if (! $user) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Usuario nao autenticado'
+                    'message' => 'Usuario nao autenticado',
                 ], 401);
             }
 
@@ -125,13 +130,13 @@ class ClienteController extends Controller
             if ($isPJ) {
                 if (strlen($documentoLimpo) !== 14) {
                     throw ValidationException::withMessages([
-                        'documento' => 'CNPJ deve ter 14 digitos'
+                        'documento' => 'CNPJ deve ter 14 digitos',
                     ]);
                 }
             } else {
                 if (strlen($documentoLimpo) !== 11) {
                     throw ValidationException::withMessages([
-                        'documento' => 'CPF deve ter 11 digitos'
+                        'documento' => 'CPF deve ter 11 digitos',
                     ]);
                 }
             }
@@ -180,7 +185,7 @@ class ClienteController extends Controller
                         'id' => $cliente->id,
                         'nome' => $cliente->nome,
                         'documento' => $cliente->documento_formatado,
-                    ]
+                    ],
                 ], 201);
             }
 
@@ -193,7 +198,7 @@ class ClienteController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Erro de validacao',
-                    'errors' => $e->errors()
+                    'errors' => $e->errors(),
                 ], 422);
             }
 
@@ -206,7 +211,7 @@ class ClienteController extends Controller
             if ($request->expectsJson() || $request->ajax()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Erro ao cadastrar cliente: ' . $e->getMessage()
+                    'message' => 'Erro ao cadastrar cliente: '.$e->getMessage(),
                 ], 500);
             }
 
@@ -223,10 +228,11 @@ class ClienteController extends Controller
     public function edit(Request $request, $id)
     {
         $user = Auth::user();
-        if (!$user) {
+        if (! $user) {
             if ($request->ajax() || $request->wantsJson()) {
                 return response()->json(['success' => false, 'message' => 'Nao autenticado', 'redirect' => '/login']);
             }
+
             return redirect('/login');
         }
 
@@ -237,11 +243,12 @@ class ClienteController extends Controller
 
         if ($request->ajax() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
             $renderedView = view($viewName, $data)->render();
+
             return response($renderedView)->header('Content-Type', 'text/html');
         }
 
         return view('autenticado.layouts.app', array_merge([
-            'initialView' => $viewName
+            'initialView' => $viewName,
         ], $data));
     }
 
@@ -252,10 +259,10 @@ class ClienteController extends Controller
     {
         try {
             $user = Auth::user();
-            if (!$user) {
+            if (! $user) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Usuario nao autenticado'
+                    'message' => 'Usuario nao autenticado',
                 ], 401);
             }
 
@@ -265,7 +272,7 @@ class ClienteController extends Controller
             $isPJ = $tipoPessoa === 'PJ';
 
             $rules = [
-                'documento' => 'required|string|max:18|unique:clientes,documento,' . $cliente->id,
+                'documento' => 'required|string|max:18|unique:clientes,documento,'.$cliente->id,
                 'telefone' => 'nullable|string|max:20',
                 'email' => 'nullable|email|max:255',
                 'uf' => 'nullable|string|size:2',
@@ -355,7 +362,7 @@ class ClienteController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Erro de validacao',
-                    'errors' => $e->errors()
+                    'errors' => $e->errors(),
                 ], 422);
             }
 
@@ -368,7 +375,7 @@ class ClienteController extends Controller
             if ($request->expectsJson() || $request->ajax()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Erro ao atualizar cliente: ' . $e->getMessage()
+                    'message' => 'Erro ao atualizar cliente: '.$e->getMessage(),
                 ], 500);
             }
 
@@ -385,12 +392,12 @@ class ClienteController extends Controller
     public function destroy(Request $request, $id)
     {
         $user = Auth::user();
-        if (!$user) {
+        if (! $user) {
             return response()->json(['success' => false, 'message' => 'Nao autenticado'], 401);
         }
 
         $cliente = Cliente::where('user_id', $user->id)->find($id);
-        if (!$cliente) {
+        if (! $cliente) {
             return response()->json(['success' => false, 'message' => 'Cliente nao encontrado'], 404);
         }
 
@@ -437,7 +444,7 @@ class ClienteController extends Controller
     public function bulkDestroy(Request $request)
     {
         $user = Auth::user();
-        if (!$user) {
+        if (! $user) {
             return response()->json(['success' => false, 'message' => 'Nao autenticado'], 401);
         }
 
@@ -460,7 +467,7 @@ class ClienteController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => $count . ' cliente(s) excluido(s) com sucesso.',
+                'message' => $count.' cliente(s) excluido(s) com sucesso.',
                 'count' => $count,
             ]);
         } catch (\Exception $e) {

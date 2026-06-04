@@ -30,8 +30,8 @@
             </a>
             <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                    <h1 class="text-lg sm:text-xl font-bold text-gray-900 uppercase tracking-wide">Nota Fiscal {{ $nota->numero_nota }}</h1>
-                    <p class="text-xs text-gray-500 mt-1">{{ $nota->emit_razao_social ?? $nota->emit_cnpj }}</p>
+                    <h1 class="text-lg sm:text-xl font-bold text-gray-900 uppercase tracking-wide">Nota Fiscal {{ $nota->numero_documento }}</h1>
+                    <p class="text-xs text-gray-500 mt-1">{{ $nota->emit_razao_social ?? $nota->emit_documento }}</p>
                 </div>
                 <div class="flex items-center gap-2">
                     @if($validacao['preview'] ?? false)
@@ -140,7 +140,7 @@
                 <dl class="p-4 space-y-3 text-sm">
                     <div class="flex justify-between gap-3">
                         <dt class="text-gray-500">Número</dt>
-                        <dd class="font-medium text-gray-900">{{ $nota->numero_nota }}</dd>
+                        <dd class="font-medium text-gray-900">{{ $nota->numero_documento }}</dd>
                     </div>
                     <div class="flex justify-between gap-3">
                         <dt class="text-gray-500">Série</dt>
@@ -160,7 +160,7 @@
                     </div>
                     <div>
                         <dt class="text-gray-500 mb-1">Chave de acesso</dt>
-                        <dd class="font-mono text-xs text-gray-900 break-all">{{ $nota->nfe_id }}</dd>
+                        <dd class="font-mono text-xs text-gray-900 break-all">{{ $nota->chave_acesso }}</dd>
                     </div>
                 </dl>
             </div>
@@ -208,7 +208,7 @@
                 <dl class="p-4 space-y-3 text-sm">
                     <div class="flex justify-between gap-3">
                         <dt class="text-gray-500">CNPJ</dt>
-                        <dd class="font-medium text-gray-900">{{ $nota->emit_cnpj_formatado }}</dd>
+                        <dd class="font-medium text-gray-900">{{ $nota->emit_documento_formatado }}</dd>
                     </div>
                     <div>
                         <dt class="text-gray-500 mb-1">Razão social</dt>
@@ -233,7 +233,7 @@
                 <dl class="p-4 space-y-3 text-sm">
                     <div class="flex justify-between gap-3">
                         <dt class="text-gray-500">CNPJ</dt>
-                        <dd class="font-medium text-gray-900">{{ $nota->dest_cnpj_formatado }}</dd>
+                        <dd class="font-medium text-gray-900">{{ $nota->dest_documento_formatado }}</dd>
                     </div>
                     <div>
                         <dt class="text-gray-500 mb-1">Razão social</dt>
