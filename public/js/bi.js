@@ -175,6 +175,7 @@
             setKpi('kpi-aquisicoes', formatCompactCurrency(resumo.total_compras || 0));
             setKpi('kpi-tributacao', formatCompactCurrency(resumo.total_tributos || 0));
             setKpi('kpi-sec-fornecedores', resumo.total_fornecedores || 0);
+            setKpi('kpi-sec-clientes', resumo.total_clientes || 0);
         } catch (e) {
             console.error('Erro ao atualizar resumo KPIs:', e);
         }

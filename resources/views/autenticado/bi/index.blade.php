@@ -79,7 +79,7 @@
 
         {{-- Barra de Métricas Secundárias --}}
         <div class="bg-white rounded border border-gray-300 p-3 sm:p-4 mb-6 sm:mb-10">
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-0 sm:divide-x sm:divide-gray-200">
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-0 sm:divide-x sm:divide-gray-200">
                 <div class="text-center px-2 sm:px-4">
                     <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Participantes ativos</p>
                     <p class="text-sm font-semibold text-gray-900 mt-0.5" id="kpi-sec-participantes">{{ $resumoEfd['participantes_ativos'] ?? 0 }}</p>
@@ -96,6 +96,10 @@
                 <div class="text-center px-2 sm:px-4">
                     <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Fornecedores</p>
                     <p class="text-sm font-semibold text-gray-900 mt-0.5" id="kpi-sec-fornecedores">{{ $resumo['total_fornecedores'] ?? 0 }}</p>
+                </div>
+                <div class="text-center px-2 sm:px-4">
+                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Clientes</p>
+                    <p class="text-sm font-semibold text-gray-900 mt-0.5" id="kpi-sec-clientes">{{ $resumo['total_clientes'] ?? 0 }}</p>
                 </div>
             </div>
         </div>
