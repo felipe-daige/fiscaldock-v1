@@ -251,6 +251,25 @@ class BiController extends Controller
     }
 
     /**
+     * Apuração × Notas (gold) — para AJAX.
+     */
+    public function apuracaoNotas(Request $request)
+    {
+        if (! Auth::check()) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        $userId = Auth::id();
+
+        return response()->json($this->biService->getApuracaoVsNotas(
+            $userId,
+            $request->get('data_inicio'),
+            $request->get('data_fim'),
+            $request->get('cliente_id'),
+        ));
+    }
+
+    /**
      * Resumo geral (para AJAX).
      */
     public function resumo(Request $request)

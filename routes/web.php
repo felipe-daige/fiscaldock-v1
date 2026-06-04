@@ -223,6 +223,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/participantes/{id}/ficha', [BiController::class, 'fichaParticipante'])->name('participantes.ficha');
         Route::get('/riscos', [BiController::class, 'riscos'])->name('riscos');
         Route::get('/tributario-efd', [BiController::class, 'tributarioEfd'])->name('tributario-efd');
+        Route::get('/apuracao-notas', [BiController::class, 'apuracaoNotas'])->name('apuracao-notas');
     });
 
     // Score Fiscal (placeholder público)

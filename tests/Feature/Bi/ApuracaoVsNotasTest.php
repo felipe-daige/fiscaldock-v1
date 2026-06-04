@@ -60,3 +60,9 @@ it('cruza declarado x computado por mes com delta e flag', function () {
     expect($jan['icms']['flag'])->toBe('amarelo');
     expect($data['totais']['icms']['declarado'])->toBe(1000.0);
 });
+
+it('endpoint apuracao-notas responde json autenticado', function () {
+    $user = \App\Models\User::factory()->create();
+    $res = $this->actingAs($user)->getJson('/app/bi/apuracao-notas');
+    $res->assertOk()->assertJsonStructure(['mensal', 'totais' => ['icms', 'pis', 'cofins']]);
+});
