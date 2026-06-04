@@ -1371,21 +1371,39 @@
 
     function renderCfopCharts(data) {
         const ranking = data.ranking || [];
-        const tbody = document.getElementById('tabela-cfop');
-        if (tbody) {
-            tbody.innerHTML = ranking.map(r => {
-                const hex = r.tipo === 'entrada' ? '#2563eb' : (r.tipo === 'saida' ? '#16a34a' : '#9ca3af');
-                const tipoLabel = r.tipo === 'entrada' ? 'Entrada' : (r.tipo === 'saida' ? 'Saída' : '—');
-                return `<tr>
-                    <td class="px-3 py-2 text-gray-700">${r.descricao}</td>
-                    <td class="px-3 py-2 text-center"><span class="inline-block px-2 py-0.5 rounded text-white text-[11px]" style="background-color:${hex}">${tipoLabel}</span></td>
-                    <td class="px-3 py-2 text-right text-gray-700">${formatCurrency(r.valor)}</td>
-                    <td class="px-3 py-2 text-right text-gray-700">${r.qtd}</td>
-                    <td class="px-3 py-2 text-right text-gray-700">${formatCurrency(r.tributos)}</td>
-                    <td class="px-3 py-2 text-right text-gray-700">${r.percentual}%</td>
-                </tr>`;
-            }).join('');
-        }
+
+        renderTabelaPaginada({
+            containerId: 'tabela-cfop-container',
+            paginacaoId: 'cfop-paginacao',
+            lista: ranking,
+            perPage: 10,
+            emptyHtml: '<p class="text-sm text-gray-400 py-4 px-4">Nenhum CFOP no período.</p>',
+            buildTableHtml: (pageItems) => {
+                const linhas = pageItems.map(r => {
+                    const hex = r.tipo === 'entrada' ? '#2563eb' : (r.tipo === 'saida' ? '#16a34a' : '#9ca3af');
+                    const tipoLabel = r.tipo === 'entrada' ? 'Entrada' : (r.tipo === 'saida' ? 'Saída' : '—');
+                    return `<tr>
+                        <td class="px-3 py-2 text-gray-700">${r.descricao}</td>
+                        <td class="px-3 py-2 text-center"><span class="inline-block px-2 py-0.5 rounded text-white text-[11px]" style="background-color:${hex}">${tipoLabel}</span></td>
+                        <td class="px-3 py-2 text-right text-gray-700">${formatCurrency(r.valor)}</td>
+                        <td class="px-3 py-2 text-right text-gray-700">${r.qtd}</td>
+                        <td class="px-3 py-2 text-right text-gray-700">${formatCurrency(r.tributos)}</td>
+                        <td class="px-3 py-2 text-right text-gray-700">${r.percentual}%</td>
+                    </tr>`;
+                }).join('');
+                return `<table class="min-w-[820px] w-full divide-y divide-gray-200 text-xs sm:text-sm">
+                        <thead class="bg-gray-50"><tr>
+                            <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase">CFOP / Natureza</th>
+                            <th class="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-400 uppercase">Tipo</th>
+                            <th class="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-400 uppercase">Valor</th>
+                            <th class="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-400 uppercase">Notas</th>
+                            <th class="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-400 uppercase">Tributos</th>
+                            <th class="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-400 uppercase">% Total</th>
+                        </tr></thead>
+                        <tbody class="divide-y divide-gray-100">${linhas}</tbody>
+                    </table>`;
+            },
+        });
 
         const top = ranking.slice(0, 10);
         if (top.length > 0) {

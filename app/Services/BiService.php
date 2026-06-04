@@ -1328,7 +1328,7 @@ class BiService
             $porMes = $rows->where('cfop', $cfop)->keyBy(fn ($r) => (string) $r['mes']);
 
             return [
-                'name' => $cfop,
+                'name' => \App\Support\Cfop::descricao($cfop),
                 'data' => $meses->map(fn ($m) => round((float) ($porMes->get((string) $m)['valor'] ?? 0)))->toArray(),
             ];
         })->toArray();

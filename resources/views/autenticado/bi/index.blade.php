@@ -592,19 +592,8 @@
                     <h3 class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Ranking por CFOP</h3>
                     <button data-export="cfop" class="text-[11px] font-medium text-gray-600 hover:text-gray-900 border border-gray-300 rounded px-2 py-1">Exportar CSV</button>
                 </div>
-                <div class="overflow-x-auto scroll-fade-right-white">
-                    <table class="min-w-[820px] w-full divide-y divide-gray-200 text-xs sm:text-sm">
-                        <thead class="bg-gray-50"><tr>
-                            <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase">CFOP / Natureza</th>
-                            <th class="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-400 uppercase">Tipo</th>
-                            <th class="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-400 uppercase">Valor</th>
-                            <th class="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-400 uppercase">Notas</th>
-                            <th class="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-400 uppercase">Tributos</th>
-                            <th class="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-400 uppercase">% Total</th>
-                        </tr></thead>
-                        <tbody id="tabela-cfop" class="divide-y divide-gray-100"></tbody>
-                    </table>
-                </div>
+                <div id="tabela-cfop-container" class="overflow-x-auto scroll-fade-right-white"></div>
+                <div id="cfop-paginacao" class="hidden border-t border-gray-200 px-4 py-3 flex items-center justify-between gap-3"></div>
             </div>
         </div>
 

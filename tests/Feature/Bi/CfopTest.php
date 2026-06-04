@@ -66,6 +66,7 @@ it('monta cfop analitico com descricao e tendencia top N', function () {
 
     $tend = $svc->getCfopTendencia($userId, null, null, null, 5);
     expect($tend['series'][0]['name'])->toContain('5102');
+    expect($tend['series'][0]['name'])->toContain('Venda'); // código + descrição, não só o código
     expect(count($tend['categorias']))->toBeGreaterThanOrEqual(2);
 });
 
