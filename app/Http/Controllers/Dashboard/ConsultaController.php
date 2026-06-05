@@ -1384,8 +1384,10 @@ class ConsultaController extends Controller
 
         $user = Auth::user();
 
+        // Conta só participantes CONSULTÁVEIS (CNPJ 14 dígitos) — bate com o que a seleção
+        // do grupo realmente adiciona (CPF/sem CNPJ não são consultáveis).
         $grupos = ParticipanteGrupo::doUsuario($user->id)
-            ->withCount('participantes')
+            ->withCount(['participantes as participantes_count' => fn ($q) => $q->somenteCnpj()])
             ->orderBy('nome')
             ->get(['id', 'nome', 'cor']);
 
@@ -1402,8 +1404,8 @@ class ConsultaController extends Controller
         // participantes associados. Permite selecionar as contrapartes de um cliente sem
         // misturar com a consulta do CNPJ do próprio cliente (aba Clientes).
         $clientesComParticipantes = Cliente::where('user_id', $user->id)
-            ->whereHas('participantes')
-            ->withCount('participantes')
+            ->whereHas('participantes', fn ($q) => $q->somenteCnpj())
+            ->withCount(['participantes as participantes_count' => fn ($q) => $q->somenteCnpj()])
             ->orderBy('razao_social')
             ->get(['id', 'nome', 'razao_social']);
 
