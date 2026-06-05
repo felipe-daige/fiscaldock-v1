@@ -415,6 +415,92 @@ class ResumoFiscalService
         ];
     }
 
+    // ─── Seção 2b: A Recolher & Vencimentos ───
+
+    /** Rótulo por código de receita do E116 (CONFAZ/SEFAZ-RS na massa auditada). */
+    private const COD_RECEITA_ICMS = ['310' => 'ICMS apuração', '350' => 'ICMS débito especial'];
+
+    /**
+     * Consolida o que a empresa recolhe no mês. Fonte das guias ICMS/ST = E116/E250
+     * (`icms_obrigacoes`/`st_obrigacoes`) — cada guia traz código de receita, valor e
+     * vencimento REAL. NÃO usa `icms_a_recolher` isolado: isso ignoraria o débito
+     * especial (350) e o ICMS-ST (333), subestimando o desembolso (auditoria A3).
+     * PIS/COFINS não têm E116 → vencimento estimado dia 25 do mês seguinte (rotulado).
+     */
+    public function getARecolherData(int $userId, int $clienteId, string $competencia): array
+    {
+        $icms = $this->getApuracaoIcms($userId, $clienteId, $competencia);
+        $contrib = $this->getApuracaoContrib($userId, $clienteId, $competencia);
+        $venc25 = Carbon::parse($competencia.'-01')->addMonthNoOverflow()->day(25)->toDateString();
+
+        $linhas = [];
+
+        if ($icms) {
+            foreach ($this->itensObrigacao($icms->icms_obrigacoes) as $ob) {
+                $cod = (string) ($ob['ICMS_COD_RECEITA'] ?? '');
+                $linhas[] = [
+                    'tributo' => self::COD_RECEITA_ICMS[$cod] ?? ('ICMS (receita '.$cod.')'),
+                    'valor' => (float) ($ob['ICMS_VALOR_OBRIGACAO'] ?? 0),
+                    'vencimento' => $this->parseVencimentoEfd($ob['ICMS_DATA_VENCIMENTO'] ?? null),
+                    'vencimento_estimado' => false,
+                    'fonte' => 'E116',
+                    'cod_receita' => $cod,
+                ];
+            }
+            foreach ($this->itensObrigacao($icms->st_obrigacoes) as $ob) {
+                $linhas[] = [
+                    'tributo' => 'ICMS-ST (receita '.($ob['ST_COD_RECEITA'] ?? '').')',
+                    'valor' => (float) ($ob['ST_VALOR_OBRIGACAO'] ?? 0),
+                    'vencimento' => $this->parseVencimentoEfd($ob['ST_DATA_VENCIMENTO'] ?? null),
+                    'vencimento_estimado' => false,
+                    'fonte' => 'E250',
+                    'cod_receita' => (string) ($ob['ST_COD_RECEITA'] ?? ''),
+                ];
+            }
+        }
+
+        if ($contrib) {
+            if ((float) $contrib->pis_total_recolher > 0) {
+                $linhas[] = ['tributo' => 'PIS', 'valor' => (float) $contrib->pis_total_recolher, 'vencimento' => $venc25, 'vencimento_estimado' => true, 'fonte' => 'M200', 'cod_receita' => null];
+            }
+            if ((float) $contrib->cofins_total_recolher > 0) {
+                $linhas[] = ['tributo' => 'COFINS', 'valor' => (float) $contrib->cofins_total_recolher, 'vencimento' => $venc25, 'vencimento_estimado' => true, 'fonte' => 'M600', 'cod_receita' => null];
+            }
+        }
+
+        $linhas = array_values(array_filter($linhas, fn ($l) => $l['valor'] > 0));
+
+        return [
+            'tem_icms' => $icms !== null,
+            'tem_contribuicoes' => $contrib !== null,
+            'linhas' => $linhas,
+            'total' => round(array_sum(array_column($linhas, 'valor')), 2),
+        ];
+    }
+
+    /** Normaliza o jsonb de obrigações (aceita {items:[...]} ou [...]). */
+    private function itensObrigacao($obrigacoes): array
+    {
+        if (is_array($obrigacoes)) {
+            return $obrigacoes['items'] ?? $obrigacoes;
+        }
+
+        return [];
+    }
+
+    /** Vencimento do E116/E250 vem como DDMMYYYY (string). Carbon::parse erra esse formato. */
+    private function parseVencimentoEfd(?string $ddmmyyyy): ?string
+    {
+        if (! $ddmmyyyy || strlen($ddmmyyyy) !== 8) {
+            return null;
+        }
+        try {
+            return Carbon::createFromFormat('dmY', $ddmmyyyy)->toDateString();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
     // ─── Helpers ───
 
     private function calcularDelta(float $atual, float $anterior): ?array
