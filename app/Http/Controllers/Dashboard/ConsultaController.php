@@ -1389,14 +1389,36 @@ class ConsultaController extends Controller
             ->orderBy('nome')
             ->get(['id', 'nome', 'cor']);
 
+        $manuais = $grupos->map(fn ($g) => [
+            'id' => $g->id,
+            'tipo' => 'manual',
+            'cliente_id' => null,
+            'nome' => $g->nome,
+            'cor' => $g->cor,
+            'participantes_count' => $g->participantes_count,
+        ]);
+
+        // Grupos automáticos: "Participantes de <cliente>" para cada cliente que tem
+        // participantes associados. Permite selecionar as contrapartes de um cliente sem
+        // misturar com a consulta do CNPJ do próprio cliente (aba Clientes).
+        $clientesComParticipantes = Cliente::where('user_id', $user->id)
+            ->whereHas('participantes')
+            ->withCount('participantes')
+            ->orderBy('razao_social')
+            ->get(['id', 'nome', 'razao_social']);
+
+        $automaticos = $clientesComParticipantes->map(fn ($c) => [
+            'id' => 'cliente:'.$c->id,
+            'tipo' => 'cliente',
+            'cliente_id' => $c->id,
+            'nome' => 'Participantes de '.($c->razao_social ?? $c->nome),
+            'cor' => '#6b7280',
+            'participantes_count' => $c->participantes_count,
+        ]);
+
         return response()->json([
             'success' => true,
-            'data' => $grupos->map(fn ($g) => [
-                'id' => $g->id,
-                'nome' => $g->nome,
-                'cor' => $g->cor,
-                'participantes_count' => $g->participantes_count,
-            ]),
+            'data' => $manuais->concat($automaticos)->values(),
         ]);
     }
 

@@ -3113,6 +3113,46 @@
         }
     }
 
+    // Grupo automático "Participantes de <cliente>": resolve os participantes do cliente
+    // e adiciona/remove da seleção (escopo participante).
+    async function toggleParticipantesDoCliente(clienteId, checked) {
+        try {
+            var response = await fetch(window.consultaData.routes.participantesPorClientes, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': window.consultaData.csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ cliente_ids: [clienteId] })
+            });
+
+            var data = await response.json();
+            if (!data.success) return;
+
+            (data.ids || []).forEach(function (id) {
+                if (checked) {
+                    state.selectedIds.add(id);
+                } else {
+                    state.selectedIds.delete(id);
+                }
+            });
+
+            document.querySelectorAll('.checkbox-participante').forEach(function (cb) {
+                var pid = parseInt(cb.dataset.id);
+                cb.checked = state.selectedIds.has(pid);
+                updateRowHighlight(pid, cb.checked);
+            });
+
+            updateContadorSelecionados();
+            updateResumo();
+            updateCheckboxTodos();
+        } catch (error) {
+            console.error('Erro ao selecionar participantes do cliente:', error);
+        }
+    }
+
     function renderGrupos(grupos) {
         if (!elements.listaGrupos) return;
 
@@ -3124,12 +3164,18 @@
 
         elements.listaGrupos.innerHTML = grupos.map(function(g) {
             var cor = g.cor || '#3B82F6';
-            var isSelected = state.selectedGrupoIds.has(g.id);
-            return '<button type="button" class="w-full px-5 py-3 flex items-center justify-between gap-3 hover:bg-gray-50 transition text-left grupo-item' + (isSelected ? ' bg-gray-50' : '') + '" data-grupo-id="' + g.id + '" data-grupo-label="' + (g.nome || '').replace(/"/g, '&quot;') + '">'
+            var isCliente = g.tipo === 'cliente';
+            var clienteId = isCliente ? g.cliente_id : '';
+            var isSelected = !isCliente && state.selectedGrupoIds.has(g.id);
+            var badge = isCliente
+                ? '<span class="text-[10px] font-semibold text-gray-500 uppercase tracking-wide bg-gray-100 px-1.5 py-0.5 rounded flex-shrink-0">auto</span>'
+                : '';
+            return '<button type="button" class="w-full px-5 py-3 flex items-center justify-between gap-3 hover:bg-gray-50 transition text-left grupo-item' + (isSelected ? ' bg-gray-50' : '') + '" data-grupo-id="' + g.id + '" data-grupo-tipo="' + (g.tipo || 'manual') + '" data-cliente-id="' + clienteId + '" data-grupo-label="' + (g.nome || '').replace(/"/g, '&quot;') + '">'
                 + '<div class="flex items-center gap-2.5 min-w-0 flex-1">'
-                + '<input type="checkbox" class="checkbox-grupo w-4 h-4 text-gray-600 rounded border-gray-300 flex-shrink-0" data-grupo-id="' + g.id + '"' + (isSelected ? ' checked' : '') + '>'
+                + '<input type="checkbox" class="checkbox-grupo w-4 h-4 text-gray-600 rounded border-gray-300 flex-shrink-0" data-grupo-id="' + g.id + '" data-grupo-tipo="' + (g.tipo || 'manual') + '" data-cliente-id="' + clienteId + '"' + (isSelected ? ' checked' : '') + '>'
                 + '<span class="w-3 h-3 rounded-full flex-shrink-0" style="background-color: ' + cor + '"></span>'
                 + '<span class="text-sm font-medium text-gray-900 truncate">' + (g.nome || '-') + '</span>'
+                + badge
                 + '</div>'
                 + '<span class="text-xs text-gray-400 flex-shrink-0 whitespace-nowrap">' + g.participantes_count + ' participante' + (g.participantes_count !== 1 ? 's' : '') + '</span>'
                 + '</button>';
@@ -3144,6 +3190,13 @@
                 });
                 checkbox.addEventListener('change', function(e) {
                     e.stopPropagation();
+                    // Grupo automático "Participantes de <cliente>": resolve os participantes
+                    // do cliente para a seleção (não usa selectedGrupoIds).
+                    if (checkbox.dataset.grupoTipo === 'cliente') {
+                        item.classList.toggle('bg-gray-50', checkbox.checked);
+                        toggleParticipantesDoCliente(parseInt(checkbox.dataset.clienteId), checkbox.checked);
+                        return;
+                    }
                     var grupoId = parseInt(checkbox.dataset.grupoId);
                     if (checkbox.checked) {
                         state.selectedGrupoIds.add(grupoId);
@@ -3158,9 +3211,12 @@
                 });
             }
             item.addEventListener('click', function() {
-                var grupoId = parseInt(item.dataset.grupoId);
                 var label = item.dataset.grupoLabel;
-                setFilterContext('grupo', grupoId, label);
+                if (item.dataset.grupoTipo === 'cliente') {
+                    setFilterContext('cliente', parseInt(item.dataset.clienteId), label);
+                    return;
+                }
+                setFilterContext('grupo', parseInt(item.dataset.grupoId), label);
             });
         });
 
@@ -3222,15 +3278,22 @@
     }
 
     function setFilterContext(type, id, label) {
-        // Clientes agora usam inline expansion; apenas grupos passam por aqui
-        if (type !== 'grupo') return;
+        // 'grupo' (manual) e 'cliente' (grupo automático "Participantes de <cliente>")
+        if (type !== 'grupo' && type !== 'cliente') return;
 
         state.filterContext = { type: type, id: id, label: label };
 
-        state.filters.grupo_id = id;
-        state.filters.cliente_id = '';
-        if (elements.filtroGrupo) elements.filtroGrupo.value = String(id);
-        if (elements.filtroCliente) elements.filtroCliente.value = '';
+        if (type === 'cliente') {
+            state.filters.cliente_id = id;
+            state.filters.grupo_id = '';
+            if (elements.filtroCliente) elements.filtroCliente.value = String(id);
+            if (elements.filtroGrupo) elements.filtroGrupo.value = '';
+        } else {
+            state.filters.grupo_id = id;
+            state.filters.cliente_id = '';
+            if (elements.filtroGrupo) elements.filtroGrupo.value = String(id);
+            if (elements.filtroCliente) elements.filtroCliente.value = '';
+        }
 
         state.currentPage = 1;
 
