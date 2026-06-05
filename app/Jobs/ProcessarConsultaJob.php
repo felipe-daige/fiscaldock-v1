@@ -7,6 +7,7 @@ use App\Services\Consultas\FonteRegistry;
 use App\Services\Consultas\Persistencia\PersistenciaCnpj;
 use App\Services\Consultas\Providers\MinhaReceitaProvider;
 use App\Services\Consultas\ThrottleProvider;
+use Illuminate\Bus\Batchable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -16,7 +17,7 @@ use Illuminate\Support\Facades\Cache;
 
 class ProcessarConsultaJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Batchable, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 3;
 
@@ -37,7 +38,7 @@ class ProcessarConsultaJob implements ShouldQueue
         PersistenciaCnpj $persistencia,
     ): void {
         $total = count($this->etapas);
-        $this->progresso(etapa: 1, total: $total, label: $this->etapas[0] ?? 'Preparando consulta', status: 'processando');
+        $this->progresso(etapa: 1, total: $total, label: $this->labelEtapa(0, 'Preparando consulta'), status: 'processando');
 
         // Alvo mutável: a UF autoritativa vem do cadastro (minhareceita) e alimenta as
         // fontes UF-dependentes (ex: CND Estadual). O cadastro é a 1ª fonte de todo plano.
@@ -58,7 +59,7 @@ class ProcessarConsultaJob implements ShouldQueue
                 ));
                 $this->progresso(
                     etapa: min($passo, $total), total: $total,
-                    label: $this->etapas[$passo - 1] ?? $fonte->chave(), status: 'processando',
+                    label: $this->labelEtapa($passo - 1, $fonte->chave()), status: 'processando',
                 );
 
                 continue;
@@ -93,7 +94,7 @@ class ProcessarConsultaJob implements ShouldQueue
 
             $this->progresso(
                 etapa: min($passo, $total), total: $total,
-                label: $this->etapas[$passo - 1] ?? $fonte->chave(), status: 'processando',
+                label: $this->labelEtapa($passo - 1, $fonte->chave()), status: 'processando',
             );
         }
 
@@ -109,6 +110,17 @@ class ProcessarConsultaJob implements ShouldQueue
             'infosimples' => app(\App\Services\Consultas\Providers\InfoSimplesProvider::class),
             default => throw new \RuntimeException("Provider não suportado: {$nome}"),
         };
+    }
+
+    /** Label da etapa por índice. resolvedEtapas() devolve ['numero','chave','label']; aceita também string. */
+    private function labelEtapa(int $idx, string $fallback): string
+    {
+        $e = $this->etapas[$idx] ?? null;
+        if (is_array($e)) {
+            return (string) ($e['label'] ?? $fallback);
+        }
+
+        return is_string($e) && $e !== '' ? $e : $fallback;
     }
 
     private function progresso(int $etapa, int $total, string $label, string $status): void

@@ -7,6 +7,10 @@ use Illuminate\Support\Facades\Http;
 
 uses(Illuminate\Foundation\Testing\RefreshDatabase::class);
 
+it('é batchable (Bus::batch exige o trait Batchable)', function () {
+    expect(in_array(Illuminate\Bus\Batchable::class, class_uses(ProcessarConsultaJob::class), true))->toBeTrue();
+});
+
 it('consulta cadastro, persiste e posta progresso', function () {
     [$loteId, $participanteId, $userId] = montarLoteParticipante();
 

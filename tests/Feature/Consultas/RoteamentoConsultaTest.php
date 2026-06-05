@@ -55,6 +55,35 @@ it('aceita escopo cliente (cliente_ids) no plano Gratuito → batch Laravel', fu
     Http::assertNothingSent();
 });
 
+it('executa de verdade o Gratuito (batch real + then) e fecha o lote', function () {
+    // SEM Bus::fake: exercita Bus::batch real (exige Batchable) + then() + job no sync.
+    $this->seed(\Database\Seeders\MonitoramentoPlanoSeeder::class);
+    $gratuito = MonitoramentoPlano::where('codigo', 'gratuito')->firstOrFail();
+
+    Http::fake(['minhareceita.org/*' => Http::response([
+        'razao_social' => 'EMPRESA REAL', 'descricao_situacao_cadastral' => 'ATIVA', 'situacao_cadastral' => 2,
+        'uf' => 'SP', 'municipio' => 'SAO PAULO', 'qsa' => [], 'cnaes_secundarios' => [],
+    ], 200)]);
+
+    $user = User::factory()->create();
+    $pid = DB::table('participantes')->insertGetId([
+        'user_id' => $user->id, 'documento' => '19131243000197', 'razao_social' => 'P',
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    $resp = $this->actingAs($user)->postJson('/app/consulta/nova/executar', [
+        'participante_ids' => [$pid], 'plano_id' => $gratuito->id, 'tab_id' => 't',
+    ])->assertOk()->assertJson(['success' => true]);
+
+    $loteId = $resp->json('consulta_lote_id');
+    // No driver sync, o batch roda inline + then() fecha o lote.
+    expect(App\Models\ConsultaLote::find($loteId)->status)->toBe('concluido');
+    $r = App\Models\ConsultaResultado::where('consulta_lote_id', $loteId)->first();
+    expect($r->status)->toBe('sucesso');
+    expect($r->resultado_dados['razao_social'])->toBe('EMPRESA REAL');
+    expect($r->resultado_dados['regime_tributario'])->toBe('Normal');
+});
+
 it('seleção combinada: participantes + clientes geram jobs com alvoTipo correto', function () {
     $this->seed(\Database\Seeders\MonitoramentoPlanoSeeder::class);
     $gratuito = MonitoramentoPlano::where('codigo', 'gratuito')->firstOrFail();
