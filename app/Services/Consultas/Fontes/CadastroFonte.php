@@ -51,6 +51,11 @@ class CadastroFonte implements Fonte
         return 0;
     }
 
+    public function pronta(): bool
+    {
+        return true; // minhareceita: grátis e sempre disponível
+    }
+
     public function normalizar(array $raw, string $status = 'sucesso'): array
     {
         // Cadastro (minhareceita) é sucesso-ou-nada: sem dado em qualquer não-sucesso.

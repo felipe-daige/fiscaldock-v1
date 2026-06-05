@@ -30,7 +30,7 @@ class FonteRegistry
 
     /**
      * True se TODOS os sub-atributos do plano (consultas_incluidas) são fornecidos
-     * por alguma fonte registrada (e a lista não é vazia). Roteamento Laravel×n8n.
+     * por uma fonte registrada E PRONTA (gate de cutover). Roteamento Laravel×n8n.
      */
     public function cobre(array $atributos): bool
     {
@@ -39,7 +39,8 @@ class FonteRegistry
         }
 
         foreach ($atributos as $atributo) {
-            if (! isset($this->porAtributo[$atributo])) {
+            $fonte = $this->porAtributo[$atributo] ?? null;
+            if (! $fonte || ! $fonte->pronta()) {
                 return false;
             }
         }

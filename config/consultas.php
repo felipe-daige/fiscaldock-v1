@@ -16,6 +16,11 @@ return [
         ],
     ],
 
+    // Gate de cutover: enquanto false, fontes InfoSimples NÃO roteiam pro Laravel
+    // (planos pagos seguem no n8n). Ligar só após pagar/validar o InfoSimples e
+    // confirmar o estorno preciso por fonte. ENV: CONSULTAS_INFOSIMPLES_ATIVO.
+    'infosimples_ativo' => (bool) env('CONSULTAS_INFOSIMPLES_ATIVO', false),
+
     // Grupos de código InfoSimples → status canônico (fonte: docs/infosimples/endpoints-catalog.md)
     'codigos' => [
         'sucesso' => [200, 201],
@@ -31,5 +36,7 @@ return [
     // Custo em créditos por fonte paga (usado no estorno preciso). 1 crédito = R$ 0,20.
     'fontes' => [
         'cnd_federal' => (int) env('CONSULTA_CREDITOS_CND_FEDERAL', 2),
+        'cndt' => (int) env('CONSULTA_CREDITOS_CNDT', 2),
+        'crf_fgts' => (int) env('CONSULTA_CREDITOS_CRF_FGTS', 2),
     ],
 ];

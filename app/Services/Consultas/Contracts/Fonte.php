@@ -35,4 +35,11 @@ interface Fonte
 
     /** Custo em créditos desta fonte (0 = grátis, ex: cadastro/minhareceita). */
     public function custoCreditos(): int;
+
+    /**
+     * A fonte está operacional para rotear pro Laravel? Gate de cutover seguro:
+     * fontes InfoSimples só ficam prontas quando ativadas (token + flag), evitando
+     * migrar um plano pago pro Laravel antes do provedor estar pago/validado.
+     */
+    public function pronta(): bool;
 }
