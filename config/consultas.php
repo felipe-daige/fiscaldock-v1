@@ -38,9 +38,16 @@ return [
     // do plano InfoSimples. ENV: CONSULTA_CND_ESTADUAL_UFS (CSV). CND Municipal terá tabela
     // cidade→slug própria (cobertura por município).
     'cnd_estadual' => [
+        // Default = as 27 UFs listadas no catálogo do repo (docs/infosimples/endpoints-catalog.md,
+        // `sefaz/{uf}/certidao-debitos`). NÃO foi verificado contra a cobertura real do plano
+        // InfoSimples — ao ativar, conferir e TRIMAR via ENV CONSULTA_CND_ESTADUAL_UFS (CSV) para
+        // a cobertura efetiva, senão UFs não atendidas serão chamadas (e cobradas) à toa.
         'ufs_cobertas' => array_values(array_filter(array_map(
             'trim',
-            explode(',', (string) env('CONSULTA_CND_ESTADUAL_UFS', 'SP,RJ,MG,PR,SC,RS,GO,BA,DF,ES,CE,PE,MT,MS'))
+            explode(',', (string) env(
+                'CONSULTA_CND_ESTADUAL_UFS',
+                'AC,AL,AM,AP,BA,CE,DF,ES,GO,MA,MG,MS,MT,PA,PB,PE,PI,PR,RJ,RN,RO,RR,RS,SC,SE,SP,TO'
+            ))
         ))),
     ],
 
