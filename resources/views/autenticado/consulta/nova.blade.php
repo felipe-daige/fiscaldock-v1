@@ -677,6 +677,10 @@
                                     <span class="text-gray-500">Participantes</span>
                                     <span id="resumo-participantes" class="text-gray-900 font-medium">0</span>
                                 </div>
+                                <div class="flex justify-between items-center hidden" id="resumo-clientes-row">
+                                    <span class="text-gray-500">Clientes (CNPJ próprio)</span>
+                                    <span id="resumo-clientes" class="text-gray-900 font-medium">0</span>
+                                </div>
                                 <div class="flex justify-between items-center">
                                     <span class="text-gray-500">Custo unitário</span>
                                     <span id="resumo-custo-unitario" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: #4338ca">0 créditos</span>

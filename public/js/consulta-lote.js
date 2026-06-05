@@ -194,6 +194,8 @@
 
             // Resumo
             resumoParticipantes: document.getElementById('resumo-participantes'),
+            resumoClientes: document.getElementById('resumo-clientes'),
+            resumoClientesRow: document.getElementById('resumo-clientes-row'),
             resumoCustoUnitario: document.getElementById('resumo-custo-unitario'),
             resumoCustoTotal: document.getElementById('resumo-custo-total'),
             resumoSaldo: document.getElementById('resumo-saldo'),
@@ -897,15 +899,20 @@
      * Atualiza resumo de custos.
      */
     function updateResumo() {
-        // Alvos = participantes selecionados + CNPJs de clientes (escopo cliente, aba Clientes).
-        const totalParticipantes = state.selectedIds.size + state.selectedClienteIds.size;
+        // Contagens separadas: participantes (contrapartes) e clientes (CNPJ próprio).
+        const numParticipantes = state.selectedIds.size;
+        const numClientes = state.selectedClienteIds.size;
+        // Total de alvos (cada um é uma consulta) define o custo.
+        const totalParticipantes = numParticipantes + numClientes;
         const planoSelecionado = document.querySelector('input[name="plano_id"]:checked');
         const custoUnitario = planoSelecionado ? parseInt(planoSelecionado.dataset.custo) : 0;
         const isGratuito = planoSelecionado && planoSelecionado.dataset.gratuito === '1';
         const custoTotal = isGratuito ? 0 : totalParticipantes * custoUnitario;
         const creditosSuficientes = isGratuito || state.credits >= custoTotal;
 
-        if (elements.resumoParticipantes) elements.resumoParticipantes.textContent = totalParticipantes;
+        if (elements.resumoParticipantes) elements.resumoParticipantes.textContent = numParticipantes;
+        if (elements.resumoClientes) elements.resumoClientes.textContent = numClientes;
+        if (elements.resumoClientesRow) elements.resumoClientesRow.classList.toggle('hidden', numClientes === 0);
 
         if (isGratuito) {
             if (elements.resumoCustoUnitario) elements.resumoCustoUnitario.textContent = 'Gratis';
