@@ -98,7 +98,7 @@ it('usa a UF autoritativa do cadastro p/ liberar a CND Estadual (alvo sem UF)', 
     $r = ConsultaResultado::where('consulta_lote_id', $loteId)->first();
     // CND estadual foi consultada (não ficou INDISPONIVEL) porque a UF veio do cadastro
     expect($r->resultado_dados['cnd_estadual']['status'])->toBe('Negativa');
-    Http::assertSent(fn ($req) => str_contains($req->url(), 'sefaz/certidao-debitos'));
+    Http::assertSent(fn ($req) => str_contains($req->url(), 'sefaz/sp/certidao-debitos'));
 });
 
 it('processa escopo cliente gravando cliente_id', function () {

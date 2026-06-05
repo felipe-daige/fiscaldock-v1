@@ -11,7 +11,15 @@ class CndEstadualFonte extends FonteCertidaoInfoSimples
 
     public function slug(): string
     {
-        return 'sefaz/certidao-debitos';
+        return 'sefaz/certidao-debitos'; // fallback; o slug real é por-UF (slugPara)
+    }
+
+    public function slugPara(array $alvo): string
+    {
+        // Doc InfoSimples: endpoint por UF (sefaz/{uf}/certidao-debitos) p/ as 27 UFs.
+        $uf = strtolower((string) ($alvo['uf'] ?? ''));
+
+        return $uf !== '' ? "sefaz/{$uf}/certidao-debitos" : $this->slug();
     }
 
     public function custoCreditos(): int
