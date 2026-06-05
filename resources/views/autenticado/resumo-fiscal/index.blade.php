@@ -49,8 +49,8 @@
         </div>
         <div class="p-4 flex flex-col sm:flex-row items-start sm:items-end gap-3">
             <div class="flex-1 min-w-0 w-full sm:w-auto">
-                <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Cliente</label>
-                <select id="rf-cliente" class="w-full border border-gray-300 rounded text-sm focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Cliente</label>
+                <select id="rf-cliente" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
                     @foreach($clientes as $c)
                         <option value="{{ $c->id }}" {{ $c->id == ($defaultClienteId ?? '') ? 'selected' : '' }}>
                             {{ $c->razao_social ?? $c->nome }}
@@ -60,8 +60,8 @@
                 </select>
             </div>
             <div class="w-full sm:w-44">
-                <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Competência</label>
-                <select id="rf-competencia" class="w-full border border-gray-300 rounded text-sm focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Competência</label>
+                <select id="rf-competencia" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
                     @foreach($competencias as $comp)
                         <option value="{{ $comp }}" {{ $comp == ($defaultCompetencia ?? '') ? 'selected' : '' }}>
                             {{ \Carbon\Carbon::parse($comp . '-01')->translatedFormat('M/Y') }}
@@ -69,7 +69,7 @@
                     @endforeach
                 </select>
             </div>
-            <button id="rf-btn-filtrar" class="w-full sm:w-auto px-4 py-2 bg-gray-800 text-white rounded text-sm font-semibold hover:bg-gray-700 transition-colors">
+            <button id="rf-btn-filtrar" class="w-full sm:w-auto px-4 py-2.5 bg-gray-800 text-white rounded text-[13px] font-medium hover:bg-gray-700 transition-colors">
                 Carregar
             </button>
         </div>
