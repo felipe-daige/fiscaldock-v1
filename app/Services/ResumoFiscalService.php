@@ -56,19 +56,17 @@ class ResumoFiscalService
             ->selectRaw('COALESCE(SUM(valor_pis), 0) as pis, COALESCE(SUM(valor_cofins), 0) as cofins')
             ->first();
 
-        $icmsRecolher = (float) ($icms->icms_a_recolher ?? 0);
-        $pisRecolher = (float) ($contrib->pis_total_recolher ?? 0);
-        $cofinsRecolher = (float) ($contrib->cofins_total_recolher ?? 0);
         $retencoesVal = (float) ($retencoes->pis ?? 0) + (float) ($retencoes->cofins ?? 0);
-        // saldo a pagar = soma dos "a recolher". NÃO subtrair as retenções de novo:
-        // pis/cofins_total_recolher JÁ são líquidos da retenção deduzida na apuração
-        // (M200/M600). `retencoes_compensaveis` é só informativo. Ver F2-A2.
-        $saldoLiquido = $icmsRecolher + $pisRecolher + $cofinsRecolher;
+
+        // Valores a recolher vêm do quadro ÚNICO (E116/E250 + M200/M600). A família
+        // ICMS já inclui débito especial (350) e ST (333) — antes o KPI usava só
+        // icms_a_recolher (310) e subestimava (auditoria A3). saldo = total das guias.
+        $aRecolher = $this->getARecolherData($userId, $clienteId, $competencia);
+        $agg = $this->agregarPorFamilia($aRecolher['linhas']);
+        $saldoLiquido = $aRecolher['total'];
 
         // Mês anterior para deltas
         $prevComp = Carbon::parse($competencia.'-01')->subMonth()->format('Y-m');
-        $prevIcms = $this->getApuracaoIcms($userId, $clienteId, $prevComp);
-        $prevContrib = $this->getApuracaoContrib($userId, $clienteId, $prevComp);
         [$prevInicio, $prevFim] = $this->periodoDates($prevComp);
 
         $prevRetencoes = EfdRetencaoFonte::doUsuario($userId)
@@ -77,26 +75,27 @@ class ResumoFiscalService
             ->selectRaw('COALESCE(SUM(valor_pis), 0) as pis, COALESCE(SUM(valor_cofins), 0) as cofins')
             ->first();
 
-        $prevIcmsRecolher = (float) ($prevIcms->icms_a_recolher ?? 0);
-        $prevPisRecolher = (float) ($prevContrib->pis_total_recolher ?? 0);
-        $prevCofinsRecolher = (float) ($prevContrib->cofins_total_recolher ?? 0);
         $prevRetencoesVal = (float) ($prevRetencoes->pis ?? 0) + (float) ($prevRetencoes->cofins ?? 0);
-        $prevSaldoLiquido = $prevIcmsRecolher + $prevPisRecolher + $prevCofinsRecolher;
+        $prevARecolher = $this->getARecolherData($userId, $clienteId, $prevComp);
+        $prevAgg = $this->agregarPorFamilia($prevARecolher['linhas']);
+        $prevSaldoLiquido = $prevARecolher['total'];
 
         return [
             'tem_dados' => $icms !== null || $contrib !== null,
+            'tem_icms' => $icms !== null,
+            'tem_contribuicoes' => $contrib !== null,
             'kpis' => [
                 'icms_a_recolher' => [
-                    'valor' => $icmsRecolher,
-                    'delta' => $this->calcularDelta($icmsRecolher, $prevIcmsRecolher),
+                    'valor' => $agg['icms'],
+                    'delta' => $this->calcularDelta($agg['icms'], $prevAgg['icms']),
                 ],
                 'pis_a_recolher' => [
-                    'valor' => $pisRecolher,
-                    'delta' => $this->calcularDelta($pisRecolher, $prevPisRecolher),
+                    'valor' => $agg['pis'],
+                    'delta' => $this->calcularDelta($agg['pis'], $prevAgg['pis']),
                 ],
                 'cofins_a_recolher' => [
-                    'valor' => $cofinsRecolher,
-                    'delta' => $this->calcularDelta($cofinsRecolher, $prevCofinsRecolher),
+                    'valor' => $agg['cofins'],
+                    'delta' => $this->calcularDelta($agg['cofins'], $prevAgg['cofins']),
                 ],
                 'retencoes_compensaveis' => [
                     'valor' => $retencoesVal,
@@ -105,9 +104,28 @@ class ResumoFiscalService
                 'saldo_liquido' => [
                     'valor' => $saldoLiquido,
                     'delta' => $this->calcularDelta($saldoLiquido, $prevSaldoLiquido),
+                    // parcial = só uma das duas EFDs presente (não somar a outra como 0).
+                    'parcial' => ($icms === null) !== ($contrib === null),
                 ],
             ],
         ];
+    }
+
+    /** Agrega as linhas de getARecolherData por família tributária (KPIs do topo). */
+    private function agregarPorFamilia(array $linhas): array
+    {
+        $out = ['icms' => 0.0, 'pis' => 0.0, 'cofins' => 0.0];
+        foreach ($linhas as $l) {
+            if (in_array($l['fonte'], ['E116', 'E250'], true)) {
+                $out['icms'] += $l['valor'];
+            } elseif ($l['fonte'] === 'M200') {
+                $out['pis'] += $l['valor'];
+            } elseif ($l['fonte'] === 'M600') {
+                $out['cofins'] += $l['valor'];
+            }
+        }
+
+        return array_map(fn ($v) => round($v, 2), $out);
     }
 
     // ─── Seção 2: Apuração ICMS/IPI ───
@@ -369,34 +387,32 @@ class ResumoFiscalService
             ];
         }
 
-        // Obrigações vencidas (E116)
-        $icms = $this->getApuracaoIcms($userId, $clienteId, $competencia);
-        if ($icms) {
-            $obrigacoes = $icms->icms_obrigacoes['items'] ?? $icms->icms_obrigacoes ?? [];
-            if (is_array($obrigacoes)) {
-                foreach ($obrigacoes as $ob) {
-                    $dtVcto = $ob['dt_vcto'] ?? $ob['data_vencimento'] ?? null;
-                    if ($dtVcto) {
-                        $vencimento = Carbon::parse($dtVcto);
-                        if ($vencimento->isPast()) {
-                            $alertas[] = [
-                                'severidade' => 'alta',
-                                'categoria' => 'Obrigações',
-                                'titulo' => 'Obrigação ICMS vencida',
-                                'descricao' => 'Vencimento em '.$vencimento->format('d/m/Y').' — valor R$ '.number_format((float) ($ob['vl_or'] ?? $ob['valor_obrigacao'] ?? 0), 2, ',', '.'),
-                                'valor' => (float) ($ob['vl_or'] ?? $ob['valor_obrigacao'] ?? 0),
-                            ];
-                        } elseif ($vencimento->diffInDays(now()) <= 7) {
-                            $alertas[] = [
-                                'severidade' => 'media',
-                                'categoria' => 'Obrigações',
-                                'titulo' => 'Obrigação ICMS próxima ao vencimento',
-                                'descricao' => 'Vence em '.$vencimento->format('d/m/Y').' ('.$vencimento->diffInDays(now()).' dias) — valor R$ '.number_format((float) ($ob['vl_or'] ?? $ob['valor_obrigacao'] ?? 0), 2, ',', '.'),
-                                'valor' => (float) ($ob['vl_or'] ?? $ob['valor_obrigacao'] ?? 0),
-                            ];
-                        }
-                    }
-                }
+        // Obrigações vencidas / a vencer (E116 ICMS + E250 ST). A4: as chaves reais do
+        // jsonb são ICMS_*/ST_* e a data é DDMMYYYY — antes lia dt_vcto/vl_or + Carbon::parse,
+        // então NUNCA disparava. Usa o quadro 'a recolher' já normalizado (parseVencimentoEfd).
+        $aRecolher = $this->getARecolherData($userId, $clienteId, $competencia);
+        foreach ($aRecolher['linhas'] as $linha) {
+            if ($linha['vencimento_estimado'] || ! $linha['vencimento']) {
+                continue; // só obrigações com vencimento REAL (E116/E250), não PIS/COFINS estimado
+            }
+            $vencimento = Carbon::parse($linha['vencimento']);
+            $valorFmt = number_format($linha['valor'], 2, ',', '.');
+            if ($vencimento->isPast()) {
+                $alertas[] = [
+                    'severidade' => 'alta',
+                    'categoria' => 'Obrigações',
+                    'titulo' => 'Obrigação ICMS vencida',
+                    'descricao' => $linha['tributo'].' — vencimento em '.$vencimento->format('d/m/Y').' — valor R$ '.$valorFmt,
+                    'valor' => $linha['valor'],
+                ];
+            } elseif ($vencimento->diffInDays(now()) <= 7) {
+                $alertas[] = [
+                    'severidade' => 'media',
+                    'categoria' => 'Obrigações',
+                    'titulo' => 'Obrigação ICMS próxima ao vencimento',
+                    'descricao' => $linha['tributo'].' vence em '.$vencimento->format('d/m/Y').' ('.$vencimento->diffInDays(now()).' dias) — valor R$ '.$valorFmt,
+                    'valor' => $linha['valor'],
+                ];
             }
         }
 

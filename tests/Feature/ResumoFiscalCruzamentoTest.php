@@ -47,10 +47,28 @@ it('cruzamento de retenções soma F600 vs deduzido na apuração', function () 
     expect($c['retencoes']['status'])->toBe('verde');
 });
 
-it('não gera alertas fiscais falsos quando declarado bate com as notas', function () {
+it('não gera alertas de divergência quando declarado bate com as notas', function () {
     $a = $this->svc->getAlertasFiscaisData($this->userId, $this->cliente, '2024-01');
 
-    expect($a['resumo']['total'])->toBe(0);
+    // cruzamento verde → zero alertas de divergência (Obrigações vencidas são à parte)
+    $divergencia = collect($a['alertas'])->whereIn('categoria', ['ICMS', 'PIS/COFINS', 'Retenções']);
+    expect($divergencia)->toHaveCount(0);
+});
+
+it('A4: gera alerta de obrigação ICMS vencida lendo as chaves reais do E116', function () {
+    // chave real (ICMS_DATA_VENCIMENTO) + formato DDMMYYYY + data no passado
+    \Illuminate\Support\Facades\DB::table('efd_apuracoes_icms')->where('cliente_id', $this->cliente)->update([
+        'icms_obrigacoes' => json_encode(['items' => [
+            ['ICMS_COD_RECEITA' => '310', 'ICMS_VALOR_OBRIGACAO' => 1234.56, 'ICMS_DATA_VENCIMENTO' => '10012020'],
+        ]]),
+    ]);
+
+    $a = $this->svc->getAlertasFiscaisData($this->userId, $this->cliente, '2024-01');
+    $venc = collect($a['alertas'])->firstWhere('titulo', 'Obrigação ICMS vencida');
+
+    expect($venc)->not->toBeNull();
+    expect($venc['valor'])->toBe(1234.56);
+    expect($venc['descricao'])->toContain('10/01/2020');
 });
 
 it('saldo_liquido não subtrai a retenção em dobro (a_recolher já é líquido)', function () {
@@ -59,4 +77,34 @@ it('saldo_liquido não subtrai a retenção em dobro (a_recolher já é líquido
 
     expect($re['kpis']['retencoes_compensaveis']['valor'])->toBe(4.0);
     expect($re['kpis']['saldo_liquido']['valor'])->toBe(196.0);
+    expect($re['kpis']['icms_a_recolher']['valor'])->toBe(80.0);  // família ICMS (guia 310)
+    expect($re['kpis']['pis_a_recolher']['valor'])->toBe(28.0);
+});
+
+it('saldo_liquido NÃO trata PIS/COFINS ausente como zero (completude)', function () {
+    \Illuminate\Support\Facades\DB::table('efd_apuracoes_contribuicoes')->delete();
+
+    $re = $this->svc->getResumoExecutivo($this->userId, $this->cliente, '2024-01');
+
+    expect($re['tem_icms'])->toBeTrue();
+    expect($re['tem_contribuicoes'])->toBeFalse();
+    expect($re['kpis']['saldo_liquido']['valor'])->toBe(80.0);     // só ICMS (não finge PIS/COFINS=0)
+    expect($re['kpis']['saldo_liquido']['parcial'])->toBeTrue();
+});
+
+it('saldo_liquido inclui débito especial + ICMS-ST (não só guia 310)', function () {
+    \Illuminate\Support\Facades\DB::table('efd_apuracoes_icms')->where('cliente_id', $this->cliente)->update([
+        'icms_obrigacoes' => json_encode(['items' => [
+            ['ICMS_COD_RECEITA' => '310', 'ICMS_VALOR_OBRIGACAO' => 80, 'ICMS_DATA_VENCIMENTO' => '16022024'],
+            ['ICMS_COD_RECEITA' => '350', 'ICMS_VALOR_OBRIGACAO' => 20, 'ICMS_DATA_VENCIMENTO' => '19022024'],
+        ]]),
+        'st_obrigacoes' => json_encode(['items' => [
+            ['ST_COD_RECEITA' => '333', 'ST_VALOR_OBRIGACAO' => 50, 'ST_DATA_VENCIMENTO' => '19022024'],
+        ]]),
+    ]);
+
+    $re = $this->svc->getResumoExecutivo($this->userId, $this->cliente, '2024-01');
+
+    expect($re['kpis']['icms_a_recolher']['valor'])->toBe(150.0); // 80+20+50
+    expect($re['kpis']['saldo_liquido']['valor'])->toBe(266.0);   // 150 + 28 + 88
 });
