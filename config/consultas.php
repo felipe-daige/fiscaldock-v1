@@ -33,6 +33,17 @@ return [
         'fatal' => [601, 602, 603, 604, 606, 607, 617, 621, 622],
     ],
 
+    // Cobertura parcial do InfoSimples para CND Estadual (SEFAZ por UF). Só estas UFs são
+    // consultadas; alvo em UF fora da lista é pulado (sem cobrar). Ajustar à cobertura real
+    // do plano InfoSimples. ENV: CONSULTA_CND_ESTADUAL_UFS (CSV). CND Municipal terá tabela
+    // cidade→slug própria (cobertura por município).
+    'cnd_estadual' => [
+        'ufs_cobertas' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('CONSULTA_CND_ESTADUAL_UFS', 'SP,RJ,MG,PR,SC,RS,GO,BA,DF,ES,CE,PE,MT,MS'))
+        ))),
+    ],
+
     // Custo em créditos por fonte paga (usado no estorno preciso). 1 crédito = R$ 0,20.
     'fontes' => [
         'cnd_federal' => (int) env('CONSULTA_CREDITOS_CND_FEDERAL', 2),

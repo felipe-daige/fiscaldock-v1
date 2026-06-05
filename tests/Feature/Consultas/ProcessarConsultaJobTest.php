@@ -56,6 +56,25 @@ it('acumula estorno no cache quando uma fonte paga falha (fatal)', function () {
         ->toBe((int) config('consultas.fontes.cnd_federal', 2));
 });
 
+it('CND Estadual em UF sem cobertura: não chama o provedor e marca INDISPONIVEL', function () {
+    [$loteId, $participanteId, $userId] = montarLoteParticipante();
+    config()->set('consultas.cnd_estadual.ufs_cobertas', ['SP']);
+
+    Http::fake(); // qualquer chamada falharia a asserção
+
+    ProcessarConsultaJob::dispatchSync(
+        loteId: $loteId, alvoTipo: 'participante', alvoId: $participanteId, userId: $userId, tabId: 'tab-test',
+        consultasIncluidas: ['cnd_estadual'], alvo: ['cnpj' => '19131243000197', 'uf' => 'AC'],
+        etapas: ['Preparando consulta', 'Certidões Estaduais'],
+    );
+
+    Http::assertNothingSent();
+    $r = ConsultaResultado::where('consulta_lote_id', $loteId)->first();
+    expect($r->resultado_dados['cnd_estadual']['status'])->toBe('INDISPONIVEL');
+    // não conta como estorno (não é falha)
+    expect((int) Cache::get("consulta_estorno:{$loteId}:participante:{$participanteId}"))->toBe(0);
+});
+
 it('processa escopo cliente gravando cliente_id', function () {
     [$loteId, , $userId] = montarLoteParticipante();
     $clienteId = \Illuminate\Support\Facades\DB::table('clientes')->where('user_id', $userId)->value('id');

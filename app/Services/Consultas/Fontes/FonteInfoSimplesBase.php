@@ -37,6 +37,11 @@ abstract class FonteInfoSimplesBase implements Fonte
             && filled(config('consultas.providers.infosimples.token'));
     }
 
+    public function aplicavelPara(array $alvo): bool
+    {
+        return true; // por padrão, aplica-se a todo CNPJ (cobertura nacional)
+    }
+
     public function params(array $alvo): array
     {
         return ['cnpj' => preg_replace('/[^0-9]/', '', (string) ($alvo['cnpj'] ?? ''))];

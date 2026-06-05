@@ -27,6 +27,14 @@ abstract class FonteCertidaoInfoSimples extends FonteInfoSimplesBase
             return $this->bloco(['status' => 'NAO_ENCONTRADA', 'mensagem' => $this->mensagem($raw)]);
         }
 
+        // Cobertura do provedor indisponível para a UF/cidade do alvo (não foi consultado).
+        if ($status === 'nao_aplicavel') {
+            return $this->bloco([
+                'status' => 'INDISPONIVEL',
+                'mensagem' => 'Cobertura indisponível para esta UF/cidade no provedor.',
+            ]);
+        }
+
         // retry/fatal/erro_participante: falha técnica/parâmetro — nada a persistir aqui
         // (a mensagem do erro vai p/ consulta_resultados.error_message pelo job).
         return [];

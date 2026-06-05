@@ -42,4 +42,12 @@ interface Fonte
      * migrar um plano pago pro Laravel antes do provedor estar pago/validado.
      */
     public function pronta(): bool;
+
+    /**
+     * A fonte se aplica a ESTE alvo? Trata a limitação de cobertura do provedor por
+     * UF/cidade (ex: CND Estadual/Municipal só existem em algumas UFs/municípios no
+     * InfoSimples). Quando false, o job pula a fonte sem chamar o provedor nem cobrar,
+     * marcando o resultado como INDISPONÍVEL.
+     */
+    public function aplicavelPara(array $alvo): bool;
 }

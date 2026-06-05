@@ -19,6 +19,17 @@ class CndEstadualFonte extends FonteCertidaoInfoSimples
         return (int) config('consultas.fontes.cnd_estadual', 2);
     }
 
+    public function aplicavelPara(array $alvo): bool
+    {
+        // Cobertura InfoSimples por UF é parcial — só aplica quando a UF do alvo está
+        // na lista coberta (config/consultas.php → cnd_estadual.ufs_cobertas). UF vazia
+        // ou fora da lista → pula (sem chamar/cobrar).
+        $uf = strtoupper((string) ($alvo['uf'] ?? ''));
+        $cobertas = (array) config('consultas.cnd_estadual.ufs_cobertas', []);
+
+        return $uf !== '' && in_array($uf, $cobertas, true);
+    }
+
     public function params(array $alvo): array
     {
         // SEFAZ exige a UF do domicílio do participante.

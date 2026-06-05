@@ -18,6 +18,20 @@ it('CND Estadual: metadados + uf no param + sucesso/611', function () {
     expect($f->normalizar(['code' => 611], 'indeterminado')['cnd_estadual']['status'])->toBe('INDETERMINADO');
 });
 
+it('CND Estadual: cobertura por UF (aplicavelPara) + INDISPONIVEL fora da cobertura', function () {
+    config()->set('consultas.cnd_estadual.ufs_cobertas', ['SP', 'RJ']);
+    $f = new CndEstadualFonte();
+
+    expect($f->aplicavelPara(['uf' => 'SP']))->toBeTrue();
+    expect($f->aplicavelPara(['uf' => 'sp']))->toBeTrue(); // normaliza maiúsculas
+    expect($f->aplicavelPara(['uf' => 'AC']))->toBeFalse(); // fora da cobertura
+    expect($f->aplicavelPara(['uf' => '']))->toBeFalse();   // sem UF
+    expect($f->aplicavelPara([]))->toBeFalse();
+
+    $out = $f->normalizar([], 'nao_aplicavel');
+    expect($out['cnd_estadual']['status'])->toBe('INDISPONIVEL');
+});
+
 it('SINTEGRA: cadastral (IE/situação)', function () {
     $f = new SintegraFonte();
     expect($f->chave())->toBe('sintegra');

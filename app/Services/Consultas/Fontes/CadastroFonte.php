@@ -56,6 +56,11 @@ class CadastroFonte implements Fonte
         return true; // minhareceita: grátis e sempre disponível
     }
 
+    public function aplicavelPara(array $alvo): bool
+    {
+        return true; // cadastral é nacional
+    }
+
     public function normalizar(array $raw, string $status = 'sucesso'): array
     {
         // Cadastro (minhareceita) é sucesso-ou-nada: sem dado em qualquer não-sucesso.

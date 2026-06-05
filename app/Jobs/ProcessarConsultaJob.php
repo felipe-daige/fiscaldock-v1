@@ -43,6 +43,21 @@ class ProcessarConsultaJob implements ShouldQueue
         $creditosFalhos = 0;
         foreach ($registry->fontesDe($this->consultasIncluidas) as $fonte) {
             $passo++;
+
+            // Cobertura do provedor indisponível p/ este alvo (ex: UF/cidade) → pula sem
+            // chamar nem cobrar; persiste como INDISPONIVEL (não é falha estornável).
+            if (! $fonte->aplicavelPara($this->alvo)) {
+                $persistencia->gravar($this->loteId, $this->alvoTipo, $this->alvoId, new ResultadoFonte(
+                    $fonte->chave(), $fonte->normalizar([], 'nao_aplicavel'), 'nao_aplicavel', 0,
+                ));
+                $this->progresso(
+                    etapa: min($passo, $total), total: $total,
+                    label: $this->etapas[$passo - 1] ?? $fonte->chave(), status: 'processando',
+                );
+
+                continue;
+            }
+
             $throttle->aguardar($fonte->provider());
 
             $provider = $this->resolverProvider($fonte->provider());
