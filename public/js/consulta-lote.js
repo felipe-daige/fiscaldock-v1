@@ -44,6 +44,9 @@
     const state = {
         selectedIds: new Set(),
         selectedClienteIds: new Set(),
+        // Modo da aba Clientes: 'contrapartes' (seleciona os participantes do cliente,
+        // comportamento padrão) ou 'proprio' (consulta o CNPJ do próprio cliente — escopo cliente).
+        modoCliente: 'contrapartes',
         selectedGrupoIds: new Set(),
         currentPage: 1,
         perPage: 50,
@@ -257,6 +260,18 @@
                 var tab = e.target.closest('.search-tab');
                 if (tab && tab.dataset.tab) {
                     switchTab(tab.dataset.tab);
+                }
+            });
+        }
+
+        // Modo da aba Clientes: contrapartes (padrão) vs CNPJ próprio (escopo cliente)
+        var modoClienteTabs = document.getElementById('modo-cliente-tabs');
+        if (modoClienteTabs && !modoClienteTabs._delegated) {
+            modoClienteTabs._delegated = true;
+            modoClienteTabs.addEventListener('click', function (e) {
+                var btn = e.target.closest('.modo-cliente-tab');
+                if (btn && btn.dataset.modoCliente) {
+                    setModoCliente(btn.dataset.modoCliente);
                 }
             });
         }
@@ -897,7 +912,9 @@
      * Atualiza resumo de custos.
      */
     function updateResumo() {
-        const totalParticipantes = state.selectedIds.size;
+        // Alvos = participantes selecionados + (escopo cliente, quando no modo 'proprio').
+        const totalClientes = state.modoCliente === 'proprio' ? state.selectedClienteIds.size : 0;
+        const totalParticipantes = state.selectedIds.size + totalClientes;
         const planoSelecionado = document.querySelector('input[name="plano_id"]:checked');
         const custoUnitario = planoSelecionado ? parseInt(planoSelecionado.dataset.custo) : 0;
         const isGratuito = planoSelecionado && planoSelecionado.dataset.gratuito === '1';
@@ -944,12 +961,13 @@
         if (state.isExecuting) return;
 
         const participanteIds = Array.from(state.selectedIds);
+        const clienteIds = state.modoCliente === 'proprio' ? Array.from(state.selectedClienteIds) : [];
         const planoId = document.querySelector('input[name="plano_id"]:checked')?.value;
         const clienteId = state.filters.cliente_id || null;
         clearInlineError();
 
-        if (participanteIds.length === 0) {
-            showInlineErrorMessage('Selecione pelo menos um participante.', null, 'executar-consulta');
+        if (participanteIds.length === 0 && clienteIds.length === 0) {
+            showInlineErrorMessage('Selecione pelo menos um participante ou cliente.', null, 'executar-consulta');
             return;
         }
 
@@ -977,6 +995,7 @@
                 },
                 body: JSON.stringify({
                     participante_ids: participanteIds,
+                    cliente_ids: clienteIds,
                     plano_id: parseInt(planoId),
                     cliente_id: clienteId ? parseInt(clienteId) : null,
                     tab_id: state.tabId
@@ -2796,8 +2815,54 @@
     /**
      * Alterna selecao de um cliente (adiciona/remove todos seus participantes).
      */
+    function setModoCliente(modo) {
+        if ((modo !== 'contrapartes' && modo !== 'proprio') || state.modoCliente === modo) return;
+        state.modoCliente = modo;
+
+        document.querySelectorAll('.modo-cliente-tab').forEach(function (b) {
+            var ativo = b.dataset.modoCliente === modo;
+            b.classList.toggle('bg-gray-800', ativo);
+            b.classList.toggle('text-white', ativo);
+            b.classList.toggle('text-gray-600', !ativo);
+        });
+        var hint = document.getElementById('modo-cliente-hint');
+        if (hint) {
+            hint.textContent = modo === 'proprio'
+                ? 'Consulta a regularidade do CNPJ da própria empresa (cliente) selecionada.'
+                : 'Seleciona os participantes (contrapartes) que aparecem nas notas desse cliente.';
+        }
+
+        // Trocar de modo zera a seleção da aba Clientes (o significado da seleção muda).
+        state.selectedClienteIds.clear();
+        state.bulkSelectionState.clientes = false;
+        document.querySelectorAll('.checkbox-cliente').forEach(function (cb) { cb.checked = false; });
+
+        updateContadorSelecionados();
+        updateResumo();
+        updateCheckboxTodosClientes();
+        updateClientesSelectionSummary();
+        syncBulkActionButtons();
+    }
+
     async function toggleClienteSelection(clienteId, checked) {
         if (state.bulkSelectionLoading.clientes) return;
+
+        // Modo 'proprio': consulta o CNPJ do próprio cliente (escopo cliente). Não resolve
+        // participantes nem chama o backend — só registra o cliente como alvo.
+        if (state.modoCliente === 'proprio') {
+            if (checked) {
+                state.selectedClienteIds.add(clienteId);
+            } else {
+                state.selectedClienteIds.delete(clienteId);
+                state.bulkSelectionState.clientes = false;
+            }
+            updateContadorSelecionados();
+            updateResumo();
+            updateCheckboxTodosClientes();
+            updateClientesSelectionSummary();
+            syncBulkActionButtons();
+            return;
+        }
 
         try {
             var response = await fetch(window.consultaData.routes.participantesPorClientes, {
@@ -2870,6 +2935,20 @@
         updateCheckboxTodosClientes();
         updateClientesSelectionSummary();
         syncBulkActionButtons();
+
+        // Modo 'proprio': escopo cliente — sem resolver participantes nem backend.
+        if (state.modoCliente === 'proprio') {
+            clienteIds.forEach(function (cid) {
+                if (isChecked) {
+                    state.selectedClienteIds.add(cid);
+                } else {
+                    state.selectedClienteIds.delete(cid);
+                }
+            });
+            updateContadorSelecionados();
+            updateResumo();
+            return;
+        }
 
         try {
             setBulkActionLoading('clientes', true);
@@ -2968,6 +3047,19 @@
     async function clearSelectedClientes() {
         if (state.selectedClienteIds.size === 0) {
             state.bulkSelectionState.clientes = false;
+            updateClientesSelectionSummary();
+            updateCheckboxTodosClientes();
+            syncBulkActionButtons();
+            return;
+        }
+
+        // Modo 'proprio': escopo cliente — só limpa os clientes, sem mexer em participantes.
+        if (state.modoCliente === 'proprio') {
+            state.selectedClienteIds.clear();
+            state.bulkSelectionState.clientes = false;
+            document.querySelectorAll('.checkbox-cliente').forEach(function (cb) { cb.checked = false; });
+            updateContadorSelecionados();
+            updateResumo();
             updateClientesSelectionSummary();
             updateCheckboxTodosClientes();
             syncBulkActionButtons();

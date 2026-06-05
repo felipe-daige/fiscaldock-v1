@@ -496,6 +496,20 @@
 
                         {{-- View: Clientes --}}
                         <div id="view-clientes" class="search-view hidden">
+                            {{-- Modo da aba Clientes: contrapartes (participantes do cliente) ou o CNPJ do próprio cliente --}}
+                            <div class="px-4 pt-4">
+                                <div class="flex items-center gap-1 bg-gray-100 rounded p-1 w-full sm:w-auto" id="modo-cliente-tabs">
+                                    <button type="button" data-modo-cliente="contrapartes"
+                                        class="modo-cliente-tab flex-1 sm:flex-none px-3 py-1.5 text-sm font-medium rounded transition bg-gray-800 text-white">
+                                        Contrapartes do cliente
+                                    </button>
+                                    <button type="button" data-modo-cliente="proprio"
+                                        class="modo-cliente-tab flex-1 sm:flex-none px-3 py-1.5 text-sm font-medium rounded transition text-gray-600 hover:text-gray-900">
+                                        CNPJ do próprio cliente
+                                    </button>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1.5" id="modo-cliente-hint">Seleciona os participantes (contrapartes) que aparecem nas notas desse cliente.</p>
+                            </div>
                             <div class="px-4 py-4 border-b border-gray-200">
                                 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                                     <input type="text" id="busca-clientes" placeholder="Buscar cliente por nome ou documento..."
