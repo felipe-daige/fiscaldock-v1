@@ -55,6 +55,18 @@ it('não gera alertas de divergência quando declarado bate com as notas', funct
     expect($divergencia)->toHaveCount(0);
 });
 
+it('alerta de divergência deriva do flag (vermelho=alta, amarelo=media)', function () {
+    // declarado 200 vs notas 100 → -50% → vermelho → alta
+    \Illuminate\Support\Facades\DB::table('efd_apuracoes_icms')->where('cliente_id', $this->cliente)
+        ->update(['icms_tot_debitos' => 200]);
+
+    $a = $this->svc->getAlertasFiscaisData($this->userId, $this->cliente, '2024-01');
+    $icms = collect($a['alertas'])->firstWhere('titulo', 'Divergência ICMS débitos');
+
+    expect($icms)->not->toBeNull();
+    expect($icms['severidade'])->toBe('alta');
+});
+
 it('A4: gera alerta de obrigação ICMS vencida lendo as chaves reais do E116', function () {
     // chave real (ICMS_DATA_VENCIMENTO) + formato DDMMYYYY + data no passado
     \Illuminate\Support\Facades\DB::table('efd_apuracoes_icms')->where('cliente_id', $this->cliente)->update([

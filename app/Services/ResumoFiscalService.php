@@ -111,6 +111,16 @@ class ResumoFiscalService
         ];
     }
 
+    /** Severidade do alerta a partir do flag canônico: vermelho→alta, amarelo→media. */
+    private function severidadePorFlag(?string $flag): ?string
+    {
+        return match ($flag) {
+            'vermelho' => 'alta',
+            'amarelo' => 'media',
+            default => null,
+        };
+    }
+
     /** Agrega as linhas de getARecolherData por família tributária (KPIs do topo). */
     private function agregarPorFamilia(array $linhas): array
     {
@@ -334,10 +344,11 @@ class ResumoFiscalService
         $alertas = [];
         $cruzamentos = $this->getCruzamentosData($userId, $clienteId, $competencia);
 
-        // Divergência ICMS débitos
-        if ($cruzamentos['icms']['tem_dados'] && ($cruzamentos['icms']['divergencia_debito_pct'] ?? 0) > 1) {
+        // Divergências derivam do flag canônico (amarelo→media, vermelho→alta) — um
+        // único conjunto de limites no sistema (era >1/>5 hardcoded aqui). Ver dedup.
+        if ($sev = $this->severidadePorFlag($cruzamentos['icms']['status_debito'] ?? null)) {
             $alertas[] = [
-                'severidade' => 'alta',
+                'severidade' => $sev,
                 'categoria' => 'ICMS',
                 'titulo' => 'Divergência ICMS débitos',
                 'descricao' => 'Diferença de '.number_format($cruzamentos['icms']['divergencia_debito_pct'], 1).'% entre apuração declarada (E110) e o consolidado das saídas (C190).',
@@ -345,10 +356,9 @@ class ResumoFiscalService
             ];
         }
 
-        // Divergência ICMS créditos
-        if ($cruzamentos['icms']['tem_dados'] && ($cruzamentos['icms']['divergencia_credito_pct'] ?? 0) > 1) {
+        if ($sev = $this->severidadePorFlag($cruzamentos['icms']['status_credito'] ?? null)) {
             $alertas[] = [
-                'severidade' => 'alta',
+                'severidade' => $sev,
                 'categoria' => 'ICMS',
                 'titulo' => 'Divergência ICMS créditos',
                 'descricao' => 'Diferença de '.number_format($cruzamentos['icms']['divergencia_credito_pct'], 1).'% entre créditos declarados (E110) e o consolidado das entradas (C190).',
@@ -356,20 +366,18 @@ class ResumoFiscalService
             ];
         }
 
-        // Divergência PIS
-        if ($cruzamentos['pis_cofins']['tem_dados'] && ($cruzamentos['pis_cofins']['pis_divergencia_pct'] ?? 0) > 5) {
+        if ($sev = $this->severidadePorFlag($cruzamentos['pis_cofins']['pis_status'] ?? null)) {
             $alertas[] = [
-                'severidade' => 'media',
+                'severidade' => $sev,
                 'categoria' => 'PIS/COFINS',
                 'titulo' => 'Divergência PIS a recolher vs notas',
                 'descricao' => 'O PIS devido na apuração (M200) diverge em '.number_format($cruzamentos['pis_cofins']['pis_divergencia_pct'], 1).'% do débito de PIS nas saídas.',
             ];
         }
 
-        // Divergência COFINS
-        if ($cruzamentos['pis_cofins']['tem_dados'] && ($cruzamentos['pis_cofins']['cofins_divergencia_pct'] ?? 0) > 5) {
+        if ($sev = $this->severidadePorFlag($cruzamentos['pis_cofins']['cofins_status'] ?? null)) {
             $alertas[] = [
-                'severidade' => 'media',
+                'severidade' => $sev,
                 'categoria' => 'PIS/COFINS',
                 'titulo' => 'Divergência COFINS a recolher vs notas',
                 'descricao' => 'O COFINS devido na apuração (M600) diverge em '.number_format($cruzamentos['pis_cofins']['cofins_divergencia_pct'], 1).'% do débito de COFINS nas saídas.',
