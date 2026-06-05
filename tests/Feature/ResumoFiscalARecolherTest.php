@@ -60,3 +60,11 @@ it('omite a linha cujo EFD não foi importado', function () {
     expect(collect($r['linhas'])->pluck('tributo'))->not->toContain('PIS');
     expect($r['total'])->toBe(80.0);
 });
+
+it('endpoint a-recolher responde JSON autenticado', function () {
+    $user = \App\Models\User::find($this->userId);
+    $resp = $this->actingAs($user)->getJson("/app/resumo-fiscal/a-recolher?cliente_id={$this->clienteId}&competencia=2024-01");
+
+    $resp->assertOk()->assertJsonStructure(['linhas', 'total', 'tem_icms', 'tem_contribuicoes']);
+    expect((float) $resp->json('total'))->toBe(196.0);
+});

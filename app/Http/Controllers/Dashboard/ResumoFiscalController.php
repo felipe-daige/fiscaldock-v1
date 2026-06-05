@@ -86,6 +86,15 @@ class ResumoFiscalController extends Controller
         );
     }
 
+    public function aRecolher(Request $request)
+    {
+        [$userId, $clienteId, $competencia] = $this->validarParams($request);
+
+        return response()->json(
+            $this->service->getARecolherData($userId, $clienteId, $competencia)
+        );
+    }
+
     public function cruzamentos(Request $request)
     {
         [$userId, $clienteId, $competencia] = $this->validarParams($request);

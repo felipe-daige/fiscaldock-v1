@@ -205,6 +205,7 @@ Route::middleware('auth')->group(function () {
     // Painel Fiscal por Competência
     Route::get('app/resumo-fiscal', [ResumoFiscalController::class, 'index'])->name('app.resumo-fiscal');
     Route::get('app/resumo-fiscal/resumo-executivo', [ResumoFiscalController::class, 'resumoExecutivo'])->name('app.resumo-fiscal.resumo-executivo');
+    Route::get('app/resumo-fiscal/a-recolher', [ResumoFiscalController::class, 'aRecolher'])->name('app.resumo-fiscal.a-recolher');
     Route::get('app/resumo-fiscal/apuracao-icms', [ResumoFiscalController::class, 'apuracaoIcms'])->name('app.resumo-fiscal.apuracao-icms');
     Route::get('app/resumo-fiscal/apuracao-pis-cofins', [ResumoFiscalController::class, 'apuracaoPisCofins'])->name('app.resumo-fiscal.apuracao-pis-cofins');
     Route::get('app/resumo-fiscal/retencoes', [ResumoFiscalController::class, 'retencoesFonte'])->name('app.resumo-fiscal.retencoes');
