@@ -348,6 +348,7 @@ class NotasFiscaisAlertService
     private function detectarGapTemporal($base, array $filtros): ?array
     {
         $mesesComNotas = (clone $base)
+            ->whereNotNull('data_emissao')
             ->selectRaw("DISTINCT TO_CHAR(data_emissao, 'YYYY-MM') as mes")
             ->pluck('mes')
             ->toArray();

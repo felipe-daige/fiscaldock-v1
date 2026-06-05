@@ -186,8 +186,12 @@ class ResumoFiscalController extends Controller
      */
     private function competenciasDoCliente(int $userId, int $clienteId)
     {
+        // data_emissao pode ser NULL em documentos cancelados/inutilizados cujo C100
+        // não traz DT_DOC no SPED (valor 0, sem participante). Sem este filtro, o
+        // TO_CHAR(NULL) vira uma competência fantasma que a view renderiza como "dez/1969".
         return EfdNota::where('user_id', $userId)
             ->where('cliente_id', $clienteId)
+            ->whereNotNull('data_emissao')
             ->selectRaw("DISTINCT TO_CHAR(data_emissao, 'YYYY-MM') as competencia")
             ->orderByRaw('competencia DESC')
             ->pluck('competencia');

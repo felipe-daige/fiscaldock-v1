@@ -20,7 +20,9 @@ return new class extends Migration
             $table->string('modelo', 2)->index();
             $table->bigInteger('numero');
             $table->string('serie', 10)->nullable();
-            $table->date('data_emissao')->index();
+            // Nullable: documentos cancelados/inutilizados cujo C100 não traz DT_DOC
+            // no SPED chegam sem data (n8n insere NULL). Prod já é nullable; alinhado aqui.
+            $table->date('data_emissao')->nullable()->index();
             $table->enum('tipo_operacao', ['entrada', 'saida'])->index();
             $table->string('origem_arquivo')->nullable();
             $table->decimal('valor_total', 15, 2);
