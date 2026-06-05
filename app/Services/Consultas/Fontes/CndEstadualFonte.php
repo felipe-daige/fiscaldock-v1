@@ -30,6 +30,15 @@ class CndEstadualFonte extends FonteCertidaoInfoSimples
         return $uf !== '' && in_array($uf, $cobertas, true);
     }
 
+    public function motivoIndisponivel(array $alvo): string
+    {
+        $uf = strtoupper((string) ($alvo['uf'] ?? ''));
+
+        return $uf === ''
+            ? 'CND Estadual não consultada: UF do contribuinte não identificada.'
+            : "CND Estadual não disponível para a UF {$uf} no provedor (InfoSimples).";
+    }
+
     public function params(array $alvo): array
     {
         // SEFAZ exige a UF do domicílio do participante.

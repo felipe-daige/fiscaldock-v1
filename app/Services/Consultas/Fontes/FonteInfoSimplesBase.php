@@ -42,6 +42,11 @@ abstract class FonteInfoSimplesBase implements Fonte
         return true; // por padrão, aplica-se a todo CNPJ (cobertura nacional)
     }
 
+    public function motivoIndisponivel(array $alvo): string
+    {
+        return 'Cobertura indisponível para este alvo no provedor.';
+    }
+
     public function params(array $alvo): array
     {
         return ['cnpj' => preg_replace('/[^0-9]/', '', (string) ($alvo['cnpj'] ?? ''))];

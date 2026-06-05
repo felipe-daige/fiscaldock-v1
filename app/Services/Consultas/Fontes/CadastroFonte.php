@@ -61,6 +61,11 @@ class CadastroFonte implements Fonte
         return true; // cadastral é nacional
     }
 
+    public function motivoIndisponivel(array $alvo): string
+    {
+        return 'Cadastro indisponível.';
+    }
+
     public function normalizar(array $raw, string $status = 'sucesso'): array
     {
         // Cadastro (minhareceita) é sucesso-ou-nada: sem dado em qualquer não-sucesso.

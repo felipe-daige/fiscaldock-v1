@@ -39,16 +39,22 @@ class ProcessarConsultaJob implements ShouldQueue
         $total = count($this->etapas);
         $this->progresso(etapa: 1, total: $total, label: $this->etapas[0] ?? 'Preparando consulta', status: 'processando');
 
+        // Alvo mutável: a UF autoritativa vem do cadastro (minhareceita) e alimenta as
+        // fontes UF-dependentes (ex: CND Estadual). O cadastro é a 1ª fonte de todo plano.
+        $alvo = $this->alvo;
+
         $passo = 1;
         $creditosFalhos = 0;
         foreach ($registry->fontesDe($this->consultasIncluidas) as $fonte) {
             $passo++;
 
             // Cobertura do provedor indisponível p/ este alvo (ex: UF/cidade) → pula sem
-            // chamar nem cobrar; persiste como INDISPONIVEL (não é falha estornável).
-            if (! $fonte->aplicavelPara($this->alvo)) {
+            // chamar nem cobrar; persiste como INDISPONIVEL com o MOTIVO (não é falha estornável).
+            if (! $fonte->aplicavelPara($alvo)) {
                 $persistencia->gravar($this->loteId, $this->alvoTipo, $this->alvoId, new ResultadoFonte(
-                    $fonte->chave(), $fonte->normalizar([], 'nao_aplicavel'), 'nao_aplicavel', 0,
+                    $fonte->chave(),
+                    $fonte->normalizar(['_motivo' => $fonte->motivoIndisponivel($alvo)], 'nao_aplicavel'),
+                    'nao_aplicavel', 0, $fonte->motivoIndisponivel($alvo),
                 ));
                 $this->progresso(
                     etapa: min($passo, $total), total: $total,
@@ -61,10 +67,17 @@ class ProcessarConsultaJob implements ShouldQueue
             $throttle->aguardar($fonte->provider());
 
             $provider = $this->resolverProvider($fonte->provider());
-            $resp = $provider->consultar($fonte->slug(), $fonte->params($this->alvo));
+            $resp = $provider->consultar($fonte->slug(), $fonte->params($alvo));
+
+            $dados = $fonte->normalizar($resp->raw, $resp->status);
+
+            // A UF do cadastro é autoritativa para as próximas fontes UF-dependentes.
+            if ($fonte->chave() === 'cadastro' && ! empty($dados['endereco']['uf'])) {
+                $alvo['uf'] = $dados['endereco']['uf'];
+            }
 
             $resultado = new ResultadoFonte(
-                $fonte->chave(), $fonte->normalizar($resp->raw, $resp->status),
+                $fonte->chave(), $dados,
                 $resp->status, $fonte->custoCreditos(), $resp->mensagem,
             );
             $persistencia->gravar($this->loteId, $this->alvoTipo, $this->alvoId, $resultado);

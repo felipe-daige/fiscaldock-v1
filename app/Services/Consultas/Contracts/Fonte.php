@@ -50,4 +50,7 @@ interface Fonte
      * marcando o resultado como INDISPONÍVEL.
      */
     public function aplicavelPara(array $alvo): bool;
+
+    /** Motivo (texto) de a fonte não ter sido consultada para este alvo. */
+    public function motivoIndisponivel(array $alvo): string;
 }

@@ -31,7 +31,7 @@ abstract class FonteCertidaoInfoSimples extends FonteInfoSimplesBase
         if ($status === 'nao_aplicavel') {
             return $this->bloco([
                 'status' => 'INDISPONIVEL',
-                'mensagem' => 'Cobertura indisponível para esta UF/cidade no provedor.',
+                'mensagem' => $raw['_motivo'] ?? 'Cobertura indisponível para esta UF/cidade no provedor.',
             ]);
         }
 

@@ -75,6 +75,32 @@ it('CND Estadual em UF sem cobertura: não chama o provedor e marca INDISPONIVEL
     expect((int) Cache::get("consulta_estorno:{$loteId}:participante:{$participanteId}"))->toBe(0);
 });
 
+it('usa a UF autoritativa do cadastro p/ liberar a CND Estadual (alvo sem UF)', function () {
+    [$loteId, $participanteId, $userId] = montarLoteParticipante();
+    config()->set('consultas.cnd_estadual.ufs_cobertas', ['SP']);
+    config()->set('consultas.infosimples_ativo', true);
+    config()->set('consultas.providers.infosimples.token', 'tok');
+
+    Http::fake([
+        // cadastro: minhareceita devolve UF=SP (autoritativa)
+        'minhareceita.org/*' => Http::response(['razao_social' => 'X', 'descricao_situacao_cadastral' => 'ATIVA', 'situacao_cadastral' => 2, 'uf' => 'SP', 'qsa' => [], 'cnaes_secundarios' => []], 200),
+        // CND estadual: sucesso
+        'api.infosimples.com/*' => Http::response(['code' => 200, 'data' => [['tipo' => 'Negativa', 'uf' => 'SP']]], 200),
+    ]);
+
+    // alvo SEM uf — deve vir do cadastro
+    ProcessarConsultaJob::dispatchSync(
+        loteId: $loteId, alvoTipo: 'participante', alvoId: $participanteId, userId: $userId, tabId: 'tab-test',
+        consultasIncluidas: ['situacao_cadastral', 'cnd_estadual'], alvo: ['cnpj' => '19131243000197'],
+        etapas: ['Preparando', 'Cadastrais', 'Estaduais'],
+    );
+
+    $r = ConsultaResultado::where('consulta_lote_id', $loteId)->first();
+    // CND estadual foi consultada (não ficou INDISPONIVEL) porque a UF veio do cadastro
+    expect($r->resultado_dados['cnd_estadual']['status'])->toBe('Negativa');
+    Http::assertSent(fn ($req) => str_contains($req->url(), 'sefaz/certidao-debitos'));
+});
+
 it('processa escopo cliente gravando cliente_id', function () {
     [$loteId, , $userId] = montarLoteParticipante();
     $clienteId = \Illuminate\Support\Facades\DB::table('clientes')->where('user_id', $userId)->value('id');
