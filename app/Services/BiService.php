@@ -9,13 +9,9 @@ use Illuminate\Support\Facades\DB;
 
 class BiService
 {
-    /** Limiares de divergência |Δ%| para flag de cruzamento (ajustável). */
-    private const FLAG_VERDE = 2.0;   // |Δ| <= 2%
-
-    private const FLAG_AMARELO = 10.0; // <= 10%
-
     public function __construct(
-        protected EfdAgregadorService $efd
+        protected EfdAgregadorService $efd,
+        protected \App\Services\Efd\CruzamentoApuracaoService $cruzamento,
     ) {}
 
     /**
@@ -1168,18 +1164,10 @@ class BiService
         $meses = $declarado->keys()->merge($computado->keys())->unique()->sort()->values();
         $impostos = ['icms', 'pis', 'cofins'];
 
-        // $temFonte=false → mês sem o arquivo de apuração daquele imposto (ICMS ou
-        // PIS/COFINS): marca 'sem_dado' em vez de fingir conformidade (verde/neutro).
-        $linha = function (float $dec, float $com, bool $temFonte = true): array {
-            $delta = $com - $dec;
-            $pct = $dec != 0.0 ? round(($delta / $dec) * 100, 2) : ($com != 0.0 ? 100.0 : 0.0);
-            $abs = abs($pct);
-            $flag = ! $temFonte ? 'sem_dado'
-                : (($dec == 0.0 && $com == 0.0) ? 'neutro'
-                    : ($abs <= self::FLAG_VERDE ? 'verde' : ($abs <= self::FLAG_AMARELO ? 'amarelo' : 'vermelho')));
-
-            return ['declarado' => $dec, 'computado' => $com, 'delta' => $delta, 'delta_pct' => $pct, 'flag' => $flag];
-        };
+        // Flag de divergência vem do service ÚNICO (mesma regra do Resumo Fiscal).
+        // $temFonte=false → mês sem o arquivo de apuração daquele imposto: 'sem_dado'.
+        $linha = fn (float $dec, float $com, bool $temFonte = true): array =>
+            $this->cruzamento->classificarFlag($dec, $com, $temFonte);
 
         $mensal = $meses->map(function ($mes) use ($declarado, $computado, $impostos, $linha) {
             $dec = $declarado->get($mes);
