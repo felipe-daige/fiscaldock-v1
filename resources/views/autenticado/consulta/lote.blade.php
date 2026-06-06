@@ -21,6 +21,7 @@
     data-detail-url="{{ request()->fullUrlWithoutQuery(['page_resultados', 'per_page_resultados']) }}"
     data-await-result="{{ $aguardaPersistencia ? '1' : '0' }}"
     data-etapas="{{ $etapasJson }}"
+    data-iniciado-em="{{ optional($lote->created_at)->timestamp }}"
 >
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         <div class="mb-4 sm:mb-6 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -99,6 +100,20 @@
         </div>
 
         @if(in_array($statusLote, ['pendente', 'processando'], true))
+            <style>
+                /* Shimmer "trabalhando" na barra: a largura segue o % real; o brilho que passa
+                   só indica atividade durante uma fonte lenta (não é progresso fake). */
+                @keyframes consultaBarShimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+                #consulta-lote-bar.consulta-lote-bar-working { position: relative; overflow: hidden; }
+                #consulta-lote-bar.consulta-lote-bar-working::after {
+                    content: ''; position: absolute; inset: 0;
+                    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
+                    animation: consultaBarShimmer 1.4s ease-in-out infinite;
+                }
+                @media (prefers-reduced-motion: reduce) {
+                    #consulta-lote-bar.consulta-lote-bar-working::after { animation: none; }
+                }
+            </style>
             <div id="consulta-lote-progresso-card" class="bg-white rounded border border-gray-300 overflow-hidden mb-4">
                 <div class="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
                     <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Andamento da Consulta</span>
@@ -111,6 +126,17 @@
                     <div class="w-full h-1.5 rounded-full overflow-hidden" style="background-color: #e5e7eb">
                         <div id="consulta-lote-bar" class="h-full" style="background-color: #1f2937; width: 6%; transition: width 350ms ease-out"></div>
                     </div>
+                    {{-- Cronômetro de tempo decorrido: dá sensação de "vivo" mesmo quando a barra
+                         segura numa fonte lenta (sanções/protestos). Tempo real, não progresso fake. --}}
+                    <p id="consulta-lote-tempo" class="text-[11px] text-gray-500 mt-2 flex items-center gap-1">
+                        <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <span>decorrido <span id="consulta-lote-tempo-valor" class="font-mono">00:00</span></span>
+                    </p>
+                    {{-- Microcopy de expectativa: aparece durante o processamento p/ explicar a espera
+                         nas fontes oficiais (gov tem latência alta). Some ao finalizar. --}}
+                    <p id="consulta-lote-dica" class="text-[11px] text-gray-400 mt-1 hidden">Consultamos as fontes oficiais em tempo real — alguns órgãos podem levar alguns segundos.</p>
                     <p id="consulta-lote-etapa" class="text-xs text-gray-600 mt-3 hidden"></p>
                     <div id="consulta-lote-steps" class="mt-3 flex flex-wrap gap-2">
                         @foreach(($etapas ?? []) as $etapa)
@@ -124,6 +150,10 @@
                             </div>
                         @endforeach
                     </div>
+                    {{-- Checklist por fonte: cresce conforme cada verificação conclui (✓), com a atual
+                         em spinner. Mais granular que o strip de etapas (que agrupa fontes). Montada
+                         dos campos fonte_nome/indice/total do stream de progresso. --}}
+                    <div id="consulta-lote-fontes" class="mt-3 space-y-1 hidden"></div>
                 </div>
             </div>
 

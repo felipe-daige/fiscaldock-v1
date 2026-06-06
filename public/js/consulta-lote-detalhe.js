@@ -120,12 +120,18 @@
         var resultadosUrl = root.dataset.resultadosUrl || '';
         var detailUrl = root.dataset.detailUrl || window.location.pathname;
         var awaitResult = root.dataset.awaitResult === '1';
+        // Epoch (segundos) do início do lote — base do cronômetro. Vindo do servidor, o tempo
+        // decorrido fica correto mesmo se a página for recarregada no meio do processamento.
+        var iniciadoEm = parseInt(root.dataset.iniciadoEm, 10);
 
         var progressBar = document.getElementById('consulta-lote-bar');
         var progressPercent = document.getElementById('consulta-lote-percent');
         var progressMessage = document.getElementById('consulta-lote-mensagem');
         var progressEtapa = document.getElementById('consulta-lote-etapa');
         var stepsContainer = document.getElementById('consulta-lote-steps');
+        var tempoValor = document.getElementById('consulta-lote-tempo-valor');
+        var dicaEl = document.getElementById('consulta-lote-dica');
+        var fontesContainer = document.getElementById('consulta-lote-fontes');
 
         if (!etapas.length) {
             etapas = getEtapasFromDom(stepsContainer);
@@ -136,6 +142,11 @@
             eventSource: null,
             statusPollHandle: null,
             resultsPollHandle: null,
+            cronometroHandle: null,
+            cronometroBaseMs: null,
+            fontesVistas: {},        // indice -> nome (revelados pelo stream conforme avançam)
+            fonteIndiceAtual: 0,
+            fonteTotalAtual: 0,
             ultimaEtapaConcluida: null,
             knownStepLabels: {},
             progressoAtual: statusInicial === 'finalizado' ? 100 : 0,
@@ -159,6 +170,11 @@
                 clearTimeout(state.resultsPollHandle);
                 state.resultsPollHandle = null;
             }
+
+            if (state.cronometroHandle) {
+                clearInterval(state.cronometroHandle);
+                state.cronometroHandle = null;
+            }
         };
 
         function closeEventSource() {
@@ -166,6 +182,96 @@
 
             try { state.eventSource.close(); } catch (_) {}
             state.eventSource = null;
+        }
+
+        function formatarTempo(totalSegundos) {
+            var s = Math.max(0, Math.floor(totalSegundos));
+            var h = Math.floor(s / 3600);
+            var m = Math.floor((s % 3600) / 60);
+            var seg = s % 60;
+            var pad = function(n) { return n < 10 ? '0' + n : String(n); };
+            return h > 0
+                ? h + ':' + pad(m) + ':' + pad(seg)
+                : pad(m) + ':' + pad(seg);
+        }
+
+        function renderCronometro() {
+            if (!tempoValor || state.cronometroBaseMs === null) return;
+            tempoValor.textContent = formatarTempo((Date.now() - state.cronometroBaseMs) / 1000);
+        }
+
+        function iniciarCronometro() {
+            if (!tempoValor || state.cronometroHandle) return;
+            // Base = início do lote (servidor) quando disponível; senão, agora.
+            state.cronometroBaseMs = (Number.isFinite(iniciadoEm) && iniciadoEm > 0)
+                ? iniciadoEm * 1000
+                : Date.now();
+            renderCronometro();
+            state.cronometroHandle = window.setInterval(renderCronometro, 1000);
+        }
+
+        function pararCronometro() {
+            if (!state.cronometroHandle) return;
+            clearInterval(state.cronometroHandle);
+            state.cronometroHandle = null;
+            // Congela no último valor (não zera) — confirma quanto a consulta levou.
+            renderCronometro();
+        }
+
+        // Shimmer "trabalhando" na barra (#4): atividade honesta — a largura segue o % real.
+        function setBarTrabalhando(ativo) {
+            if (!progressBar) return;
+            progressBar.classList.toggle('consulta-lote-bar-working', !!ativo);
+        }
+
+        // Microcopy de expectativa (#1): explica a espera nas fontes oficiais.
+        function setDicaVisivel(visivel) {
+            if (!dicaEl) return;
+            dicaEl.classList.toggle('hidden', !visivel);
+        }
+
+        var FONTE_ICONS = {
+            done: '<svg class="w-3.5 h-3.5" style="color:#047857" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>',
+            doing: '<svg class="animate-spin w-3.5 h-3.5 text-gray-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg>'
+        };
+
+        // Checklist por fonte (#2): cresce conforme cada verificação conclui. Montada dos campos
+        // fonte_nome/indice/total do snapshot (sem parsear a mensagem).
+        function renderFontesChecklist(snapshot) {
+            if (!fontesContainer) return;
+
+            var indice = normalizarEtapa(snapshot.fonte_indice);
+            var total = normalizarEtapa(snapshot.fonte_total);
+            if (snapshot.fonte_nome && indice !== null) {
+                state.fontesVistas[String(indice)] = String(snapshot.fonte_nome);
+            }
+            if (indice !== null) state.fonteIndiceAtual = indice;
+            if (total !== null) state.fonteTotalAtual = total;
+
+            var finalizado = snapshot.status === 'finalizado' || snapshot.status === 'concluido';
+            var maxVisto = Object.keys(state.fontesVistas).reduce(function (acc, k) {
+                return Math.max(acc, parseInt(k, 10) || 0);
+            }, 0);
+            if (maxVisto === 0) return; // ainda na inicialização, nada a mostrar
+
+            fontesContainer.classList.remove('hidden');
+            fontesContainer.innerHTML = '';
+
+            for (var p = 1; p <= maxVisto; p++) {
+                var nome = state.fontesVistas[String(p)] || ('Verificação ' + p);
+                var estado = finalizado ? 'done' : (p < state.fonteIndiceAtual ? 'done' : 'doing');
+                var row = document.createElement('div');
+                row.className = 'flex items-center gap-2 text-xs ' + (estado === 'done' ? 'text-gray-600' : 'text-gray-800');
+                row.innerHTML = '<span class="flex items-center justify-center w-3.5 h-3.5 flex-shrink-0">' +
+                    (FONTE_ICONS[estado] || '') + '</span><span>' + escapeHtmlLocal(nome) + '</span>';
+                fontesContainer.appendChild(row);
+            }
+        }
+
+        function escapeHtmlLocal(str) {
+            return String(str)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         }
 
         function stopStatusPolling() {
@@ -392,9 +498,13 @@
 
             rememberStepLabel(snapshot.etapa, snapshot.etapa_label || null);
             renderSteps(snapshot);
+            renderFontesChecklist(snapshot);
 
             if (snapshot.status === 'finalizado') {
                 updateProgress(100, 'Finalizado, carregando resultado...', resolveProgressStepLabel(snapshot));
+                pararCronometro();
+                setBarTrabalhando(false);
+                setDicaVisivel(false);
                 pollResultsReadiness();
                 return;
             }
@@ -405,6 +515,9 @@
                     snapshot.error_message || resolveProgressMessage(snapshot, 'Erro no processamento.'),
                     resolveProgressStepLabel(snapshot)
                 );
+                pararCronometro();
+                setBarTrabalhando(false);
+                setDicaVisivel(false);
                 scheduleReload(500);
                 return;
             }
@@ -415,6 +528,8 @@
                 resolveProgressMessage(snapshot, 'Processando...'),
                 resolveProgressStepLabel(snapshot)
             );
+            setBarTrabalhando(true);
+            setDicaVisivel(true);
         }
 
         function scheduleStatusPolling(delayMs) {
@@ -481,6 +596,9 @@
         });
 
         if (statusInicial === 'pendente' || statusInicial === 'processando') {
+            iniciarCronometro();
+            setBarTrabalhando(true);
+            setDicaVisivel(true);
             openProgressStream();
             scheduleStatusPolling(5000);
             return;
