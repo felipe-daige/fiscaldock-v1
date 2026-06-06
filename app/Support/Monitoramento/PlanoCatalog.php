@@ -122,7 +122,9 @@ final class PlanoCatalog
             [
                 'codigo' => 'due_diligence',
                 'nome' => 'Due Diligence',
-                'descricao' => 'Compliance ampliado com sanções, CNJ, protestos e processos',
+                'descricao' => 'Compliance ampliado com sanções e CNJ',
+                // protestos (ieptb) e processos (tribunal/trt) removidos por ora: token sem acesso
+                // (603) / faltam parâmetros (606). Reativar quando resolvido no InfoSimples.
                 'consultas_incluidas' => [
                     'situacao_cadastral',
                     'dados_cadastrais',
@@ -139,8 +141,6 @@ final class PlanoCatalog
                     'cnd_municipal',
                     'cgu_cnc',
                     'cnj_improbidade',
-                    'protestos',
-                    'processos',
                 ],
                 'etapas' => [
                     ['numero' => 1, 'chave' => 'inicializacao', 'label' => 'Preparando consulta'],
