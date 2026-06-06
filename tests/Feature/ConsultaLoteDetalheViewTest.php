@@ -400,3 +400,103 @@ it('renderiza erro critico sanitizado com contato de suporte no detalhe do lote'
         ->assertDontSee('INFOSIMPLES')
         ->assertDontSee('Parâmetros obrigatórios');
 });
+
+it('exibe detalhe expansível com TODAS as fontes consultadas, inclusive as ausentes da tabela', function () {
+    $user = User::factory()->create();
+    $participante = Participante::create([
+        'user_id' => $user->id,
+        'documento' => '97551165000193',
+        'razao_social' => 'Fornecedor Completo',
+        'uf' => 'MS',
+        'crt' => '3',
+    ]);
+
+    $lote = criarLoteDetalhe($user, [
+        'status' => ConsultaLote::STATUS_FINALIZADO,
+        'processado_em' => now(),
+    ]);
+    $lote->participantes()->attach([$participante->id]);
+
+    ConsultaResultado::create([
+        'consulta_lote_id' => $lote->id,
+        'participante_id' => $participante->id,
+        'status' => ConsultaResultado::STATUS_SUCESSO,
+        'resultado_dados' => [
+            'situacao_cadastral' => 'ATIVA',
+            'razao_social' => 'Fornecedor Completo',
+            'cnaes' => [['codigo' => '6201-5/01', 'descricao' => 'Software', 'principal' => true]],
+            'cnd_federal' => [
+                'status' => 'Positiva com efeitos de negativa',
+                'mensagem' => 'CERTIDAO POSITIVA COM EFEITOS DE NEGATIVA DE DEBITOS',
+                'certidao_codigo' => 'A3E5.6BE2.FAB3',
+                'data_validade' => '15/11/2026',
+                'conseguiu_emitir' => true,
+            ],
+            'cnd_estadual' => ['status' => 'Negativa', 'certidao_codigo' => '573628/2026'],
+            'sintegra' => ['situacao' => 'HABILITADO', 'inscricao_estadual' => '28.368.441-0'],
+            'cgu_cnc' => [
+                'possui_sancao' => false,
+                'bases' => [['nome' => 'CEIS', 'situacao' => 'Nada Consta']],
+                'comprovante' => 'https://exemplo.test/cgu.pdf',
+            ],
+            'cnj_improbidade' => ['possui_condenacao' => false, 'comprovante' => 'https://exemplo.test/cnj.pdf'],
+        ],
+        'consultado_em' => now(),
+    ]);
+
+    actingAs($user)
+        ->get("/app/consulta/lote/{$lote->id}")
+        ->assertOk()
+        // fontes que a tabela resumida NÃO mostra agora aparecem no detalhe
+        ->assertSee('CND Estadual (SEFAZ)')
+        ->assertSee('SINTEGRA')
+        ->assertSee('Sanções (CGU)')
+        ->assertSee('Improbidade (CNJ)')
+        // detalhes ricos das certidões
+        ->assertSee('A3E5.6BE2.FAB3')
+        ->assertSee('573628/2026')
+        ->assertSee('28.368.441-0')
+        ->assertSee('CERTIDAO POSITIVA COM EFEITOS DE NEGATIVA DE DEBITOS')
+        // comprovantes baixados
+        ->assertSee('https://exemplo.test/cgu.pdf', false)
+        ->assertSee('Ver comprovante')
+        // controles de expansão
+        ->assertSee('data-detalhe-toggle="consulta-detalhe-d-0"', false)
+        ->assertSee('Ver detalhes da consulta');
+});
+
+it('classifica certidão Negativa como Regular na tabela (corrige bug str_contains negativa)', function () {
+    $user = User::factory()->create();
+    $participante = Participante::create([
+        'user_id' => $user->id,
+        'documento' => '11122233000199',
+        'razao_social' => 'Fornecedor Negativa',
+        'uf' => 'SP',
+        'crt' => '3',
+    ]);
+
+    $lote = criarLoteDetalhe($user, [
+        'status' => ConsultaLote::STATUS_FINALIZADO,
+        'processado_em' => now(),
+    ]);
+    $lote->participantes()->attach([$participante->id]);
+
+    ConsultaResultado::create([
+        'consulta_lote_id' => $lote->id,
+        'participante_id' => $participante->id,
+        'status' => ConsultaResultado::STATUS_SUCESSO,
+        'resultado_dados' => [
+            'situacao_cadastral' => 'ATIVA',
+            'cndt' => ['status' => 'Negativa'],
+            'crf_fgts' => ['status' => 'REGULAR'],
+        ],
+        'consultado_em' => now(),
+    ]);
+
+    $html = actingAs($user)->get("/app/consulta/lote/{$lote->id}")->assertOk()->getContent();
+
+    // a célula CNDT (status "Negativa") deve ser verde Regular, nunca vermelho Irregular
+    expect($html)->toContain('#047857');
+    // não pode classificar a Negativa como Irregular
+    expect(substr_count($html, 'Irregular'))->toBe(0);
+});

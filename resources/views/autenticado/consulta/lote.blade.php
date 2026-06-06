@@ -219,17 +219,28 @@
                                     @endphp
                                     <tr class="hover:bg-gray-50/50 transition-colors">
                                         <td class="px-3 py-3">
-                                            <div class="text-sm text-gray-900">
-                                                @if(!empty($resultado['participante_id']))
-                                                    <a href="/app/participante/{{ $resultado['participante_id'] }}" data-link class="text-gray-900 hover:text-gray-600 hover:underline">
-                                                        {{ $resultado['razao_social'] ?: 'Sem razão social' }}
-                                                    </a>
-                                                @else
-                                                    {{ $resultado['razao_social'] ?: 'Sem razão social' }}
-                                                @endif
-                                            </div>
-                                            <div class="text-[11px] text-gray-500 mt-1 font-mono">
-                                                {{ $resultado['documento_formatado'] ?: '—' }}@if(!empty($resultado['uf'])) · {{ $resultado['uf'] }}@endif
+                                            <div class="flex items-start gap-2">
+                                                <button type="button" data-detalhe-toggle="consulta-detalhe-d-{{ $loop->index }}"
+                                                        class="mt-0.5 flex-shrink-0 w-5 h-5 inline-flex items-center justify-center rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                                                        title="Ver detalhes da consulta" aria-expanded="false">
+                                                    <svg class="detalhe-chevron w-3.5 h-3.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                                    </svg>
+                                                </button>
+                                                <div class="min-w-0">
+                                                    <div class="text-sm text-gray-900">
+                                                        @if(!empty($resultado['participante_id']))
+                                                            <a href="/app/participante/{{ $resultado['participante_id'] }}" data-link class="text-gray-900 hover:text-gray-600 hover:underline">
+                                                                {{ $resultado['razao_social'] ?: 'Sem razão social' }}
+                                                            </a>
+                                                        @else
+                                                            {{ $resultado['razao_social'] ?: 'Sem razão social' }}
+                                                        @endif
+                                                    </div>
+                                                    <div class="text-[11px] text-gray-500 mt-1 font-mono">
+                                                        {{ $resultado['documento_formatado'] ?: '—' }}@if(!empty($resultado['uf'])) · {{ $resultado['uf'] }}@endif
+                                                    </div>
+                                                </div>
                                             </div>
                                         </td>
                                         <td class="px-3 py-3 text-sm text-gray-700 text-center">{{ $resultado['situacao_cadastral'] ?: '—' }}</td>
@@ -264,6 +275,11 @@
                                             @endif
                                         </td>
                                         <td class="px-3 py-3 text-sm text-gray-700">{{ $resultado['consultado_em_label'] ?: '—' }}</td>
+                                    </tr>
+                                    <tr id="consulta-detalhe-d-{{ $loop->index }}" class="hidden">
+                                        <td colspan="9" class="px-4 py-4 bg-gray-50/60 border-t border-gray-100">
+                                            @include('autenticado.consulta.partials.detalhe-blocos', ['blocos' => $resultado['detalhe_blocos'] ?? []])
+                                        </td>
                                     </tr>
                                 @endforeach
                             </tbody>
@@ -329,6 +345,16 @@
                                 @if(!empty($resultado['mensagem_exibivel']))
                                     <p class="text-xs text-gray-500 mt-3">{{ $resultado['mensagem_exibivel'] }}</p>
                                 @endif
+                                <button type="button" data-detalhe-toggle="consulta-detalhe-m-{{ $loop->index }}"
+                                        class="mt-3 inline-flex items-center gap-1 text-[11px] font-medium text-gray-600 hover:text-gray-900" aria-expanded="false">
+                                    <svg class="detalhe-chevron w-3.5 h-3.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                    </svg>
+                                    Ver detalhes da consulta
+                                </button>
+                                <div id="consulta-detalhe-m-{{ $loop->index }}" class="hidden mt-3">
+                                    @include('autenticado.consulta.partials.detalhe-blocos', ['blocos' => $resultado['detalhe_blocos'] ?? []])
+                                </div>
                             </div>
                         @endforeach
                     </div>
@@ -400,6 +426,19 @@
 
     document.querySelectorAll('[data-consulta-lote-pagination]').forEach(function(link) {
         link.addEventListener('click', storePaginationScroll);
+    });
+
+    // Toggle do detalhe expansível por CNPJ (desktop = linha; mobile = bloco). Listeners
+    // por botão (não em document) → some sozinho no swap de DOM da navegação SPA.
+    document.querySelectorAll('[data-detalhe-toggle]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var target = document.getElementById(btn.getAttribute('data-detalhe-toggle'));
+            if (!target) return;
+            var hidden = target.classList.toggle('hidden');
+            btn.setAttribute('aria-expanded', hidden ? 'false' : 'true');
+            var chevron = btn.querySelector('.detalhe-chevron');
+            if (chevron) chevron.style.transform = hidden ? '' : 'rotate(90deg)';
+        });
     });
 
     restorePaginationScroll();

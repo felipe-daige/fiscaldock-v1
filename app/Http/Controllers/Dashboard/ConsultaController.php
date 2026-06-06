@@ -14,6 +14,7 @@ use App\Services\ConsultaReportService;
 use App\Services\CreditService;
 use App\Services\ParecerFiscalService;
 use App\Services\PricingCatalogService;
+use App\Support\CertidaoBadge;
 use App\Support\CndFederal;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -1803,13 +1804,14 @@ class ConsultaController extends Controller
     private function buildConsultaLoteResultadosDetalhe(ConsultaLote $lote): Collection
     {
         $parecerService = app(ParecerFiscalService::class);
+        $detalhePresenter = app(\App\Services\Consultas\ResultadoDetalhePresenter::class);
 
         return $lote->resultados()
             ->with('participante:id,documento,razao_social,uf,crt,regime_tributario')
             ->orderByDesc('consultado_em')
             ->orderBy('id')
             ->get()
-            ->map(function (ConsultaResultado $resultado) use ($parecerService) {
+            ->map(function (ConsultaResultado $resultado) use ($parecerService, $detalhePresenter) {
                 $parecerResumo = $resultado->isSucesso()
                     ? $parecerService->gerarResumo($resultado->getParecerFiscalPayload())
                     : [];
@@ -1845,60 +1847,16 @@ class ConsultaController extends Controller
                     'cndt_badge' => $cndt,
                     'parecer' => $parecerResumo,
                     'parecer_count' => count($parecerResumo),
+                    'detalhe_blocos' => $detalhePresenter->blocos($resultado),
                 ];
             });
     }
 
     private function normalizeConsultaLoteRegularidadeBadge(mixed $valor, bool $aplicarIndeterminado = false): array
     {
-        if ($aplicarIndeterminado) {
-            $analise = CndFederal::analisar($valor);
-            if ($analise['indeterminado']) {
-                return [
-                    'label' => $analise['label'],
-                    'hex' => $analise['hex'],
-                    'indeterminado' => true,
-                    'motivo' => $analise['motivo'],
-                ];
-            }
-        }
-
-        if ($valor === null || $valor === '') {
-            return ['label' => '—', 'hex' => '#9ca3af'];
-        }
-
-        if (is_array($valor)) {
-            $texto = trim((string) ($valor['situacao'] ?? $valor['status'] ?? $valor['regularidade'] ?? ''));
-        } elseif (is_bool($valor)) {
-            $texto = $valor ? 'sim' : 'nao';
-        } else {
-            $texto = trim((string) $valor);
-        }
-
-        $textoNormalizado = mb_strtolower($texto);
-
-        if ($textoNormalizado === '') {
-            return ['label' => '—', 'hex' => '#9ca3af'];
-        }
-
-        if (str_contains($textoNormalizado, 'regular') && ! str_contains($textoNormalizado, 'irregular')) {
-            return ['label' => 'Regular', 'hex' => '#047857'];
-        }
-
-        if (in_array($textoNormalizado, ['true', 'sim'], true)) {
-            return ['label' => 'Sim', 'hex' => '#047857'];
-        }
-
-        if (
-            str_contains($textoNormalizado, 'irregular')
-            || str_contains($textoNormalizado, 'devedor')
-            || str_contains($textoNormalizado, 'negativa')
-            || in_array($textoNormalizado, ['false', 'nao', 'não'], true)
-        ) {
-            return ['label' => 'Irregular', 'hex' => '#dc2626'];
-        }
-
-        return ['label' => mb_strtoupper($texto), 'hex' => '#374151'];
+        // Classificação canônica de certidão (Negativa/Positiva-com-efeitos = regular).
+        // Fonte única compartilhada com o detalhe expansível (ResultadoDetalhePresenter).
+        return CertidaoBadge::classificar($valor, $aplicarIndeterminado);
     }
 
     private function paginateConsultaLoteResultados(Collection $resultados, int $perPage, Request $request): LengthAwarePaginator
