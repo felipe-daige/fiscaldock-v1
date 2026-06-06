@@ -21,6 +21,7 @@ it('a rota score-fiscal renderiza o dashboard real (nao mais placeholder)', func
         ->assertOk()
         ->assertSee('Score Fiscal')
         ->assertSee('Como funciona o Score Fiscal')
+        ->assertSee('Filtrar')
         ->assertSee('Avaliados');
 });
 
@@ -74,16 +75,16 @@ it('visualizacao por cliente e obrigatoria, com opcao Todos os CNPJs', function 
         ]);
     }
 
-    // default = empresa própria -> não despeja participantes de outros clientes
+    // default = Todos os CNPJs -> mostra todos
     actingAs($user)->get('/app/score-fiscal')
         ->assertOk()->assertSee('Todos os CNPJs')
-        ->assertDontSee('PARTDOA')->assertDontSee('PARTDOB');
+        ->assertSee('PARTDOA')->assertSee('PARTDOB');
 
     // cliente A -> só os do A
     actingAs($user)->get('/app/score-fiscal?cliente_id='.$cliA->id)
         ->assertOk()->assertSee('PARTDOA')->assertDontSee('PARTDOB');
 
-    // todos -> ambos
+    // todos explícito -> ambos
     actingAs($user)->get('/app/score-fiscal?cliente_id=todos')
         ->assertOk()->assertSee('PARTDOA')->assertSee('PARTDOB');
 });

@@ -37,27 +37,20 @@ class RiskScoreController extends Controller
         // SÓ CNPJ (14 dígitos) — CPF fica de fora das listas.
         $cnpjRaw = "length(regexp_replace(coalesce(documento, ''), '[^0-9]', '', 'g')) = 14";
 
-        // Visualização por cliente é OBRIGATÓRIA (não despejar todos os CNPJs do sistema).
-        // Default = empresa própria. "todos" é a opção explícita para ver tudo.
+        // Filtro de visualização por cliente. Começa em "Todos os CNPJs" por padrão; só
+        // restringe quando um cliente específico é escolhido. Escopo de um cliente = o próprio
+        // CNPJ + os participantes daquele cliente.
         $clientes = Cliente::where('user_id', $userId)
             ->orderByDesc('is_empresa_propria')
             ->orderBy('razao_social')
             ->get();
-        $empresaPropria = $clientes->firstWhere('is_empresa_propria', true) ?? $clientes->first();
 
         $clienteParam = $request->query('cliente_id');
-        $verTodos = $clienteParam === 'todos';
         $clienteSelecionadoId = null;
-        if (! $verTodos) {
-            if ($clienteParam !== null && ctype_digit((string) $clienteParam)) {
-                $clienteSelecionadoId = optional($clientes->firstWhere('id', (int) $clienteParam))->id;
-            }
-            $clienteSelecionadoId = $clienteSelecionadoId ?? optional($empresaPropria)->id;
-            // Sem nenhum cliente cadastrado: cai para "todos" para não quebrar.
-            if ($clienteSelecionadoId === null) {
-                $verTodos = true;
-            }
+        if ($clienteParam !== null && $clienteParam !== 'todos' && ctype_digit((string) $clienteParam)) {
+            $clienteSelecionadoId = optional($clientes->firstWhere('id', (int) $clienteParam))->id;
         }
+        $verTodos = $clienteSelecionadoId === null;
 
         // Escopo de cliente para ParticipanteScore (alvo = cliente OU participante daquele cliente).
         $escopoClienteScore = function ($query) use ($verTodos, $clienteSelecionadoId) {

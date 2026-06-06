@@ -129,6 +129,14 @@
                         </svg>
                     </div>
                 </div>
+                <div class="w-full sm:w-auto">
+                    <button type="button" id="btn-filtrar-score" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L14 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 018 21v-7.586L3.293 6.707A1 1 0 013 6V4z"></path>
+                        </svg>
+                        Filtrar
+                    </button>
+                </div>
             </div>
         </div>
 

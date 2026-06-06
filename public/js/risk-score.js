@@ -40,6 +40,16 @@
                     applyFilters();
                 }, 500);
             });
+            buscaParticipante.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') { e.preventDefault(); applyFilters(); }
+            });
+        }
+
+        const btnFiltrar = document.getElementById('btn-filtrar-score');
+        if (btnFiltrar) {
+            btnFiltrar.addEventListener('click', function() {
+                applyFilters();
+            });
         }
     }
 
