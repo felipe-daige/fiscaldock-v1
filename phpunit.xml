@@ -33,6 +33,9 @@
         <server name="SESSION_DRIVER" value="array" force="true"/>
         <server name="MAIL_MAILER" value="array" force="true"/>
         <server name="BCRYPT_ROUNDS" value="4" force="true"/>
+        <!-- Isola os toggles de consultas do .env de prod (allowlist/flag) p/ testes determinísticos -->
+        <server name="CONSULTAS_INFOSIMPLES_ATIVO" value="false" force="true"/>
+        <server name="CONSULTAS_INFOSIMPLES_TESTE_CNPJS" value="" force="true"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="PULSE_ENABLED" value="false"/>
