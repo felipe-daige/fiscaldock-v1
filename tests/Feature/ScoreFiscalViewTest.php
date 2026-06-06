@@ -59,6 +59,41 @@ it('separa participantes em Consultados e Nao consultados', function () {
         ->assertSee('PENDENTE LTDA');
 });
 
+it('marca o papel do participante (fornecedor/comprador/ambos) pelas notas EFD', function () {
+    $user = User::factory()->create();
+    $imp = \App\Models\EfdImportacao::create(['user_id' => $user->id, 'tipo_efd' => 'EFD ICMS/IPI']);
+    $cli = \App\Models\Cliente::create(['user_id' => $user->id, 'documento' => '11111111000111', 'razao_social' => 'MINHA EMP']);
+
+    // Fornecedor: nos compramos dele (entrada)
+    $forn = Participante::create(['user_id' => $user->id, 'documento' => '22222222000122', 'razao_social' => 'FORNECEDOR SA']);
+    // Ambos: entrada + saida
+    $ambos = Participante::create(['user_id' => $user->id, 'documento' => '33333333000133', 'razao_social' => 'PARCEIRO SA']);
+
+    foreach ([$forn->id => ['entrada'], $ambos->id => ['entrada', 'saida']] as $pid => $ops) {
+        foreach ($ops as $i => $op) {
+            \Illuminate\Support\Facades\DB::table('efd_notas')->insert([
+                'user_id' => $user->id, 'cliente_id' => $cli->id, 'importacao_id' => $imp->id,
+                'participante_id' => $pid, 'modelo' => '55', 'numero' => (string) ($pid + $i),
+                'tipo_operacao' => $op, 'valor_total' => 100,
+            ]);
+        }
+    }
+
+    // ambos têm score (aparecem em Consultados)
+    foreach ([$forn->id, $ambos->id] as $pid) {
+        \App\Models\ParticipanteScore::create([
+            'participante_id' => $pid, 'user_id' => $user->id,
+            'score_total' => 0, 'classificacao' => 'baixo', 'ultima_consulta_em' => now(),
+        ]);
+    }
+
+    actingAs($user)
+        ->get('/app/score-fiscal')
+        ->assertOk()
+        ->assertSee('Fornecedor')
+        ->assertSee('Ambos');
+});
+
 it('mostra clientes consultados no score e exclui CPF da lista', function () {
     $user = User::factory()->create();
 

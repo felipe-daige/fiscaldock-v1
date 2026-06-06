@@ -79,6 +79,33 @@ class RiskScoreController extends Controller
             ->paginate(20, ['*'], 'nc')
             ->withQueryString();
 
+        // Papel comercial dos PARTICIPANTES exibidos, pelas notas EFD: entrada = nós compramos
+        // dele (Fornecedor); saida = nós vendemos pra ele (Comprador); os dois = Ambos.
+        $idsParticipantes = collect();
+        foreach ($consultados as $sc) {
+            if ($sc->participante_id) {
+                $idsParticipantes->push($sc->participante_id);
+            }
+        }
+        foreach ($naoConsultados as $item) {
+            if (($item->tipo ?? null) === 'participante') {
+                $idsParticipantes->push($item->id);
+            }
+        }
+
+        $papeisParticipante = [];
+        if ($idsParticipantes->isNotEmpty()) {
+            $linhas = \Illuminate\Support\Facades\DB::table('efd_notas')
+                ->select('participante_id', 'tipo_operacao')
+                ->where('user_id', $userId)
+                ->whereIn('participante_id', $idsParticipantes->unique()->values()->all())
+                ->groupBy('participante_id', 'tipo_operacao')
+                ->get();
+            foreach ($linhas as $linha) {
+                $papeisParticipante[$linha->participante_id][$linha->tipo_operacao] = true;
+            }
+        }
+
         // Em risco critico (para alerta) — participante ou cliente
         $emRiscoCritico = ParticipanteScore::where('user_id', $userId)
             ->where('classificacao', 'critico')
@@ -90,6 +117,7 @@ class RiskScoreController extends Controller
             'estatisticas' => $estatisticas,
             'consultados' => $consultados,
             'naoConsultados' => $naoConsultados,
+            'papeisParticipante' => $papeisParticipante,
             'emRiscoCritico' => $emRiscoCritico,
             'filtroClassificacao' => $filtroClassificacao,
             'filtroBusca' => $busca,

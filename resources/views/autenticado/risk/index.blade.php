@@ -21,6 +21,17 @@
             ? ['label' => 'Cliente', 'hex' => '#4338ca']
             : ['label' => 'Participante', 'hex' => '#374151'];
     };
+    // Papel comercial do participante: entrada = Fornecedor (vende pra nós),
+    // saida = Comprador (compra de nós), os dois = Ambos.
+    $papeisParticipante = $papeisParticipante ?? [];
+    $papelBadge = function($entry) {
+        if (empty($entry)) return null;
+        $e = !empty($entry['entrada']); $s = !empty($entry['saida']);
+        if ($e && $s) return ['label' => 'Ambos', 'hex' => '#475569'];
+        if ($e) return ['label' => 'Fornecedor', 'hex' => '#0369a1'];
+        if ($s) return ['label' => 'Comprador', 'hex' => '#7c3aed'];
+        return null;
+    };
 @endphp
 <div class="min-h-screen bg-gray-100" id="risk-container">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
@@ -200,7 +211,12 @@
                                 <div class="text-[11px] text-gray-500 font-mono">{{ $sc->alvo_documento }}</div>
                             </td>
                             <td class="px-3 py-3 whitespace-nowrap">
-                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $tb['hex'] }}">{{ $tb['label'] }}</span>
+                                <div class="flex flex-wrap items-center gap-1">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $tb['hex'] }}">{{ $tb['label'] }}</span>
+                                    @if($sc->participante_id && ($pb = $papelBadge($papeisParticipante[$sc->participante_id] ?? null)))
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $pb['hex'] }}">{{ $pb['label'] }}</span>
+                                    @endif
+                                </div>
                             </td>
                             <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-700">{{ $sc->alvo_uf ?? '—' }}</td>
                             <td class="px-3 py-3 whitespace-nowrap text-center">
@@ -261,6 +277,9 @@
                     </div>
                     <div class="flex flex-wrap items-center gap-2 mt-2">
                         <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $tb['hex'] }}">{{ $tb['label'] }}</span>
+                        @if($sc->participante_id && ($pb = $papelBadge($papeisParticipante[$sc->participante_id] ?? null)))
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $pb['hex'] }}">{{ $pb['label'] }}</span>
+                        @endif
                         @if(isset($classBadge[$sc->classificacao]))
                             @php $b = $classBadge[$sc->classificacao]; @endphp
                             <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $b['hex'] }}">{{ $b['label'] }}</span>
@@ -326,7 +345,12 @@
                                 <div class="text-[11px] text-gray-500 font-mono">{{ $fmtCnpj($item->documento) }}</div>
                             </td>
                             <td class="px-3 py-3 whitespace-nowrap">
-                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $tb['hex'] }}">{{ $tb['label'] }}</span>
+                                <div class="flex flex-wrap items-center gap-1">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $tb['hex'] }}">{{ $tb['label'] }}</span>
+                                    @if($item->tipo === 'participante' && ($pb = $papelBadge($papeisParticipante[$item->id] ?? null)))
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $pb['hex'] }}">{{ $pb['label'] }}</span>
+                                    @endif
+                                </div>
                             </td>
                             <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-700">{{ $item->uf ?? '—' }}</td>
                             <td class="px-3 py-3 whitespace-nowrap text-right text-xs">
@@ -348,7 +372,12 @@
                             <p class="text-sm text-gray-900 font-medium truncate">{{ $item->razao_social ?? 'N/A' }}</p>
                             <p class="text-[11px] text-gray-500 font-mono">{{ $fmtCnpj($item->documento) }}</p>
                         </div>
-                        <span class="flex-shrink-0 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $tb['hex'] }}">{{ $tb['label'] }}</span>
+                        <div class="flex-shrink-0 flex flex-col items-end gap-1">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $tb['hex'] }}">{{ $tb['label'] }}</span>
+                            @if($item->tipo === 'participante' && ($pb = $papelBadge($papeisParticipante[$item->id] ?? null)))
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $pb['hex'] }}">{{ $pb['label'] }}</span>
+                            @endif
+                        </div>
                     </div>
                     <div class="flex items-center justify-between mt-2">
                         <span class="text-[11px] text-gray-500">{{ $item->uf ?? '—' }}</span>
