@@ -43,7 +43,7 @@ function executarConsulta(User $user, MonitoramentoPlano $plano, array $particip
     ]);
 }
 
-it('permite ate 5 CNPJs licitacao e bloqueia o 6o', function () {
+it('permite ate 5 CNPJs no total e bloqueia o 6o', function () {
     $user = User::factory()->create(['credits' => 1000]);
     $licitacao = MonitoramentoPlano::porCodigo('licitacao');
 
@@ -66,17 +66,26 @@ it('bloqueia o lote inteiro quando ultrapassa o teto', function () {
     expect(ConsultaLote::where('user_id', $user->id)->count())->toBe(1);
 });
 
-it('teto e por plano', function () {
+it('o teto e um pool unico: gastar em um plano reduz os outros', function () {
     $user = User::factory()->create(['credits' => 1000]);
     $licitacao = MonitoramentoPlano::porCodigo('licitacao');
     $compliance = MonitoramentoPlano::porCodigo('compliance');
 
     executarConsulta($user, $licitacao, criarParticipantes($user, 5))->assertOk();
     executarConsulta($user, $licitacao, criarParticipantes($user, 1))->assertStatus(403);
-    executarConsulta($user, $compliance, criarParticipantes($user, 1))->assertOk();
+    executarConsulta($user, $compliance, criarParticipantes($user, 1))->assertStatus(403);
 });
 
-it('apos primeira compra libera premium ilimitado', function () {
+it('validacao agora consome o mesmo teto dos demais planos', function () {
+    $user = User::factory()->create(['credits' => 1000]);
+    $validacao = MonitoramentoPlano::porCodigo('validacao');
+    $licitacao = MonitoramentoPlano::porCodigo('licitacao');
+
+    executarConsulta($user, $validacao, criarParticipantes($user, 5))->assertOk();
+    executarConsulta($user, $licitacao, criarParticipantes($user, 1))->assertStatus(403);
+});
+
+it('apos primeira compra libera consultas ilimitadas', function () {
     $user = User::factory()->create(['credits' => 1000]);
     $licitacao = MonitoramentoPlano::porCodigo('licitacao');
     CreditTransaction::create([
@@ -86,14 +95,17 @@ it('apos primeira compra libera premium ilimitado', function () {
     executarConsulta($user, $licitacao, criarParticipantes($user, 8))->assertOk();
 });
 
-it('gratuito e validacao nao sao limitados pelo teto', function () {
+it('gratuito nao consome o teto de consultas pagas', function () {
     $user = User::factory()->create(['credits' => 1000]);
-    $validacao = MonitoramentoPlano::porCodigo('validacao');
+    $gratuito = MonitoramentoPlano::porCodigo('gratuito');
+    $licitacao = MonitoramentoPlano::porCodigo('licitacao');
 
-    executarConsulta($user, $validacao, criarParticipantes($user, 12))->assertOk();
+    executarConsulta($user, $gratuito, criarParticipantes($user, 12))->assertOk();
+    // gratuito nao contou -> ainda restam 5 do pool pago
+    executarConsulta($user, $licitacao, criarParticipantes($user, 5))->assertOk();
 });
 
-it('pagina nova renderiza e mostra saldo do teste nos planos premium', function () {
+it('pagina nova renderiza e mostra saldo global do teste', function () {
     $user = User::factory()->create(['credits' => 1000]);
     $licitacao = MonitoramentoPlano::porCodigo('licitacao');
 
@@ -106,7 +118,7 @@ it('pagina nova renderiza e mostra saldo do teste nos planos premium', function 
     $resp = actingAs($user)->get(route('app.consulta.nova'));
 
     $resp->assertOk();
-    $resp->assertSee('3 de 5 no teste'); // restam 3 de 5 em Licitacao
+    $resp->assertSee('3 de 5 no teste'); // restam 3 de 5 no pool global
 });
 
 it('calcular-custo retorna restantes do teto', function () {

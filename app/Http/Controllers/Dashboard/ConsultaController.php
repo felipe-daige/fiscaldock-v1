@@ -62,10 +62,10 @@ class ConsultaController extends Controller
         // Buscar catálogo legado de produtos consultáveis
         $planos = MonitoramentoPlano::ativos();
 
-        // Status do teto de teste (5 CNPJs por plano premium antes da 1ª compra)
+        // Status do teto de teste (pool único de 5 CNPJs somado entre os planos pagos antes da 1ª compra)
         $trialCaps = [];
         foreach ($planos as $planoItem) {
-            if ($this->pricingCatalogService->planoEhPremium($planoItem->codigo)) {
+            if ($this->pricingCatalogService->planoTemTetoTrial($planoItem->codigo)) {
                 $trialCaps[$planoItem->codigo] = $this->pricingCatalogService->trialCapStatus($user, $planoItem);
             }
         }
@@ -605,10 +605,9 @@ class ConsultaController extends Controller
             return response()->json([
                 'success' => false,
                 'error' => sprintf(
-                    'Você usou %d de %d consultas %s no período de teste. Faça um depósito para liberar mais.',
+                    'Você usou %d de %d consultas liberadas no período de teste. Faça um depósito para liberar consultas ilimitadas.',
                     $trialCap['usados'],
-                    $trialCap['limite'],
-                    $plano->nome
+                    $trialCap['limite']
                 ),
                 'trial_cap_atingido' => true,
                 'trial_cap' => $trialCap,
@@ -729,10 +728,9 @@ class ConsultaController extends Controller
             return response()->json([
                 'success' => false,
                 'error' => sprintf(
-                    'Você usou %d de %d consultas %s no período de teste. Faça um depósito para liberar mais.',
+                    'Você usou %d de %d consultas liberadas no período de teste. Faça um depósito para liberar consultas ilimitadas.',
                     $trialCap['usados'],
-                    $trialCap['limite'],
-                    $plano->nome
+                    $trialCap['limite']
                 ),
                 'trial_cap_atingido' => true,
                 'trial_cap' => $trialCap,

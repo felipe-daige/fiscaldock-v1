@@ -82,21 +82,26 @@ class PricingCatalogService
         return $this->userHasFirstPurchase($user);
     }
 
-    public function planoEhPremium(string $codigo): bool
+    /**
+     * O plano está sujeito ao teto de consultas do período de teste?
+     * (Gratuito fica de fora; os demais planos pagos compartilham um pool único.)
+     */
+    public function planoTemTetoTrial(string $codigo): bool
     {
-        return in_array($codigo, (array) config('trial.planos_premium', []), true);
+        return in_array($codigo, (array) config('trial.planos_com_teto', []), true);
     }
 
     /**
-     * Status do teto de teste para um plano premium.
+     * Status do teto de teste — pool GLOBAL de consultas (CNPJs) somado entre
+     * TODOS os planos pagos, liberado apenas até a 1ª compra confirmada.
      *
      * @return array{aplicavel: bool, limite: int, usados: int, restantes: int, bloqueado: bool}
      */
     public function trialCapStatus(User $user, MonitoramentoPlano $plano, int $novosCnpjs = 0): array
     {
-        $limite = (int) config('trial.limite_premium_por_plano', 5);
+        $limite = (int) config('trial.limite_consultas_sem_compra', 5);
 
-        $aplicavel = $this->planoEhPremium($plano->codigo) && ! $this->userHasFirstPurchase($user);
+        $aplicavel = $this->planoTemTetoTrial($plano->codigo) && ! $this->userHasFirstPurchase($user);
 
         if (! $aplicavel) {
             return [
@@ -108,9 +113,14 @@ class PricingCatalogService
             ];
         }
 
+        // Pool único: soma os CNPJs consumidos em QUALQUER plano sujeito ao teto.
+        $planosComTetoIds = MonitoramentoPlano::query()
+            ->whereIn('codigo', (array) config('trial.planos_com_teto', []))
+            ->pluck('id');
+
         $usados = (int) ConsultaLote::query()
             ->where('user_id', $user->id)
-            ->where('plano_id', $plano->id)
+            ->whereIn('plano_id', $planosComTetoIds)
             ->where('status', '!=', ConsultaLote::STATUS_ERRO)
             ->sum('total_participantes');
 

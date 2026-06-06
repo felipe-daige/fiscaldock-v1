@@ -21,42 +21,56 @@ function fazerLote(User $user, MonitoramentoPlano $plano, int $qtd, string $stat
     ]);
 }
 
-it('plano nao-premium nunca e barrado', function () {
+it('plano gratuito nunca e barrado pelo teto', function () {
     $svc = app(PricingCatalogService::class);
     $user = User::factory()->create();
-    $validacao = MonitoramentoPlano::porCodigo('validacao');
+    $gratuito = MonitoramentoPlano::porCodigo('gratuito');
 
-    $status = $svc->trialCapStatus($user, $validacao, 999);
+    $status = $svc->trialCapStatus($user, $gratuito, 999);
 
     expect($status['aplicavel'])->toBeFalse();
     expect($status['bloqueado'])->toBeFalse();
 });
 
-it('conta CNPJs consumidos e calcula restantes por plano', function () {
+it('validacao agora entra no teto de teste', function () {
     $svc = app(PricingCatalogService::class);
     $user = User::factory()->create();
-    $licitacao = MonitoramentoPlano::porCodigo('licitacao');
+    $validacao = MonitoramentoPlano::porCodigo('validacao');
 
-    fazerLote($user, $licitacao, 3);
-
-    $status = $svc->trialCapStatus($user, $licitacao, 0);
+    $status = $svc->trialCapStatus($user, $validacao, 0);
 
     expect($status['aplicavel'])->toBeTrue();
     expect($status['limite'])->toBe(5);
-    expect($status['usados'])->toBe(3);
-    expect($status['restantes'])->toBe(2);
+});
+
+it('o teto e um pool unico somado entre todos os planos pagos', function () {
+    $svc = app(PricingCatalogService::class);
+    $user = User::factory()->create();
+    $licitacao = MonitoramentoPlano::porCodigo('licitacao');
+    $compliance = MonitoramentoPlano::porCodigo('compliance');
+
+    // gasta 3 em licitacao e 1 em compliance -> pool global = 4
+    fazerLote($user, $licitacao, 3);
+    fazerLote($user, $compliance, 1);
+
+    $status = $svc->trialCapStatus($user, MonitoramentoPlano::porCodigo('due_diligence'), 0);
+
+    expect($status['aplicavel'])->toBeTrue();
+    expect($status['usados'])->toBe(4);
+    expect($status['restantes'])->toBe(1);
     expect($status['bloqueado'])->toBeFalse();
 });
 
-it('bloqueia quando usados mais novos passa do limite', function () {
+it('bloqueia quando a soma global mais os novos passa do limite', function () {
     $svc = app(PricingCatalogService::class);
     $user = User::factory()->create();
     $licitacao = MonitoramentoPlano::porCodigo('licitacao');
 
     fazerLote($user, $licitacao, 3);
 
-    expect($svc->trialCapStatus($user, $licitacao, 2)['bloqueado'])->toBeFalse(); // 3+2=5 ok
-    expect($svc->trialCapStatus($user, $licitacao, 3)['bloqueado'])->toBeTrue();  // 3+3=6 nao
+    $compliance = MonitoramentoPlano::porCodigo('compliance');
+    expect($svc->trialCapStatus($user, $compliance, 2)['bloqueado'])->toBeFalse(); // 3+2=5 ok
+    expect($svc->trialCapStatus($user, $compliance, 3)['bloqueado'])->toBeTrue();  // 3+3=6 nao
 });
 
 it('lotes com status erro nao contam', function () {
@@ -69,7 +83,7 @@ it('lotes com status erro nao contam', function () {
     expect($svc->trialCapStatus($user, $licitacao, 0)['usados'])->toBe(0);
 });
 
-it('teto e por plano: esgotar licitacao nao afeta compliance', function () {
+it('esgotar o pool em um plano bloqueia os outros (pool unico)', function () {
     $svc = app(PricingCatalogService::class);
     $user = User::factory()->create();
     $licitacao = MonitoramentoPlano::porCodigo('licitacao');
@@ -78,7 +92,8 @@ it('teto e por plano: esgotar licitacao nao afeta compliance', function () {
     fazerLote($user, $licitacao, 5);
 
     expect($svc->trialCapStatus($user, $licitacao, 1)['bloqueado'])->toBeTrue();
-    expect($svc->trialCapStatus($user, $compliance, 1)['bloqueado'])->toBeFalse();
+    expect($svc->trialCapStatus($user, $compliance, 1)['bloqueado'])->toBeTrue();
+    expect($svc->trialCapStatus($user, MonitoramentoPlano::porCodigo('validacao'), 1)['bloqueado'])->toBeTrue();
 });
 
 it('apos a primeira compra o teto some', function () {
