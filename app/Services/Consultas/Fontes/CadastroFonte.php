@@ -140,11 +140,20 @@ class CadastroFonte implements Fonte
                 'mei_data_opcao' => $raw['data_opcao_pelo_mei'] ?? null,
                 'mei_data_exclusao' => $raw['data_exclusao_do_mei'] ?? null,
             ],
+            // Histórico de regime (forma de tributação por ano) que a RFB publica.
+            'regime_tributario_historico' => array_map(fn ($r) => [
+                'ano' => $r['ano'] ?? null,
+                'forma' => $this->humanizarRegime((string) ($r['forma_de_tributacao'] ?? '')),
+            ], is_array($raw['regime_tributario'] ?? null) ? $raw['regime_tributario'] : []),
             'consultas_realizadas' => ['situacao_cadastral', 'dados_cadastrais', 'endereco', 'cnaes', 'qsa', 'simples_nacional', 'mei', 'regime_tributario', 'historico_simples'],
         ];
     }
 
-    /** Regime derivado do cadastro RFB (minhareceita): MEI > Simples Nacional > Normal. */
+    /**
+     * Regime tributário real (minhareceita):
+     * MEI > Simples Nacional > forma de tributação do ano mais recente (Lucro Real/Presumido/
+     * Arbitrado, da RFB) > "Não informado" quando a RFB não publica.
+     */
     private function regimeTributario(array $raw): string
     {
         if ((bool) ($raw['opcao_pelo_mei'] ?? false)) {
@@ -154,6 +163,23 @@ class CadastroFonte implements Fonte
             return 'Simples Nacional';
         }
 
-        return 'Normal'; // Lucro Presumido/Real não é distinguível no cadastro RFB
+        $hist = is_array($raw['regime_tributario'] ?? null) ? $raw['regime_tributario'] : [];
+        if ($hist) {
+            usort($hist, fn ($a, $b) => ($b['ano'] ?? 0) <=> ($a['ano'] ?? 0));
+            $forma = (string) ($hist[0]['forma_de_tributacao'] ?? '');
+            if ($forma !== '') {
+                return $this->humanizarRegime($forma);
+            }
+        }
+
+        return 'Não informado'; // RFB não publica regime p/ este CNPJ (nem Simples/MEI)
+    }
+
+    /** "LUCRO REAL" → "Lucro Real". */
+    private function humanizarRegime(string $forma): string
+    {
+        $forma = trim($forma);
+
+        return $forma === '' ? '' : ucwords(mb_strtolower($forma));
     }
 }

@@ -25,11 +25,19 @@ it('normaliza o raw da minhareceita para o shape achatado de prod', function () 
     expect($out['historico_simples'])->toHaveKey('optante');
 });
 
-it('deriva regime_tributario do cadastro (MEI > Simples > Normal)', function () {
+it('deriva regime_tributario real (MEI > Simples > forma RFB > Não informado)', function () {
     $f = new CadastroFonte();
     expect($f->normalizar(['opcao_pelo_mei' => true, 'opcao_pelo_simples' => true])['regime_tributario'])->toBe('MEI');
     expect($f->normalizar(['opcao_pelo_simples' => true])['regime_tributario'])->toBe('Simples Nacional');
-    expect($f->normalizar([])['regime_tributario'])->toBe('Normal');
+    // usa a forma de tributação do ano mais recente publicada pela RFB
+    $out = $f->normalizar(['regime_tributario' => [
+        ['ano' => 2023, 'forma_de_tributacao' => 'LUCRO PRESUMIDO'],
+        ['ano' => 2024, 'forma_de_tributacao' => 'LUCRO REAL'],
+    ]]);
+    expect($out['regime_tributario'])->toBe('Lucro Real');
+    expect($out['regime_tributario_historico'])->toHaveCount(2);
+    // sem Simples/MEI e sem histórico → Não informado
+    expect($f->normalizar([])['regime_tributario'])->toBe('Não informado');
 });
 
 it('fornece regime_tributario e historico_simples (plano Validação)', function () {
