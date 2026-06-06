@@ -22,7 +22,7 @@ class CndtFonte extends FonteCertidaoInfoSimples
     protected function mapearSucesso(array $data): array
     {
         return [
-            'status' => $data['tipo'] ?? null, // Negativa / Positiva
+            'status' => $this->statusCertidao($data), // Negativa / Positiva
             'certidao_codigo' => $data['certidao_codigo'] ?? ($data['numero_certidao'] ?? null),
             'emissao_data' => $data['emissao_data'] ?? null,
             'data_validade' => $data['validade_data'] ?? null,

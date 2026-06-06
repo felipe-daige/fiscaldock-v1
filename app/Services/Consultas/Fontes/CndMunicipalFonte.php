@@ -57,7 +57,7 @@ class CndMunicipalFonte extends FonteCertidaoInfoSimples
         return [
             'uf' => $data['uf'] ?? null,
             'municipio' => $data['municipio'] ?? ($data['cidade'] ?? null),
-            'status' => $data['tipo'] ?? null,
+            'status' => $this->statusCertidao($data),
             'certidao_codigo' => $data['certidao_codigo'] ?? null,
             'emissao_data' => $data['emissao_data'] ?? null,
             'data_validade' => $data['validade_data'] ?? ($data['validade'] ?? null),

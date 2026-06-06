@@ -57,7 +57,7 @@ class CndEstadualFonte extends FonteCertidaoInfoSimples
     {
         return [
             'uf' => $data['uf'] ?? null,
-            'status' => $data['tipo'] ?? null, // Negativa / Positiva com efeitos / Positiva
+            'status' => $this->statusCertidao($data), // Negativa / Positiva com efeitos / Positiva
             'certidao_codigo' => $data['certidao_codigo'] ?? null,
             'emissao_data' => $data['emissao_data'] ?? null,
             'data_validade' => $data['validade_data'] ?? ($data['validade'] ?? null),

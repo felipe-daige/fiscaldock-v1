@@ -38,16 +38,18 @@ class ProcessarConsultaJob implements ShouldQueue
         PersistenciaCnpj $persistencia,
     ): void {
         $total = count($this->etapas);
-        $this->progresso(etapa: 1, total: $total, label: $this->labelEtapa(0, 'Preparando consulta'), status: 'processando');
+        // Etapa inicial: inicializacao.
+        [$nIni, $lIni] = $this->etapaPorChave('inicializacao', 'Preparando consulta');
+        $this->progresso(etapa: $nIni, total: $total, label: $lIni, status: 'processando');
 
         // Alvo mutável: a UF autoritativa vem do cadastro (minhareceita) e alimenta as
         // fontes UF-dependentes (ex: CND Estadual). O cadastro é a 1ª fonte de todo plano.
         $alvo = $this->alvo;
 
-        $passo = 1;
         $creditosFalhos = 0;
         foreach ($registry->fontesDe($this->consultasIncluidas) as $fonte) {
-            $passo++;
+            // Progresso por GRUPO de etapa da fonte (várias fontes → mesma etapa; sem loop).
+            [$nEtapa, $lEtapa] = $this->etapaParaFonte($fonte->chave());
 
             // Cobertura do provedor indisponível p/ este alvo (ex: UF/cidade) → pula sem
             // chamar nem cobrar; persiste como INDISPONIVEL com o MOTIVO (não é falha estornável).
@@ -57,10 +59,7 @@ class ProcessarConsultaJob implements ShouldQueue
                     $fonte->normalizar(['_motivo' => $fonte->motivoIndisponivel($alvo)], 'nao_aplicavel'),
                     'nao_aplicavel', 0, $fonte->motivoIndisponivel($alvo),
                 ));
-                $this->progresso(
-                    etapa: min($passo, $total), total: $total,
-                    label: $this->labelEtapa($passo - 1, $fonte->chave()), status: 'processando',
-                );
+                $this->progresso(etapa: $nEtapa, total: $total, label: $lEtapa, status: 'processando');
 
                 continue;
             }
@@ -92,10 +91,7 @@ class ProcessarConsultaJob implements ShouldQueue
                 $creditosFalhos += $resultado->custoCreditos;
             }
 
-            $this->progresso(
-                etapa: min($passo, $total), total: $total,
-                label: $this->labelEtapa($passo - 1, $fonte->chave()), status: 'processando',
-            );
+            $this->progresso(etapa: $nEtapa, total: $total, label: $lEtapa, status: 'processando');
         }
 
         // Estorno preciso: total por participante (overwrite = idempotente em retry do job).
@@ -112,15 +108,24 @@ class ProcessarConsultaJob implements ShouldQueue
         };
     }
 
-    /** Label da etapa por índice. resolvedEtapas() devolve ['numero','chave','label']; aceita também string. */
-    private function labelEtapa(int $idx, string $fallback): string
+    /** Etapa (numero, label) por chave no array de etapas do plano. */
+    private function etapaPorChave(string $chave, string $fallbackLabel): array
     {
-        $e = $this->etapas[$idx] ?? null;
-        if (is_array($e)) {
-            return (string) ($e['label'] ?? $fallback);
+        foreach ($this->etapas as $e) {
+            if (is_array($e) && ($e['chave'] ?? null) === $chave) {
+                return [(int) ($e['numero'] ?? 0), (string) ($e['label'] ?? $fallbackLabel)];
+            }
         }
 
-        return is_string($e) && $e !== '' ? $e : $fallback;
+        return [count($this->etapas), $fallbackLabel];
+    }
+
+    /** Etapa (numero, label) do GRUPO ao qual a fonte pertence (config consultas.fonte_etapa). */
+    private function etapaParaFonte(string $chaveFonte): array
+    {
+        $chaveEtapa = (string) config("consultas.fonte_etapa.{$chaveFonte}", 'cadastrais');
+
+        return $this->etapaPorChave($chaveEtapa, $chaveFonte);
     }
 
     private function progresso(int $etapa, int $total, string $label, string $status): void

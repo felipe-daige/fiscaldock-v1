@@ -12,6 +12,25 @@ abstract class FonteCertidaoInfoSimples extends FonteInfoSimplesBase
     /** Mapeia o data[0] da resposta de sucesso no bloco interno da certidão. */
     abstract protected function mapearSucesso(array $data): array;
 
+    /**
+     * Status da certidão a partir do data[0]. Nem toda certidão traz `tipo` (ex: CNDT, CND
+     * Estadual não trazem) — nesse caso deriva de `conseguiu_emitir_certidao_negativa`:
+     * true → Negativa (regular), false → Positiva (com débitos).
+     */
+    protected function statusCertidao(array $data): ?string
+    {
+        $tipo = $data['tipo'] ?? $data['situacao'] ?? null;
+        if ($tipo !== null && $tipo !== '') {
+            return $tipo;
+        }
+
+        if (array_key_exists('conseguiu_emitir_certidao_negativa', $data)) {
+            return $data['conseguiu_emitir_certidao_negativa'] ? 'Negativa' : 'Positiva';
+        }
+
+        return null;
+    }
+
     public function normalizar(array $raw, string $status = 'sucesso'): array
     {
         if ($status === 'sucesso') {

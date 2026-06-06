@@ -30,6 +30,23 @@ return [
         explode(',', (string) env('CONSULTAS_INFOSIMPLES_TESTE_CNPJS', ''))
     ))),
 
+    // Mapa fonte → etapa (grupo) do progresso. Várias fontes compartilham a mesma etapa
+    // (ex: cnd_federal/cndt/crf_fgts = certidoes_federais), p/ o strip avançar por grupo e não
+    // repetir um "loop" por fonte. As chaves de etapa vêm de PlanoCatalog (resolvedEtapas).
+    'fonte_etapa' => [
+        'cadastro' => 'cadastrais',
+        'cnd_federal' => 'certidoes_federais',
+        'cndt' => 'certidoes_federais',
+        'crf_fgts' => 'certidoes_federais',
+        'cnd_estadual' => 'certidoes_estaduais',
+        'cnd_municipal' => 'certidoes_estaduais',
+        'sintegra' => 'certidoes_estaduais',
+        'cgu_cnc' => 'sancoes',
+        'cnj_improbidade' => 'sancoes',
+        'protestos' => 'sancoes',
+        'processos' => 'sancoes',
+    ],
+
     // Atributos de consultas_incluidas que NÃO são fontes — renderizados inline a partir dos
     // dados já obtidos (ex: parecer_fiscal é um parecer gerado dos dados cadastrais). Não
     // bloqueiam o roteamento pro Laravel nem geram chamada externa.

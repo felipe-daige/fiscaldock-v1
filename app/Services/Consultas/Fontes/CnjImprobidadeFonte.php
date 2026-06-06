@@ -21,15 +21,19 @@ class CnjImprobidadeFonte extends FonteInfoSimplesBase
 
     public function normalizar(array $raw, string $status = 'sucesso'): array
     {
-        // Sucesso com data vazio = SEM condenação. data preenchido = possui condenação.
+        // A resposta traz a CERTIDÃO (data[0]) com certidao_negativa + registros. O array
+        // não-vazio NÃO significa condenação — ler os flags reais.
         if ($status === 'sucesso') {
-            $condenacoes = $raw['data'] ?? [];
+            $d0 = $raw['data'][0] ?? [];
+            $registros = (int) ($d0['registros'] ?? 0);
+            $negativa = (bool) ($d0['certidao_negativa'] ?? false);
 
             return $this->bloco([
-                'possui_condenacao' => count($condenacoes) > 0,
-                'total_condenacoes' => count($condenacoes),
-                'condenacoes' => $condenacoes,
-                'consulta_datahora' => $raw['data'][0]['consulta_datahora'] ?? null,
+                'possui_condenacao' => ! $negativa || $registros > 0,
+                'total_condenacoes' => $registros,
+                'condenacoes' => $d0['registros_lista'] ?? [],
+                'comprovante' => $d0['site_receipt'] ?? null,
+                'consulta_datahora' => $d0['consulta_datahora'] ?? null,
             ]);
         }
 

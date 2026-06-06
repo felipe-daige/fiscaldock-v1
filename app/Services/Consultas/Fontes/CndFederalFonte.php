@@ -27,9 +27,8 @@ class CndFederalFonte extends FonteCertidaoInfoSimples
     protected function mapearSucesso(array $data): array
     {
         return [
-            // status = `tipo` da certidão (Negativa / Positiva com efeitos de negativa / Positiva).
-            // Lido por ConsultaController via strtoupper(). Ver docs/compliance/infosimples/cnd-federal.md.
-            'status' => $data['tipo'] ?? null,
+            // status = `tipo` (Negativa / Positiva com efeitos / Positiva); fallback p/ conseguiu_emitir.
+            'status' => $this->statusCertidao($data),
             'certidao_codigo' => $data['certidao_codigo'] ?? null,
             'emissao_data' => $data['emissao_data'] ?? null,
             'data_validade' => $data['validade_data'] ?? ($data['validade'] ?? null),

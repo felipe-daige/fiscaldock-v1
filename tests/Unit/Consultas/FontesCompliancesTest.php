@@ -18,6 +18,15 @@ it('CND Estadual: metadados + uf no param + sucesso/611', function () {
     expect($f->normalizar(['code' => 611], 'indeterminado')['cnd_estadual']['status'])->toBe('INDETERMINADO');
 });
 
+it('certidão sem campo tipo deriva status de conseguiu_emitir (CNDT/Estadual)', function () {
+    // resposta real de CNDT/Estadual não traz `tipo` — deriva: emitiu negativa = Negativa
+    $f = new CndEstadualFonte();
+    expect($f->normalizar(['data' => [['conseguiu_emitir_certidao_negativa' => true, 'mensagem' => 'CERTIDÃO NEGATIVA']]], 'sucesso')['cnd_estadual']['status'])->toBe('Negativa');
+    expect($f->normalizar(['data' => [['conseguiu_emitir_certidao_negativa' => false]]], 'sucesso')['cnd_estadual']['status'])->toBe('Positiva');
+    // se vier `tipo`, usa ele
+    expect($f->normalizar(['data' => [['tipo' => 'Positiva com efeitos de negativa']]], 'sucesso')['cnd_estadual']['status'])->toBe('Positiva com efeitos de negativa');
+});
+
 it('CND Estadual: cobertura por UF (aplicavelPara) + INDISPONIVEL fora da cobertura', function () {
     config()->set('consultas.cnd_estadual.ufs_cobertas', ['SP', 'RJ']);
     $f = new CndEstadualFonte();
@@ -45,22 +54,29 @@ it('SINTEGRA: cadastral (IE/situação)', function () {
     expect($ok['consultas_realizadas'])->toContain('sintegra');
 });
 
-it('CGU CNC: sem sanção (data vazio) vs com sanção', function () {
+it('CGU CNC: certidão NADA CONSTA = sem sanção; base com registro = sanção', function () {
     $f = new CguCncFonte();
-    $sem = $f->normalizar(['data' => []], 'sucesso');
-    expect($sem['cgu_cnc']['possui_sancao'])->toBeFalse();
-    expect($sem['cgu_cnc']['total_sancoes'])->toBe(0);
+    // shape real: data[0] é a certidão, com conseguiu_emitir_certidao_negativa + bases
+    $nada = $f->normalizar(['data' => [[
+        'conseguiu_emitir_certidao_negativa' => true,
+        'bases_dados_consultas' => [['nome' => 'CEIS', 'situacao' => 'Nada Consta'], ['nome' => 'CNEP', 'situacao' => 'Nada Consta']],
+    ]]], 'sucesso');
+    expect($nada['cgu_cnc']['possui_sancao'])->toBeFalse();
 
-    $com = $f->normalizar(['data' => [['orgao' => 'X'], ['orgao' => 'Y']]], 'sucesso');
+    $com = $f->normalizar(['data' => [[
+        'conseguiu_emitir_certidao_negativa' => false,
+        'bases_dados_consultas' => [['nome' => 'CEIS', 'situacao' => 'Consta 1 registro']],
+    ]]], 'sucesso');
     expect($com['cgu_cnc']['possui_sancao'])->toBeTrue();
-    expect($com['cgu_cnc']['total_sancoes'])->toBe(2);
+    expect($com['cgu_cnc']['bases_com_registro'])->toContain('CEIS');
 });
 
-it('CNJ Improbidade: sem condenação vs com condenação', function () {
+it('CNJ Improbidade: certidao_negativa = sem condenação; senão possui', function () {
     $f = new CnjImprobidadeFonte();
-    expect($f->normalizar(['data' => []], 'sucesso')['cnj_improbidade']['possui_condenacao'])->toBeFalse();
+    $neg = $f->normalizar(['data' => [['certidao_negativa' => true, 'registros' => 0, 'registros_lista' => []]]], 'sucesso');
+    expect($neg['cnj_improbidade']['possui_condenacao'])->toBeFalse();
 
-    $com = $f->normalizar(['data' => [['processo' => '123']]], 'sucesso');
+    $com = $f->normalizar(['data' => [['certidao_negativa' => false, 'registros' => 2, 'registros_lista' => [['p' => 1]]]]], 'sucesso');
     expect($com['cnj_improbidade']['possui_condenacao'])->toBeTrue();
-    expect($com['cnj_improbidade']['total_condenacoes'])->toBe(1);
+    expect($com['cnj_improbidade']['total_condenacoes'])->toBe(2);
 });
