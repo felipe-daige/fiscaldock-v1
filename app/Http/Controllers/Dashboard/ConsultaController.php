@@ -822,7 +822,8 @@ class ConsultaController extends Controller
             $totalEtapas = $plano->resolvedTotalEtapas();
 
             if ($routeLaravel) {
-                $jobs = $alvos->map(fn ($alvo) => new \App\Jobs\ProcessarConsultaJob(
+                // values() reindexa 0..N-1 para o índice 1-based do alvo no lote (progresso global).
+                $jobs = $alvos->values()->map(fn ($alvo, $i) => new \App\Jobs\ProcessarConsultaJob(
                     loteId: $lote->id,
                     alvoTipo: $alvo['tipo'],
                     alvoId: $alvo['id'],
@@ -835,6 +836,8 @@ class ConsultaController extends Controller
                         'crt' => $alvo['crt'],
                     ],
                     etapas: $etapas,
+                    alvoIndice: $i + 1,
+                    totalAlvos: $totalParticipantes,
                 ))->all();
 
                 \Illuminate\Support\Facades\Bus::batch($jobs)

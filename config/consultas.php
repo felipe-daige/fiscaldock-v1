@@ -46,6 +46,22 @@ return [
         'protestos' => 'sancoes',
     ],
 
+    // Nome amigável de cada fonte, usado na mensagem de progresso ("Consultando {nome} (i de N)").
+    // Dá feedback textual por fonte mesmo quando várias caem na mesma etapa/grupo (ex: as 3
+    // federais). Fallback = a própria chave quando não mapeada.
+    'fonte_nome' => [
+        'cadastro' => 'dados cadastrais',
+        'cnd_federal' => 'CND Federal (Receita/PGFN)',
+        'cndt' => 'CNDT (débitos trabalhistas)',
+        'crf_fgts' => 'CRF FGTS (Caixa)',
+        'cnd_estadual' => 'CND Estadual (SEFAZ)',
+        'cnd_municipal' => 'CND Municipal',
+        'sintegra' => 'SINTEGRA',
+        'cgu_cnc' => 'sanções CGU',
+        'cnj_improbidade' => 'improbidade (CNJ)',
+        'protestos' => 'protestos',
+    ],
+
     // Atributos de consultas_incluidas que NÃO são fontes — renderizados inline a partir dos
     // dados já obtidos (ex: parecer_fiscal é um parecer gerado dos dados cadastrais). Não
     // bloqueiam o roteamento pro Laravel nem geram chamada externa.
