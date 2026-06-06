@@ -145,6 +145,64 @@ it('não cria bloco para fonte ausente', function () {
     expect(bloco($blocos, 'cgu_cnc'))->toBeNull();
 });
 
+it('gera resumo textual com situação cadastral e regularidade quando tudo OK', function () {
+    $texto = (new ResultadoDetalhePresenter())->resumoTextual(resultadoComDados([
+        'razao_social' => 'ACME LTDA',
+        'situacao_cadastral' => 'ATIVA',
+        'regime_tributario' => 'Simples Nacional',
+        'cnd_federal' => ['status' => 'Negativa'],
+        'cndt' => ['status' => 'Negativa'],
+        'cgu_cnc' => ['possui_sancao' => false],
+        'cnj_improbidade' => ['possui_condenacao' => false],
+    ]));
+
+    expect($texto)->toContain('ATIVA');
+    expect(mb_strtolower($texto))->toContain('regular');
+    expect(mb_strtolower($texto))->toContain('sem sanç');
+});
+
+it('gera resumo textual sinalizando pendências e inatividade', function () {
+    $texto = (new ResultadoDetalhePresenter())->resumoTextual(resultadoComDados([
+        'situacao_cadastral' => 'BAIXADA',
+        'cnd_federal' => ['status' => 'Positiva'],
+        'cgu_cnc' => ['possui_sancao' => true, 'bases_com_registro' => ['CEIS']],
+    ]));
+
+    $low = mb_strtolower($texto);
+    expect($low)->toContain('baixada');
+    expect($low)->toContain('pend'); // pendência/pendências
+    expect($low)->toContain('sanç');
+});
+
+it('agrega a análise do lote por fonte e por CNPJ', function () {
+    $presenter = new ResultadoDetalhePresenter();
+
+    $rows = [
+        ['detalhe_blocos' => $presenter->blocos(resultadoComDados([
+            'situacao_cadastral' => 'ATIVA',
+            'cnd_federal' => ['status' => 'Negativa'],
+            'cndt' => ['status' => 'Negativa'],
+        ]))],
+        ['detalhe_blocos' => $presenter->blocos(resultadoComDados([
+            'situacao_cadastral' => 'ATIVA',
+            'cnd_federal' => ['status' => 'Positiva'],
+            'cndt' => ['status' => 'Negativa'],
+        ]))],
+    ];
+
+    $analise = $presenter->analiseLote($rows);
+
+    expect($analise['total'])->toBe(2);
+
+    $cndFederal = collect($analise['por_fonte'])->firstWhere('chave', 'cnd_federal');
+    expect($cndFederal['regular'])->toBe(1);
+    expect($cndFederal['atencao'])->toBe(1);
+
+    expect($analise['cnpjs']['regular'])->toBe(1);
+    expect($analise['cnpjs']['pendencia'])->toBe(1);
+    expect($analise['texto'])->toBeString()->not->toBe('');
+});
+
 it('ordena cadastro primeiro e mantém ordem canônica das fontes', function () {
     $blocos = (new ResultadoDetalhePresenter())->blocos(resultadoComDados([
         'cnj_improbidade' => ['possui_condenacao' => false],

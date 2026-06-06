@@ -3,6 +3,19 @@
      Exibe TUDO que a consulta trouxe — inclusive fontes ausentes da tabela resumida.
      Espera: $blocos (array de blocos do ResultadoDetalhePresenter). --}}
 @php($blocos = $blocos ?? [])
+@php($resumo = $resumo ?? null)
+
+@if(!empty($resumo))
+    <div class="mb-3 flex items-start gap-2 rounded border border-gray-200 bg-white px-3 py-2.5">
+        <svg class="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <div>
+            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Resumo da análise</p>
+            <p class="text-xs text-gray-700 leading-relaxed mt-0.5">{{ $resumo }}</p>
+        </div>
+    </div>
+@endif
 
 @if(empty($blocos))
     <p class="text-xs text-gray-500">Sem detalhes adicionais para esta consulta.</p>

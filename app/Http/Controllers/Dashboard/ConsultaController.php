@@ -1589,6 +1589,7 @@ class ConsultaController extends Controller
             'erro' => (int) $contadores['erro'],
             'com_parecer' => 0,
         ];
+        $analise = null;
 
         if ($statusLote === ConsultaLote::STATUS_FINALIZADO && ! $aguardaPersistencia) {
             $resultadosDetalhe = $this->buildConsultaLoteResultadosDetalhe($lote);
@@ -1598,6 +1599,7 @@ class ConsultaController extends Controller
                 ->count();
 
             if ($temResultadosNoLote) {
+                $analise = app(\App\Services\Consultas\ResultadoDetalhePresenter::class)->analiseLote($resultadosDetalhe);
                 $resultados = $this->paginateConsultaLoteResultados($resultadosDetalhe, $perPageResultados, $request);
             }
         }
@@ -1608,6 +1610,7 @@ class ConsultaController extends Controller
             'statusMeta' => $statusMeta,
             'etapas' => $etapas,
             'resumo' => $resumo,
+            'analise' => $analise,
             'resultados' => $resultados,
             'temResultadosNoLote' => $temResultadosNoLote,
             'aguardaPersistencia' => $aguardaPersistencia,
@@ -1848,6 +1851,7 @@ class ConsultaController extends Controller
                     'parecer' => $parecerResumo,
                     'parecer_count' => count($parecerResumo),
                     'detalhe_blocos' => $detalhePresenter->blocos($resultado),
+                    'resumo_texto' => $resultado->isSucesso() ? $detalhePresenter->resumoTextual($resultado) : null,
                 ];
             });
     }

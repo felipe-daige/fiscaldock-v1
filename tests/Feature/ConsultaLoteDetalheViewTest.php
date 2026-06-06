@@ -462,7 +462,14 @@ it('exibe detalhe expansível com TODAS as fontes consultadas, inclusive as ause
         ->assertSee('Ver comprovante')
         // controles de expansão
         ->assertSee('data-detalhe-toggle="consulta-detalhe-d-0"', false)
-        ->assertSee('Ver detalhes da consulta');
+        ->assertSee('Ver detalhes da consulta')
+        // resumo escrito por CNPJ
+        ->assertSee('Resumo da análise')
+        ->assertSee('Situação cadastral ATIVA')
+        ->assertSee('Sem sanções na CGU.')
+        // análise agregada do lote (texto + tabela + gráfico)
+        ->assertSee('Análise da Consulta')
+        ->assertSee('Distribuição');
 });
 
 it('classifica certidão Negativa como Regular na tabela (corrige bug str_contains negativa)', function () {

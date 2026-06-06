@@ -182,6 +182,71 @@
                 </div>
             </div>
 
+            @if(!empty($analise))
+                @php $cn = $analise['cnpjs'] ?? []; @endphp
+                <div class="bg-white rounded border border-gray-300 overflow-hidden mb-4">
+                    <div class="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                        <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Análise da Consulta</span>
+                    </div>
+                    <div class="p-4 space-y-4">
+                        <div>
+                            <p class="text-sm text-gray-800 leading-relaxed">{{ $analise['texto'] }}</p>
+                            <div class="flex flex-wrap gap-2 mt-3">
+                                @foreach([
+                                    ['k' => 'regular', 'label' => 'regulares', 'hex' => '#047857'],
+                                    ['k' => 'pendencia', 'label' => 'com pendência', 'hex' => '#dc2626'],
+                                    ['k' => 'indeterminado', 'label' => 'indeterminados', 'hex' => '#d97706'],
+                                    ['k' => 'sem_info', 'label' => 'sem fontes de regularidade', 'hex' => '#9ca3af'],
+                                ] as $chip)
+                                    @if((int) ($cn[$chip['k']] ?? 0) > 0)
+                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium text-white" style="background-color: {{ $chip['hex'] }}">
+                                            {{ (int) $cn[$chip['k']] }} {{ $chip['label'] }}
+                                        </span>
+                                    @endif
+                                @endforeach
+                            </div>
+                        </div>
+
+                        @if(!empty($analise['por_fonte']))
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full text-xs">
+                                    <thead>
+                                        <tr class="border-b border-gray-200 text-[10px] text-gray-400 uppercase tracking-wide">
+                                            <th class="text-left py-1.5 pr-3">Fonte</th>
+                                            <th class="text-center px-2 whitespace-nowrap">Regular</th>
+                                            <th class="text-center px-2 whitespace-nowrap">Atenção</th>
+                                            <th class="text-center px-2 whitespace-nowrap">Indeterm.</th>
+                                            <th class="text-center px-2 whitespace-nowrap">N/Consult.</th>
+                                            <th class="text-left pl-3 w-2/5">Distribuição</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100">
+                                        @foreach($analise['por_fonte'] as $f)
+                                            @php $tot = max(1, (int) ($f['total'] ?? 0)); @endphp
+                                            <tr>
+                                                <td class="py-2 pr-3 text-gray-800">{{ $f['titulo'] }}</td>
+                                                <td class="text-center px-2 font-medium" style="color: {{ ($f['regular'] ?? 0) > 0 ? '#047857' : '#9ca3af' }}">{{ (int) ($f['regular'] ?? 0) }}</td>
+                                                <td class="text-center px-2 font-medium" style="color: {{ ($f['atencao'] ?? 0) > 0 ? '#dc2626' : '#9ca3af' }}">{{ (int) ($f['atencao'] ?? 0) }}</td>
+                                                <td class="text-center px-2 font-medium" style="color: {{ ($f['indeterminado'] ?? 0) > 0 ? '#d97706' : '#9ca3af' }}">{{ (int) ($f['indeterminado'] ?? 0) }}</td>
+                                                <td class="text-center px-2 text-gray-400">{{ (int) ($f['neutro'] ?? 0) }}</td>
+                                                <td class="pl-3">
+                                                    <div class="flex h-2.5 w-full rounded-full overflow-hidden" style="background-color: #f3f4f6">
+                                                        @if((int) ($f['regular'] ?? 0) > 0)<div style="width: {{ round(($f['regular'] / $tot) * 100, 2) }}%; background-color: #047857" title="Regular: {{ (int) $f['regular'] }}"></div>@endif
+                                                        @if((int) ($f['atencao'] ?? 0) > 0)<div style="width: {{ round(($f['atencao'] / $tot) * 100, 2) }}%; background-color: #dc2626" title="Atenção: {{ (int) $f['atencao'] }}"></div>@endif
+                                                        @if((int) ($f['indeterminado'] ?? 0) > 0)<div style="width: {{ round(($f['indeterminado'] / $tot) * 100, 2) }}%; background-color: #d97706" title="Indeterminado: {{ (int) $f['indeterminado'] }}"></div>@endif
+                                                        @if((int) ($f['neutro'] ?? 0) > 0)<div style="width: {{ round(($f['neutro'] / $tot) * 100, 2) }}%; background-color: #9ca3af" title="Não consultado: {{ (int) $f['neutro'] }}"></div>@endif
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            @endif
+
             @if($temResultadosNoLote)
                 <div class="bg-white rounded border border-gray-300 overflow-hidden">
                     <div class="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between gap-3 flex-wrap">
@@ -278,7 +343,7 @@
                                     </tr>
                                     <tr id="consulta-detalhe-d-{{ $loop->index }}" class="hidden">
                                         <td colspan="9" class="px-4 py-4 bg-gray-50/60 border-t border-gray-100">
-                                            @include('autenticado.consulta.partials.detalhe-blocos', ['blocos' => $resultado['detalhe_blocos'] ?? []])
+                                            @include('autenticado.consulta.partials.detalhe-blocos', ['blocos' => $resultado['detalhe_blocos'] ?? [], 'resumo' => $resultado['resumo_texto'] ?? null])
                                         </td>
                                     </tr>
                                 @endforeach
@@ -353,7 +418,7 @@
                                     Ver detalhes da consulta
                                 </button>
                                 <div id="consulta-detalhe-m-{{ $loop->index }}" class="hidden mt-3">
-                                    @include('autenticado.consulta.partials.detalhe-blocos', ['blocos' => $resultado['detalhe_blocos'] ?? []])
+                                    @include('autenticado.consulta.partials.detalhe-blocos', ['blocos' => $resultado['detalhe_blocos'] ?? [], 'resumo' => $resultado['resumo_texto'] ?? null])
                                 </div>
                             </div>
                         @endforeach
@@ -428,18 +493,27 @@
         link.addEventListener('click', storePaginationScroll);
     });
 
-    // Toggle do detalhe expansível por CNPJ (desktop = linha; mobile = bloco). Listeners
-    // por botão (não em document) → some sozinho no swap de DOM da navegação SPA.
-    document.querySelectorAll('[data-detalhe-toggle]').forEach(function(btn) {
-        btn.addEventListener('click', function() {
+    // Toggle do detalhe expansível por CNPJ (desktop = linha; mobile = bloco). Delegação no
+    // document (registrada 1x, com cleanup) → sobrevive a re-render/paginação e ao swap SPA.
+    if (!window.__consultaDetalheToggleBound) {
+        window.__consultaDetalheToggleBound = true;
+        var detalheToggleHandler = function(e) {
+            var btn = e.target.closest('[data-detalhe-toggle]');
+            if (!btn) return;
             var target = document.getElementById(btn.getAttribute('data-detalhe-toggle'));
             if (!target) return;
             var hidden = target.classList.toggle('hidden');
             btn.setAttribute('aria-expanded', hidden ? 'false' : 'true');
             var chevron = btn.querySelector('.detalhe-chevron');
             if (chevron) chevron.style.transform = hidden ? '' : 'rotate(90deg)';
-        });
-    });
+        };
+        document.addEventListener('click', detalheToggleHandler);
+        window._cleanupFunctions = window._cleanupFunctions || {};
+        window._cleanupFunctions.consultaDetalheToggle = function() {
+            document.removeEventListener('click', detalheToggleHandler);
+            window.__consultaDetalheToggleBound = false;
+        };
+    }
 
     restorePaginationScroll();
 

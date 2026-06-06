@@ -61,6 +61,189 @@ class ResultadoDetalhePresenter
         return $blocos;
     }
 
+    /** Buckets canônicos por cor do badge (usados na análise agregada e no rollup por CNPJ). */
+    private const RANK = ['atencao' => 3, 'indeterminado' => 2, 'regular' => 1, 'neutro' => 0];
+
+    /**
+     * Resumo escrito (1 parágrafo) da situação de UM participante — leitura rápida do que a
+     * consulta apurou: situação cadastral, regularidade das certidões, sanções/condenações.
+     */
+    public function resumoTextual(ConsultaResultado $resultado): ?string
+    {
+        $dados = is_array($resultado->resultado_dados) ? $resultado->resultado_dados : [];
+        if (empty($dados)) {
+            return null;
+        }
+
+        $frases = [];
+
+        $situacao = trim((string) ($dados['situacao_cadastral'] ?? ''));
+        if ($situacao !== '') {
+            $regime = trim((string) ($dados['regime_tributario'] ?? ''));
+            $frase = "Situação cadastral {$situacao} na Receita Federal";
+            $frase .= $regime !== '' ? " ({$regime})." : '.';
+            $frases[] = $frase;
+        }
+
+        // Certidões presentes → conta regulares × com pendência × indeterminadas.
+        $certidoes = ['cnd_federal', 'cnd_estadual', 'cnd_municipal', 'crf_fgts', 'cndt'];
+        $regulares = [];
+        $pendencias = [];
+        $indeterminadas = [];
+        foreach ($certidoes as $chave) {
+            if (! isset($dados[$chave]) || ! is_array($dados[$chave])) {
+                continue;
+            }
+            $badge = CertidaoBadge::classificar($dados[$chave], $chave === 'cnd_federal');
+            $bucket = $this->bucketHex($badge['hex'] ?? null);
+            $nome = $this->tituloCertidao($chave);
+            match ($bucket) {
+                'regular' => $regulares[] = $nome,
+                'atencao' => $pendencias[] = $nome,
+                'indeterminado' => $indeterminadas[] = $nome,
+                default => null,
+            };
+        }
+
+        if ($pendencias) {
+            $frases[] = 'Pendências em: '.implode(', ', $pendencias).'.';
+        }
+        if ($regulares && ! $pendencias) {
+            $frases[] = 'Certidões consultadas regulares ('.implode(', ', $regulares).').';
+        } elseif ($regulares) {
+            $frases[] = 'Regulares: '.implode(', ', $regulares).'.';
+        }
+        if ($indeterminadas) {
+            $frases[] = 'Sem emissão (indeterminada): '.implode(', ', $indeterminadas).'.';
+        }
+
+        // Sanções (CGU) e improbidade (CNJ).
+        if (isset($dados['cgu_cnc']) && is_array($dados['cgu_cnc'])) {
+            $possui = (bool) ($dados['cgu_cnc']['possui_sancao'] ?? false);
+            $bases = array_values(array_filter((array) ($dados['cgu_cnc']['bases_com_registro'] ?? [])));
+            $frases[] = $possui
+                ? 'Possui sanção (CGU)'.($bases ? ' em '.implode(', ', $bases) : '').'.'
+                : 'Sem sanções na CGU.';
+        }
+        if (isset($dados['cnj_improbidade']) && is_array($dados['cnj_improbidade'])) {
+            $possui = (bool) ($dados['cnj_improbidade']['possui_condenacao'] ?? false);
+            $frases[] = $possui ? 'Possui condenação por improbidade (CNJ).' : 'Sem condenações por improbidade (CNJ).';
+        }
+
+        $texto = trim(implode(' ', array_filter($frases)));
+
+        return $texto !== '' ? $texto : null;
+    }
+
+    /**
+     * Análise agregada do lote: contagem por fonte (regular/atenção/indeterminado/neutro),
+     * rollup por CNPJ (pior status) e uma frase-resumo. Alimenta tabela + gráfico do topo.
+     *
+     * @param  iterable<array{detalhe_blocos?: array}>  $rows  linhas de detalhe (com detalhe_blocos)
+     */
+    public function analiseLote(iterable $rows): array
+    {
+        $rows = is_array($rows) ? $rows : iterator_to_array($rows);
+        $total = count($rows);
+
+        $fonteAgg = [];
+        $cnpjs = ['regular' => 0, 'pendencia' => 0, 'indeterminado' => 0, 'sem_info' => 0];
+
+        foreach ($rows as $row) {
+            $blocos = $row['detalhe_blocos'] ?? [];
+            $piorRank = -1;
+
+            foreach ($blocos as $b) {
+                $chave = $b['chave'] ?? null;
+                if ($chave === null || $chave === 'cadastro' || empty($b['badge'])) {
+                    continue;
+                }
+
+                $bucket = $this->bucketHex($b['badge']['hex'] ?? null);
+
+                if (! isset($fonteAgg[$chave])) {
+                    $fonteAgg[$chave] = [
+                        'chave' => $chave,
+                        'titulo' => $b['titulo'] ?? $this->nomeFonte($chave),
+                        'regular' => 0, 'atencao' => 0, 'indeterminado' => 0, 'neutro' => 0, 'total' => 0,
+                    ];
+                }
+                $fonteAgg[$chave][$bucket]++;
+                $fonteAgg[$chave]['total']++;
+
+                $piorRank = max($piorRank, self::RANK[$bucket]);
+            }
+
+            $cnpjs[match (true) {
+                $piorRank === self::RANK['atencao'] => 'pendencia',
+                $piorRank === self::RANK['indeterminado'] => 'indeterminado',
+                $piorRank === self::RANK['regular'] => 'regular',
+                default => 'sem_info',
+            }]++;
+        }
+
+        // Ordena por_fonte na ordem canônica.
+        $porFonte = [];
+        foreach (self::ORDEM as $chave) {
+            if (isset($fonteAgg[$chave])) {
+                $porFonte[] = $fonteAgg[$chave];
+            }
+        }
+
+        return [
+            'total' => $total,
+            'por_fonte' => $porFonte,
+            'cnpjs' => $cnpjs,
+            'texto' => $this->textoAnalise($total, $cnpjs),
+        ];
+    }
+
+    private function textoAnalise(int $total, array $cnpjs): string
+    {
+        if ($total === 0) {
+            return 'Nenhum CNPJ consultado neste lote.';
+        }
+
+        $plural = $total > 1 ? 'CNPJs consultados' : 'CNPJ consultado';
+        $partes = [];
+        if ($cnpjs['regular'] > 0) {
+            $partes[] = $cnpjs['regular'].' totalmente '.($cnpjs['regular'] > 1 ? 'regulares' : 'regular');
+        }
+        if ($cnpjs['pendencia'] > 0) {
+            $partes[] = $cnpjs['pendencia'].' com '.($cnpjs['pendencia'] > 1 ? 'pendências' : 'pendência');
+        }
+        if ($cnpjs['indeterminado'] > 0) {
+            $partes[] = $cnpjs['indeterminado'].' '.($cnpjs['indeterminado'] > 1 ? 'indeterminados' : 'indeterminado');
+        }
+        if ($cnpjs['sem_info'] > 0) {
+            $partes[] = $cnpjs['sem_info'].' sem fontes de regularidade';
+        }
+
+        $detalhe = $partes ? ': '.$this->juntar($partes).'.' : '.';
+
+        return "{$total} {$plural}{$detalhe}";
+    }
+
+    private function juntar(array $partes): string
+    {
+        if (count($partes) <= 1) {
+            return implode('', $partes);
+        }
+        $ultimo = array_pop($partes);
+
+        return implode(', ', $partes).' e '.$ultimo;
+    }
+
+    private function bucketHex(?string $hex): string
+    {
+        return match ($hex) {
+            CertidaoBadge::HEX_REGULAR => 'regular',
+            CertidaoBadge::HEX_IRREGULAR => 'atencao',
+            CertidaoBadge::HEX_INDETERMINADO => 'indeterminado',
+            default => 'neutro',
+        };
+    }
+
     private function nomeFonte(string $chave): string
     {
         return (string) config("consultas.fonte_nome.{$chave}", $chave);
