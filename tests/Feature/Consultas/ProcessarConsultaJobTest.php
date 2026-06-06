@@ -2,6 +2,8 @@
 
 use App\Jobs\ProcessarConsultaJob;
 use App\Models\ConsultaResultado;
+use App\Services\Consultas\Dto\ResultadoFonte;
+use App\Services\Consultas\Persistencia\PersistenciaCnpj;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
@@ -103,6 +105,30 @@ it('usa a UF autoritativa do cadastro p/ liberar a CND Estadual (alvo sem UF)', 
     // CND estadual foi consultada (não ficou INDISPONIVEL) porque a UF veio do cadastro
     expect($r->resultado_dados['cnd_estadual']['status'])->toBe('Negativa');
     Http::assertSent(fn ($req) => str_contains($req->url(), 'sefaz/sp/certidao-debitos'));
+});
+
+it('idempotência: fonte paga já persistida não é re-consultada (retry não re-cobra)', function () {
+    [$loteId, $participanteId, $userId] = montarLoteParticipante();
+    config()->set('consultas.infosimples_ativo', true);
+    config()->set('consultas.providers.infosimples.token', 'tok');
+
+    // Simula uma tentativa anterior do job: cnd_federal já consultada e persistida.
+    app(PersistenciaCnpj::class)->gravar($loteId, 'participante', $participanteId, new ResultadoFonte(
+        'cnd_federal', ['cnd_federal' => ['status' => 'Negativa']], 'sucesso', 2, null,
+    ));
+
+    Http::fake(); // qualquer chamada ao InfoSimples falharia a asserção abaixo
+
+    ProcessarConsultaJob::dispatchSync(
+        loteId: $loteId, alvoTipo: 'participante', alvoId: $participanteId, userId: $userId, tabId: 'tab-test',
+        consultasIncluidas: ['cnd_federal'], alvo: ['cnpj' => '19131243000197'],
+        etapas: ['Preparando', 'Federais'],
+    );
+
+    Http::assertNothingSent(); // não re-chamou o provedor pago
+    $r = ConsultaResultado::where('consulta_lote_id', $loteId)->first();
+    expect($r->resultado_dados['cnd_federal']['status'])->toBe('Negativa'); // preservado
+    expect((int) Cache::get("consulta_estorno:{$loteId}:participante:{$participanteId}"))->toBe(0);
 });
 
 it('processa escopo cliente gravando cliente_id', function () {

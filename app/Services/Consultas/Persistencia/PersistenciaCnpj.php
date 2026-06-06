@@ -8,6 +8,24 @@ use App\Services\Consultas\Dto\ResultadoFonte;
 class PersistenciaCnpj
 {
     /**
+     * Chaves de fonte já persistidas para este alvo no lote (top-level de resultado_dados).
+     * Usado pelo job p/ idempotência: em retry, não re-consultar (nem re-cobrar) o que já rodou.
+     *
+     * @param  string  $alvoTipo  'participante' | 'cliente'
+     * @return string[]
+     */
+    public function chavesPersistidas(int $loteId, string $alvoTipo, int $alvoId): array
+    {
+        $chaveEscopo = $alvoTipo === 'cliente' ? 'cliente_id' : 'participante_id';
+
+        $linha = ConsultaResultado::where('consulta_lote_id', $loteId)
+            ->where($chaveEscopo, $alvoId)
+            ->first();
+
+        return $linha ? array_keys($linha->resultado_dados ?? []) : [];
+    }
+
+    /**
      * @param  string  $alvoTipo  'participante' | 'cliente'
      */
     public function gravar(int $loteId, string $alvoTipo, int $alvoId, ResultadoFonte $resultado): void

@@ -46,10 +46,31 @@ class ProcessarConsultaJob implements ShouldQueue
         // fontes UF-dependentes (ex: CND Estadual). O cadastro é a 1ª fonte de todo plano.
         $alvo = $this->alvo;
 
+        // Ordena as fontes pela ETAPA (cadastrais→federais→estaduais→sancoes) para que o
+        // progresso avance de forma monotônica. O cadastro (etapa 2) cai naturalmente em
+        // primeiro, garantindo a captura de UF/município antes das fontes UF-dependentes.
+        $fontes = $registry->fontesDe($this->consultasIncluidas);
+        usort($fontes, fn ($a, $b) => $this->etapaParaFonte($a->chave())[0] <=> $this->etapaParaFonte($b->chave())[0]);
+
+        // Idempotência de retry: fontes pagas já persistidas numa tentativa anterior não são
+        // re-consultadas (evita re-cobrar InfoSimples se o worker matar/re-executar o job).
+        $jaPersistidas = $persistencia->chavesPersistidas($this->loteId, $this->alvoTipo, $this->alvoId);
+
         $creditosFalhos = 0;
-        foreach ($registry->fontesDe($this->consultasIncluidas) as $fonte) {
+        foreach ($fontes as $fonte) {
             // Progresso por GRUPO de etapa da fonte (várias fontes → mesma etapa; sem loop).
             [$nEtapa, $lEtapa] = $this->etapaParaFonte($fonte->chave());
+
+            // Posta ANTES de processar: a barra mostra o grupo atual enquanto a chamada
+            // (lenta, com throttle + retry) está em andamento. Postar depois deixava a barra
+            // travada na etapa anterior (ex: "Dados cadastrais") durante toda a 1ª consulta.
+            $this->progresso(etapa: $nEtapa, total: $total, label: $lEtapa, status: 'processando');
+
+            // Já consultada numa tentativa anterior (retry) → não re-chamar nem re-cobrar.
+            // Cadastro (minhareceita, gratuito) não tem chave própria no blob, então sempre roda.
+            if (in_array($fonte->chave(), $jaPersistidas, true)) {
+                continue;
+            }
 
             // Cobertura do provedor indisponível p/ este alvo (ex: UF/cidade) → pula sem
             // chamar nem cobrar; persiste como INDISPONIVEL com o MOTIVO (não é falha estornável).
@@ -59,7 +80,6 @@ class ProcessarConsultaJob implements ShouldQueue
                     $fonte->normalizar(['_motivo' => $fonte->motivoIndisponivel($alvo)], 'nao_aplicavel'),
                     'nao_aplicavel', 0, $fonte->motivoIndisponivel($alvo),
                 ));
-                $this->progresso(etapa: $nEtapa, total: $total, label: $lEtapa, status: 'processando');
 
                 continue;
             }
@@ -90,8 +110,6 @@ class ProcessarConsultaJob implements ShouldQueue
             if ($resultado->ehFalhaEstornavel()) {
                 $creditosFalhos += $resultado->custoCreditos;
             }
-
-            $this->progresso(etapa: $nEtapa, total: $total, label: $lEtapa, status: 'processando');
         }
 
         // Estorno preciso: total por participante (overwrite = idempotente em retry do job).
