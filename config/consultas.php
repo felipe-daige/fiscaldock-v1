@@ -44,7 +44,6 @@ return [
         'cgu_cnc' => 'sancoes',
         'cnj_improbidade' => 'sancoes',
         'protestos' => 'sancoes',
-        'processos' => 'sancoes',
     ],
 
     // Atributos de consultas_incluidas que NÃO são fontes — renderizados inline a partir dos
@@ -190,6 +189,5 @@ return [
         'cnj_improbidade' => (int) env('CONSULTA_CREDITOS_CNJ_IMPROBIDADE', 2),
         'cnd_municipal' => (int) env('CONSULTA_CREDITOS_CND_MUNICIPAL', 2),
         'protestos' => (int) env('CONSULTA_CREDITOS_PROTESTOS', 2),
-        'processos' => (int) env('CONSULTA_CREDITOS_PROCESSOS', 2),
     ],
 ];
