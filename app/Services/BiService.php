@@ -648,7 +648,15 @@ class BiService
 
     public function getFluxoMensalEfd(int $userId, ?string $dataInicio, ?string $dataFim): array
     {
-        $fim = $dataFim ? Carbon::parse($dataFim) : Carbon::now();
+        // Sem filtro de data, limita a série à janela real de notas do usuário
+        // (min..max de data_emissao). Usar Carbon::now() como fim enchia o eixo X
+        // com dezenas de meses vazios, deixando os rótulos espremidos/ilegíveis.
+        if ($dataFim) {
+            $fim = Carbon::parse($dataFim);
+        } else {
+            $maxDate = DB::table('efd_notas')->where('user_id', $userId)->max('data_emissao');
+            $fim = $maxDate ? Carbon::parse($maxDate) : Carbon::now();
+        }
 
         if ($dataInicio) {
             $inicio = Carbon::parse($dataInicio);
