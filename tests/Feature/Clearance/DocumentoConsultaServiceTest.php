@@ -33,7 +33,8 @@ it('consulta NF-e por chave e devolve snapshot AUTORIZADA', function () {
 
     expect($s->status)->toBe('AUTORIZADA');
     expect($s->persistivel)->toBeTrue();
-    Http::assertSent(fn ($req) => str_contains($req->url(), 'receita-federal/nfe'));
+    // InfoSimples receita-federal/nfe espera o argumento 'nfe' (não 'chave'/'chave_acesso').
+    Http::assertSent(fn ($req) => str_contains($req->url(), 'receita-federal/nfe') && ($req['nfe'] ?? null) === chaveNfe());
 });
 
 it('retry: 1ª resposta retryável + 2ª sucesso → AUTORIZADA (não vira TIMEOUT)', function () {
