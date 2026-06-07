@@ -28,7 +28,7 @@ class ClearanceLoteService
      * @param  array<int>  $notaIds
      * @param  array<int|string, string>  $origens  id => 'efd'|'xml'
      * @param  string  $tier  'basico' | 'full'
-     * @return array<string, mixed>  inclui 'http_status' quando 'success' === false
+     * @return array<string, mixed> inclui 'http_status' quando 'success' === false
      */
     public function iniciar(array $notaIds, array $origens, string $tier, int $userId, ?string $tabId): array
     {
@@ -100,10 +100,15 @@ class ClearanceLoteService
 
             return [
                 'success' => true,
+                // Flag legada consumida pelo front (clearance-notas.js): sinaliza "processamento
+                // assíncrono iniciado" → redireciona pra página de resultado/progresso. (Não há mais
+                // webhook; o nome é mantido só pra não quebrar o contrato do JS.)
+                'webhook_disparado' => true,
                 'consulta_lote_id' => $lote->id,
                 'tab_id' => $tabId,
                 'total_notas' => $total,
                 'creditos_cobrados' => $custoTotal,
+                'creditos_utilizados' => $custoTotal,
                 'novo_saldo' => $this->creditService->getBalance($user),
                 'resultado_url' => route('app.clearance.notas.resultado', ['consultaLoteId' => $lote->id]),
             ];

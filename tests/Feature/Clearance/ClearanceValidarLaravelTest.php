@@ -78,7 +78,10 @@ it('valida via rota Laravel: cria lote, debita N×tier, despacha batch e NÃO ch
         'tab_id' => 'tab-laravel',
     ])->assertOk()
         ->assertJsonPath('success', true)
-        ->assertJsonStructure(['consulta_lote_id', 'novo_saldo', 'creditos_cobrados', 'resultado_url']);
+        // contrato consumido pelo front (clearance-notas.js) p/ abrir o progresso/redirect.
+        ->assertJsonPath('webhook_disparado', true)
+        ->assertJsonPath('creditos_utilizados', 2 * $unit)
+        ->assertJsonStructure(['consulta_lote_id', 'tab_id', 'novo_saldo', 'creditos_cobrados', 'resultado_url']);
 
     $lote = ConsultaLote::latest('id')->first();
     expect($lote->status)->toBe(ConsultaLote::STATUS_PROCESSANDO);
