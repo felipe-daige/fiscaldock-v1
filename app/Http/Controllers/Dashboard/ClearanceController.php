@@ -1376,7 +1376,6 @@ class ClearanceController extends Controller
         $origens = $request->input('origens', []);
         $tipo = $this->normalizarTier($request->input('tipo'));
         $tabId = $request->input('tab_id');
-        $user = Auth::user();
 
         // Validação contábil local (enriquecimento; popula *.validacao p/ dashboard, sem cobrança).
         $this->validacaoService->validarNotas($notaIds, $origens, $userId, $tipo);
@@ -1389,163 +1388,6 @@ class ClearanceController extends Controller
     }
 
     /**
-     * Monta o array de notas do payload enviado ao n8n.
-     * Agrupa XmlNota + EfdNota por chave de acesso de 44 digitos.
-     */
-    private function montarPayloadNotasClearance(array $notaIds, array $origens, int $userId): array
-    {
-        $xmlIds = [];
-        $efdIds = [];
-        foreach ($notaIds as $id) {
-            $origem = $origens[$id] ?? $origens[(string) $id] ?? 'xml';
-            if ($origem === 'efd') {
-                $efdIds[] = (int) $id;
-            } else {
-                $xmlIds[] = (int) $id;
-            }
-        }
-
-        $payload = [];
-
-        if (! empty($xmlIds)) {
-            $xml = XmlNota::whereIn('id', $xmlIds)
-                ->where('user_id', $userId)
-                ->get(['id', 'nfe_id', 'tipo_documento', 'emit_cliente_id', 'dest_cliente_id']);
-
-            foreach ($xml as $nota) {
-                $chave = trim((string) ($nota->nfe_id ?? ''));
-                $payload[] = [
-                    'id' => $nota->id,
-                    'origem' => 'xml',
-                    'chave_acesso' => $chave,
-                    'tipo_documento' => strtoupper((string) ($nota->tipo_documento ?: 'NFE')),
-                    'cliente_id' => $nota->emit_cliente_id ?: $nota->dest_cliente_id,
-                ];
-            }
-        }
-
-        if (! empty($efdIds)) {
-            $efd = EfdNota::whereIn('id', $efdIds)
-                ->where('user_id', $userId)
-                ->get(['id', 'chave_acesso', 'modelo', 'cliente_id']);
-
-            foreach ($efd as $nota) {
-                $chave = trim((string) ($nota->chave_acesso ?? ''));
-                $modelo = strtoupper((string) $nota->modelo);
-                $payload[] = [
-                    'id' => $nota->id,
-                    'origem' => 'efd',
-                    'chave_acesso' => $chave,
-                    'tipo_documento' => match ($modelo) {
-                        '55' => 'NFE',
-                        '57' => 'CTE',
-                        '65' => 'NFCE',
-                        '00', 'NFSE', 'NFS-E' => 'NFSE',
-                        default => 'NFE',
-                    },
-                    'cliente_id' => $nota->cliente_id,
-                ];
-            }
-        }
-
-        return $payload;
-    }
-
-    private function buildClearanceNotasInitialProgressCache(
-        int $userId,
-        string $tabId,
-        int $consultaLoteId,
-        string $tipoValidacao,
-        int $totalNfe,
-        int $totalCte
-    ): array {
-        $etapasPuladas = [];
-
-        if ($totalNfe <= 0) {
-            $etapasPuladas[] = 2;
-        }
-
-        if ($totalCte <= 0) {
-            $etapasPuladas[] = 3;
-        }
-
-        return [
-            'user_id' => $userId,
-            'tab_id' => $tabId,
-            'consulta_lote_id' => $consultaLoteId,
-            'fluxo' => 'clearance_notas',
-            'tipo_validacao' => $tipoValidacao,
-            'total_nfe' => $totalNfe,
-            'total_cte' => $totalCte,
-            'progresso' => 0,
-            'mensagem' => 'Preparando consulta',
-            'etapa' => 1,
-            'total_etapas' => 4,
-            'etapa_label' => 'Preparando consulta',
-            'etapas_concluidas' => [],
-            'etapas_puladas' => $etapasPuladas,
-            'ultima_etapa_concluida' => null,
-            'trilha_etapas' => $this->buildClearanceNotasProgressTrail(
-                1,
-                'Preparando consulta',
-                ConsultaLote::STATUS_PROCESSANDO,
-                [],
-                $etapasPuladas
-            ),
-            'status' => ConsultaLote::STATUS_PROCESSANDO,
-            'updated_at' => now()->toIso8601String(),
-        ];
-    }
-
-    private function buildClearanceNotasProgressTrail(
-        ?int $etapaAtual,
-        ?string $etapaLabel,
-        string $status,
-        array $etapasConcluidas,
-        array $etapasPuladas
-    ): array {
-        $sequence = [
-            1 => 'Preparando consulta',
-            2 => 'Consultando NF-e na Receita Federal',
-            3 => 'Consultando CT-e na Receita Federal',
-            0 => 'Preparando resultados',
-        ];
-
-        $skipped = array_fill_keys(array_map('intval', $etapasPuladas), true);
-        $done = array_fill_keys(array_map('intval', $etapasConcluidas), true);
-        $current = $etapaAtual !== null ? (int) $etapaAtual : null;
-
-        $trail = [];
-
-        foreach ([1, 2, 3, 0] as $step) {
-            $label = $sequence[$step];
-            $label = match (true) {
-                $status === ConsultaLote::STATUS_FINALIZADO && $step === 0 => 'Resultados prontos',
-                $current === $step && filled($etapaLabel) => (string) $etapaLabel,
-                default => $label,
-            };
-
-            $stepStatus = match (true) {
-                isset($skipped[$step]) => 'skipped',
-                $status === ConsultaLote::STATUS_FINALIZADO => 'done',
-                $status === ConsultaLote::STATUS_ERRO && $current === $step => 'error',
-                $current === $step && $status === ConsultaLote::STATUS_PROCESSANDO => 'current',
-                $current === $step && $status === ConsultaLote::STATUS_CONCLUIDO => 'done',
-                ($step > 0 && isset($done[$step])) || ($step === 0 && $current === 0 && $status === ConsultaLote::STATUS_CONCLUIDO) => 'done',
-                default => 'pending',
-            };
-
-            $trail[] = [
-                'etapa' => $step,
-                'etapa_label' => $label,
-                'status' => $stepStatus,
-            ];
-        }
-
-        return $trail;
-    }
-
-    /**
      * Executa validacao de todas as notas de uma importacao.
      */
     public function validarImportacao(Request $request, int $id)
@@ -1555,10 +1397,9 @@ class ClearanceController extends Controller
         }
 
         $userId = Auth::id();
-        $user = Auth::user();
 
         // Verificar se a importacao pertence ao usuario
-        $importacao = XmlImportacao::where('id', $id)
+        XmlImportacao::where('id', $id)
             ->where('user_id', $userId)
             ->firstOrFail();
 
