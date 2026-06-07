@@ -69,6 +69,8 @@ class DivergenciaService
             }
 
             $severidade = $this->classificarSeveridade($statusSefaz, $declaradoValor, $sefazValor);
+            $sinais = $this->sinaisNovos($snapshot, $declarado, $statusSefaz);
+            $severidade = $this->maxSeveridade($severidade, $sinais['piso']);
             $deltaValor = ($declaradoValor !== null && $sefazValor !== null) ? round($sefazValor - $declaradoValor, 2) : 0.0;
             $deltaPct = ($declaradoValor !== null && $declaradoValor > 0 && $sefazValor !== null)
                 ? round((($sefazValor - $declaradoValor) / $declaradoValor) * 100, 2)
@@ -82,7 +84,10 @@ class DivergenciaService
                 'delta_percentual' => $deltaPct,
                 'delta_percentual_label' => number_format($deltaPct, 1, ',', '.').'%',
                 'severidade' => $severidade,
-                'tipos_divergencia' => $this->tiposDivergencia($statusSefaz, $declaradoValor, $severidade),
+                'tipos_divergencia' => array_values(array_unique(array_merge(
+                    $this->tiposDivergencia($statusSefaz, $declaradoValor, $severidade),
+                    $sinais['tipos']
+                ))),
                 'declarado_origem' => $declarado['origem'] ?? null,
             ]);
 
@@ -183,6 +188,54 @@ class DivergenciaService
         }
 
         return "{$revisar} ".($revisar === 1 ? 'divergência' : 'divergências')." a revisar — {$valor}.";
+    }
+
+    /**
+     * Sinais novos (Declarado×SEFAZ) por documento → [tipos[], piso de severidade].
+     * - partes_divergentes: contraparte declarada não aparece em emit/dest do SEFAZ.
+     * - operacionais: homologação escriturada (crítica) ou data de emissão divergente (revisar).
+     *
+     * @return array{tipos: array<int,string>, piso: string}
+     */
+    private function sinaisNovos(object $snapshot, ?array $declarado, string $statusSefaz): array
+    {
+        $tipos = [];
+        $piso = 'ok';
+        $relevante = ! in_array($statusSefaz, ['NAO_ENCONTRADA', 'ERRO_PARAMETRO', 'ERRO_PROVEDOR', 'TIMEOUT'], true);
+
+        // Homologação escriturada → crítica.
+        if ($relevante && str_contains(mb_strtoupper((string) ($snapshot->situacao_ambiente ?? '')), 'HOMOLOGA')) {
+            $tipos[] = 'operacionais';
+            $piso = 'critica';
+        }
+
+        if ($declarado) {
+            // Partes divergentes: contraparte declarada ausente nos dois lados do SEFAZ.
+            $contra = $declarado['contraparte_cnpj'] ?? null;
+            $emit = preg_replace('/\D/', '', (string) ($snapshot->emit_cnpj ?? ''));
+            $dest = preg_replace('/\D/', '', (string) ($snapshot->dest_cnpj ?? ''));
+            if ($relevante && $contra && $contra !== $emit && $contra !== $dest) {
+                $tipos[] = 'partes_divergentes';
+                $piso = (($declarado['valor_total'] ?? 0) > 0) ? 'critica' : $this->maxSeveridade($piso, 'revisar');
+            }
+
+            // Data de emissão divergente (por dia) → revisar.
+            $dDecl = $declarado['data_emissao'] ?? null;
+            $dSefaz = $snapshot->data_emissao ? substr((string) $snapshot->data_emissao, 0, 10) : null;
+            if ($relevante && $dDecl && $dSefaz && $dDecl !== $dSefaz) {
+                $tipos[] = 'operacionais';
+                $piso = $this->maxSeveridade($piso, 'revisar');
+            }
+        }
+
+        return ['tipos' => array_values(array_unique($tipos)), 'piso' => $piso];
+    }
+
+    private function maxSeveridade(string $a, string $b): string
+    {
+        $ordem = ['ok' => 0, 'ruido' => 1, 'revisar' => 2, 'critica' => 3];
+
+        return ($ordem[$a] ?? 0) >= ($ordem[$b] ?? 0) ? $a : $b;
     }
 
     /**
