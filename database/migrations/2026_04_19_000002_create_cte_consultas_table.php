@@ -132,10 +132,26 @@ return new class extends Migration {
             $table->index('tratamento_id');
             $table->index('lote_id');
         });
+
+        Schema::create('certificados_digitais', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('cliente_id')->constrained('clientes')->cascadeOnDelete();
+            $table->string('arquivo_path');
+            $table->text('senha_cifrada');
+            $table->string('cnpj', 14)->nullable();
+            $table->string('titular_nome')->nullable();
+            $table->date('validade');
+            $table->string('status', 16)->default('ativo');
+            $table->timestamps();
+
+            $table->unique('cliente_id'); // 1 certificado ativo por empresa
+        });
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('certificados_digitais');
         Schema::dropIfExists('clearance_divergencia_tratamento_historicos');
         Schema::dropIfExists('clearance_divergencia_tratamentos');
         Schema::dropIfExists('cte_consultas');
