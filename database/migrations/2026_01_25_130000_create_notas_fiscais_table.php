@@ -18,7 +18,7 @@ return new class extends Migration
             $table->foreignId('cliente_id')->nullable()->constrained('clientes')->nullOnDelete();
 
             // Identificação da nota
-            $table->string('chave_acesso', 44);
+            $table->string('chave_acesso', 44)->nullable();
             $table->string('tipo_documento', 10); // NFE, NFSE, CTE
             $table->string('origem', 20)->default('xml_upload'); // xml_upload | busca_avulsa
             $table->integer('numero_nota');

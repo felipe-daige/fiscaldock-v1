@@ -20,7 +20,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->foreignId('cliente_id')->nullable()->constrained('clientes')->onDelete('set null');
-            $table->string('cnpj', 14)->index();
+            $table->string('cnpj', 14)->nullable()->index();
             $table->string('razao_social')->nullable();
             $table->string('nome_fantasia')->nullable();
             $table->string('situacao_cadastral')->nullable();
