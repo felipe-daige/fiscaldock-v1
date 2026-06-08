@@ -21,10 +21,34 @@ return new class extends Migration
 
             $table->index(['user_id', 'created_at']);
         });
+
+        // Pagamentos via Mercado Pago (Fase 1 — fundação de pagamentos + pacote avulso).
+        // Guarda de idempotência de schema: nunca recriar se já existe em prod.
+        if (! Schema::hasTable('mercado_pago_payments')) {
+            Schema::create('mercado_pago_payments', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
+                $table->string('pacote'); // slug do catálogo (business, enterprise, custom)
+                $table->string('mp_payment_id')->nullable()->unique(); // id do pagamento no MP
+                $table->string('mp_preference_id')->nullable(); // id de preference (fluxos futuros)
+                $table->string('status', 30)->default('pending'); // pending|approved|rejected|cancelled|refunded
+                $table->string('status_detail')->nullable();
+                $table->string('payment_method', 40)->nullable(); // pix, credit_card, ...
+                $table->decimal('valor', 10, 2); // R$ cobrado (fonte: catálogo backend)
+                $table->integer('creditos'); // créditos a liberar (fonte: catálogo backend)
+                $table->string('idempotency_key')->unique(); // X-Idempotency-Key enviado ao MP
+                $table->timestamp('credited_at')->nullable(); // quando os créditos foram liberados (guard)
+                $table->jsonb('payload')->nullable(); // resposta/notificação bruta do MP
+                $table->timestamps();
+
+                $table->index(['user_id', 'status']);
+            });
+        }
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('mercado_pago_payments');
         Schema::dropIfExists('credit_transactions');
     }
 };

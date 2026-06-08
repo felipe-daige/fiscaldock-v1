@@ -90,6 +90,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/app/checkout/{pacote}', [DashboardController::class, 'checkout'])->name('app.checkout');
     Route::get('/app/creditos', [DashboardController::class, 'creditos'])->name('app.creditos');
 
+    // Mercado Pago — cria o pagamento do pacote (front Bricks envia o meio de pagamento).
+    Route::post('/app/pagamento/mercado-pago', [\App\Http\Controllers\Dashboard\PagamentoMercadoPagoController::class, 'criar'])
+        ->name('app.pagamento.mercadopago.criar');
+
     // Rotas de créditos
     Route::prefix('app/credits')->name('app.credits.')->group(function () {
         Route::get('/balance', [CreditController::class, 'balance'])->name('balance');

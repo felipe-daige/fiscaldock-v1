@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\DataReceiverController;
+use App\Http\Controllers\Api\MercadoPagoWebhookController;
 use Illuminate\Support\Facades\Route;
 
 // ============================================
@@ -58,4 +59,13 @@ Route::post('/monitoramento/consulta/resultado', [DataReceiverController::class,
 // n8n envia status=progresso (cache SSE), status=concluido (DB + cache) ou status=erro (refund + cache)
 Route::post('/consultas/progresso', [DataReceiverController::class, 'receiveConsultasProgresso'])
     ->name('api.consultas.progresso');
+
+// ============================================
+// Mercado Pago — webhook de pagamentos
+// ============================================
+
+// Sem auth de sessão: valida assinatura HMAC x-signature internamente.
+// Nunca credita pelo corpo; consulta a API do MP e libera créditos idempotentemente.
+Route::post('/mercado-pago/webhook', MercadoPagoWebhookController::class)
+    ->name('api.mercadopago.webhook');
 

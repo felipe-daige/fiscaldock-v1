@@ -56,4 +56,13 @@ return [
         'url' => env('VIACEP_API_URL', 'https://viacep.com.br/ws'),
     ],
 
+    'mercadopago' => [
+        // Conta própria (sem OAuth): Access Token + Public Key da FiscalDock (test → prod).
+        'access_token' => env('MERCADO_PAGO_ACCESS_TOKEN'),
+        'public_key' => env('MERCADO_PAGO_PUBLIC_KEY'),
+        // Secret da assinatura do webhook (gerado no painel MP ao cadastrar a notificação).
+        'webhook_secret' => env('MERCADO_PAGO_WEBHOOK_SECRET'),
+        'base_url' => env('MERCADO_PAGO_BASE_URL', 'https://api.mercadopago.com'),
+    ],
+
 ];
