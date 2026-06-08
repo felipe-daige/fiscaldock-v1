@@ -42,6 +42,7 @@ it('tela mostra chip de evento e link oficial do snapshot', function () {
         'chave_acesso' => str_repeat('5', 44), 'tipo_documento' => 'NFE', 'modelo' => '55',
         'status' => 'AUTORIZADA', 'valor_total' => 100, 'consultado_em' => now(),
         'url_html' => 'https://receita.example/danfe',
+        'natureza_operacao' => 'VENDA DE MERCADORIA',
         'eventos' => [['evento' => 'Carta de Correção Eletrônica (1)', 'protocolo' => '999']],
         'payload' => ['nfe_clearance' => ['situacao_ambiente' => 'produção']],
     ]);
@@ -50,5 +51,9 @@ it('tela mostra chip de evento e link oficial do snapshot', function () {
         ->assertOk()
         ->assertSee('CC-e', false)
         ->assertSee('ver na Receita', false)
-        ->assertSee('https://receita.example/danfe', false);
+        ->assertSee('https://receita.example/danfe', false)
+        // documento OK também é justificado e enriquecido (não só os divergentes)
+        ->assertSee('VENDA DE MERCADORIA', false)
+        ->assertSee('AUTORIZADA', false)
+        ->assertSee('sem divergência', false);
 })->group('clearance-enriquecido');

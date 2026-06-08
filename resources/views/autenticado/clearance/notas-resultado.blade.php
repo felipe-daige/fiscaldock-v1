@@ -235,8 +235,16 @@
                                         @if(in_array('partes_divergentes', (array)($linha->tipos_divergencia ?? []), true))
                                             <span class="text-[10px] font-semibold text-white px-1.5 py-0.5 rounded mt-1 inline-block" style="background-color: #7c3aed" title="Emitente/destinatário SEFAZ diferente do declarado">Partes ≠</span>
                                         @endif
+                                        @if($linha->natureza_operacao ?? null)
+                                            <p class="text-[10px] text-gray-400 mt-0.5">{{ $linha->natureza_operacao }}</p>
+                                        @endif
                                     </td>
-                                    <td class="px-3 py-3 text-sm text-gray-700">{{ $linha->emit_nome ?: $linha->emit_cnpj ?: '—' }}</td>
+                                    <td class="px-3 py-3 text-sm text-gray-700">
+                                        {{ $linha->emit_nome ?: $linha->emit_cnpj ?: '—' }}
+                                        @if(($linha->dest_nome ?? null) || ($linha->dest_cnpj ?? null))
+                                            <p class="text-[10px] text-gray-400 mt-0.5">→ {{ $linha->dest_nome ?: $linha->dest_cnpj }}</p>
+                                        @endif
+                                    </td>
                                     <td class="px-3 py-3 text-sm text-gray-900 text-right font-mono whitespace-nowrap">{{ $linha->declarado_valor_label }}</td>
                                     <td class="px-3 py-3 text-sm text-gray-900 text-right font-mono whitespace-nowrap">{{ $linha->valor_total_label ?? ($linha->valor_total !== null ? $formatMoney($linha->valor_total) : '—') }}</td>
                                     <td class="px-3 py-3 text-sm text-right font-mono whitespace-nowrap" style="color: {{ $sevHex }}">
@@ -296,30 +304,49 @@
                         <thead>
                             <tr class="border-b border-gray-200 bg-gray-50">
                                 <th class="px-3 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Documento</th>
-                                <th class="px-3 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Emitente</th>
+                                <th class="px-3 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Emitente / Destinatário</th>
                                 <th class="px-3 py-2 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Declarado</th>
                                 <th class="px-3 py-2 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wide">SEFAZ</th>
                                 <th class="px-3 py-2 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Δ</th>
+                                <th class="px-3 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Situação SEFAZ</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             @foreach($divergencia['sem_divergencia']->concat($divergencia['ruido']) as $linha)
                                 <tr>
-                                    <td class="px-3 py-2 text-[11px] text-gray-500 font-mono">
+                                    <td class="px-3 py-2 text-[11px] text-gray-500 font-mono align-top">
                                         {{ $linha->tipo_documento }} {{ $linha->numero }}/{{ $linha->serie }}
                                         @if(!empty($linha->eventos_chips))
                                             @foreach($linha->eventos_chips as $chip)
-                                                <span class="text-[9px] font-semibold text-white px-1 py-0.5 rounded ml-1" style="background-color: {{ $chip['hex'] }}">{{ $chip['label'] }}</span>
+                                                <span class="text-[9px] font-semibold text-white px-1 py-0.5 rounded ml-1" style="background-color: {{ $chip['hex'] }}" title="{{ $chip['protocolo'] ? 'Protocolo '.$chip['protocolo'] : '' }}{{ $chip['data'] ? ' · '.$chip['data'] : '' }}">{{ $chip['label'] }}</span>
                                             @endforeach
                                         @endif
+                                        @if($linha->natureza_operacao ?? null)
+                                            <p class="text-[10px] text-gray-400 mt-0.5 normal-case">{{ $linha->natureza_operacao }}</p>
+                                        @endif
                                         @if($linha->comprovante_url ?? null)
-                                            <a href="{{ $linha->comprovante_url }}" target="_blank" rel="noopener" class="text-[10px] text-blue-700 hover:underline ml-1">ver na Receita ↗</a>
+                                            <a href="{{ $linha->comprovante_url }}" target="_blank" rel="noopener" class="text-[10px] text-blue-700 hover:underline">ver na Receita ↗</a>
                                         @endif
                                     </td>
-                                    <td class="px-3 py-2 text-sm text-gray-700">{{ $linha->emit_nome ?: $linha->emit_cnpj ?: '—' }}</td>
-                                    <td class="px-3 py-2 text-sm text-gray-700 text-right font-mono">{{ $linha->declarado_valor_label }}</td>
-                                    <td class="px-3 py-2 text-sm text-gray-700 text-right font-mono">{{ $linha->valor_total_label ?? ($linha->valor_total !== null ? $formatMoney($linha->valor_total) : '—') }}</td>
-                                    <td class="px-3 py-2 text-sm text-gray-500 text-right font-mono">{{ $linha->delta_valor_label }}</td>
+                                    <td class="px-3 py-2 text-sm text-gray-700 align-top">
+                                        {{ $linha->emit_nome ?: $linha->emit_cnpj ?: '—' }}
+                                        @if(($linha->dest_nome ?? null) || ($linha->dest_cnpj ?? null))
+                                            <p class="text-[10px] text-gray-400 mt-0.5">→ {{ $linha->dest_nome ?: $linha->dest_cnpj }}</p>
+                                        @endif
+                                    </td>
+                                    <td class="px-3 py-2 text-sm text-gray-700 text-right font-mono align-top">{{ $linha->declarado_valor_label }}</td>
+                                    <td class="px-3 py-2 text-sm text-gray-700 text-right font-mono align-top">{{ $linha->valor_total_label ?? ($linha->valor_total !== null ? $formatMoney($linha->valor_total) : '—') }}</td>
+                                    <td class="px-3 py-2 text-sm text-gray-500 text-right font-mono align-top">{{ $linha->delta_valor_label }}</td>
+                                    <td class="px-3 py-2 align-top">
+                                        <span class="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $linha->status_hex ?? '#374151' }}">{{ $linha->status_label ?? $linha->status }}</span>
+                                        @if(!empty($linha->motivos))
+                                            <ul class="mt-1 space-y-0.5">
+                                                @foreach($linha->motivos as $m)
+                                                    <li class="text-[10px] text-gray-500 leading-snug">• {{ $m }}</li>
+                                                @endforeach
+                                            </ul>
+                                        @endif
+                                    </td>
                                 </tr>
                             @endforeach
                         </tbody>
