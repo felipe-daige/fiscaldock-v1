@@ -15,6 +15,10 @@ class PricingCatalogService
 
     public const FIRST_PURCHASE_LOCKED_PRODUCTS = ['compliance', 'due_diligence'];
 
+    public function __construct(
+        private \App\Services\Entitlements\EntitlementService $entitlements = new \App\Services\Entitlements\EntitlementService
+    ) {}
+
     /**
      * Ofertas promocionais destacadas.
      */
@@ -407,7 +411,24 @@ class PricingCatalogService
 
     public function getTierForUser(User $user): array
     {
-        return $this->getTierForPaidCredits($this->getPaidCreditsForUser($user));
+        $faixaPorCreditos = $this->getTierForPaidCredits($this->getPaidCreditsForUser($user));
+        $faixaDoPlano = $this->tierBySlug($this->entitlements->faixaFor($user));
+
+        // Não regride: vale a faixa de maior patamar entre histórico pago e plano.
+        return $faixaPorCreditos['min_paid_credits'] >= $faixaDoPlano['min_paid_credits']
+            ? $faixaPorCreditos
+            : $faixaDoPlano;
+    }
+
+    private function tierBySlug(string $slug): array
+    {
+        foreach ($this->getTiers() as $tier) {
+            if ($tier['slug'] === $slug) {
+                return $tier;
+            }
+        }
+
+        return $this->getTiers()[0];
     }
 
     public function getTierForPaidCredits(int $paidCredits): array
