@@ -5,6 +5,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Http;
 
 use function Pest\Laravel\actingAs;
+use function Pest\Laravel\get;
 use function Pest\Laravel\postJson;
 
 uses(Illuminate\Foundation\Testing\RefreshDatabase::class);
@@ -173,6 +174,25 @@ it('webhook com assinatura inválida retorna 401 e não credita', function () {
 
     expect($user->fresh()->credits)->toBe(10);
     Http::assertNothingSent();
+});
+
+it('checkout renderiza o Payment Brick real (sem simulação) e injeta a public key', function () {
+    config(['services.mercadopago.public_key' => 'TEST-public-key-render']);
+
+    $user = User::factory()->create();
+    actingAs($user);
+
+    $resp = get('/app/checkout/business')->assertOk();
+    $html = $resp->getContent();
+
+    expect($html)->toContain('paymentBrick_container');         // container do Brick
+    expect($html)->toContain('sdk.mercadopago.com/js/v2');       // SDK do MP
+    expect($html)->toContain('TEST-public-key-render');          // public key injetada
+    expect($html)->toContain('data-mp-endpoint');                // endpoint pro Brick
+
+    // A simulação antiga não pode mais existir.
+    expect($html)->not->toContain('_ckProcessPayment');
+    expect($html)->not->toContain('Simulacao de Gateway');
 });
 
 it('webhook rejected não credita', function () {
