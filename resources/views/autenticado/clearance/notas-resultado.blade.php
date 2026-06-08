@@ -334,9 +334,9 @@
                                             <p class="text-[10px] text-gray-400 mt-0.5">→ {{ $linha->dest_nome ?: $linha->dest_cnpj }}</p>
                                         @endif
                                     </td>
-                                    <td class="px-3 py-2 text-sm text-gray-700 text-right font-mono align-top">{{ $linha->declarado_valor_label }}</td>
-                                    <td class="px-3 py-2 text-sm text-gray-700 text-right font-mono align-top">{{ $linha->valor_total_label ?? ($linha->valor_total !== null ? $formatMoney($linha->valor_total) : '—') }}</td>
-                                    <td class="px-3 py-2 text-sm text-gray-500 text-right font-mono align-top">{{ $linha->delta_valor_label }}</td>
+                                    <td class="px-3 py-2 text-sm text-gray-700 text-right font-mono align-top whitespace-nowrap">{{ $linha->declarado_valor_label }}</td>
+                                    <td class="px-3 py-2 text-sm text-gray-700 text-right font-mono align-top whitespace-nowrap">{{ $linha->valor_total_label ?? ($linha->valor_total !== null ? $formatMoney($linha->valor_total) : '—') }}</td>
+                                    <td class="px-3 py-2 text-sm text-gray-500 text-right font-mono align-top whitespace-nowrap">{{ $linha->delta_valor_label }}</td>
                                     <td class="px-3 py-2 align-top">
                                         <span class="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $linha->status_hex ?? '#374151' }}">{{ $linha->status_label ?? $linha->status }}</span>
                                         @if(!empty($linha->motivos))
