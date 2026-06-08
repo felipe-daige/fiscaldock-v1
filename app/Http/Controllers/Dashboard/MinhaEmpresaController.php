@@ -4,16 +4,19 @@ namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
 use App\Models\Cliente;
+use App\Models\ConsultaResultado;
 use App\Models\Participante;
 use App\Models\XmlNota;
-use App\Models\ConsultaResultado;
+use App\Services\Clearance\CertificadoDigitalService;
 use App\Services\RiskScoreService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 class MinhaEmpresaController extends Controller
 {
     private const AUTH_VIEW_PREFIX = 'autenticado.minha-empresa.';
+
     private const AUTH_LAYOUT_VIEW = 'autenticado.layouts.app';
 
     public function __construct(
@@ -80,6 +83,7 @@ class MinhaEmpresaController extends Controller
             'alertas' => $alertas,
             'totalParticipantes' => $totalParticipantes,
             'totalNotas' => $totalNotas,
+            'certificado' => app(CertificadoDigitalService::class)->status($empresa),
         ];
 
         return $this->render($request, 'index', $data);
@@ -252,13 +256,13 @@ class MinhaEmpresaController extends Controller
         if ($score && $score->classificacao === 'critico') {
             $alertas[] = [
                 'tipo' => 'critico',
-                'mensagem' => 'Score de risco critico: ' . $score->score_total . '/100',
+                'mensagem' => 'Score de risco critico: '.$score->score_total.'/100',
                 'icone' => 'shield-alert',
             ];
         } elseif ($score && $score->classificacao === 'alto') {
             $alertas[] = [
                 'tipo' => 'atencao',
-                'mensagem' => 'Score de risco alto: ' . $score->score_total . '/100',
+                'mensagem' => 'Score de risco alto: '.$score->score_total.'/100',
                 'icone' => 'shield-alert',
             ];
         }
@@ -327,11 +331,65 @@ class MinhaEmpresaController extends Controller
     }
 
     /**
+     * Cadastra/substitui o certificado digital A1 da empresa própria.
+     */
+    public function salvarCertificado(Request $request)
+    {
+        if (! Auth::check()) {
+            return $this->redirectToLogin($request);
+        }
+
+        $request->validate([
+            'certificado' => 'required|file|max:64', // KB — certificados A1 são pequenos
+            'senha' => 'required|string',
+        ]);
+
+        $empresa = Auth::user()->empresaPropria();
+        if (! $empresa) {
+            return back()->withErrors(['certificado' => 'Configure sua empresa própria antes de cadastrar o certificado.']);
+        }
+
+        $ext = strtolower((string) $request->file('certificado')->getClientOriginalExtension());
+        if (! in_array($ext, ['pfx', 'p12'], true)) {
+            return back()->withErrors(['certificado' => 'Envie um arquivo .pfx ou .p12 (certificado A1). A3 (token/cartão) não é suportado por upload.']);
+        }
+
+        try {
+            app(CertificadoDigitalService::class)->validarEArmazenar(
+                $request->file('certificado'),
+                (string) $request->input('senha'),
+                $empresa
+            );
+        } catch (ValidationException $e) {
+            return back()->withErrors($e->errors());
+        }
+
+        return back()->with('status', 'Certificado digital cadastrado com sucesso.');
+    }
+
+    /**
+     * Remove o certificado digital da empresa própria.
+     */
+    public function removerCertificado(Request $request)
+    {
+        if (! Auth::check()) {
+            return $this->redirectToLogin($request);
+        }
+
+        $empresa = Auth::user()->empresaPropria();
+        if ($empresa) {
+            app(CertificadoDigitalService::class)->remover($empresa);
+        }
+
+        return back()->with('status', 'Certificado removido.');
+    }
+
+    /**
      * Renderiza view com suporte a AJAX.
      */
     private function render(Request $request, string $viewName, array $data = [])
     {
-        $view = self::AUTH_VIEW_PREFIX . $viewName;
+        $view = self::AUTH_VIEW_PREFIX.$viewName;
 
         if (! view()->exists($view)) {
             abort(404);

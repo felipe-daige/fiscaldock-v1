@@ -270,6 +270,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/configurar', [MinhaEmpresaController::class, 'configurar'])->name('configurar');
         Route::post('/definir-principal', [MinhaEmpresaController::class, 'definirPrincipal'])->name('definir-principal');
         Route::get('/historico', [MinhaEmpresaController::class, 'historico'])->name('historico');
+        Route::post('/certificado', [MinhaEmpresaController::class, 'salvarCertificado'])->name('certificado.salvar');
+        Route::delete('/certificado', [MinhaEmpresaController::class, 'removerCertificado'])->name('certificado.remover');
     });
 
     // CONSULTA (estrutura unificada)
