@@ -69,3 +69,8 @@ Route::post('/consultas/progresso', [DataReceiverController::class, 'receiveCons
 Route::post('/mercado-pago/webhook', MercadoPagoWebhookController::class)
     ->name('api.mercadopago.webhook');
 
+// Alias para o webhook de TESTE configurado no painel MP (URL com /teste/).
+// Mesmo controller, mesma validação HMAC — atende test mode e produção.
+Route::post('/teste/mercado-pago/webhook', MercadoPagoWebhookController::class)
+    ->name('api.mercadopago.webhook.teste');
+
