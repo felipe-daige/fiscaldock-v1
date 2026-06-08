@@ -360,6 +360,16 @@
                 </div>
             </details>
 
+            @unless(config('clearance.full.habilitado'))
+                <div class="bg-white rounded border border-dashed border-gray-300 p-4 mb-4">
+                    <div class="flex items-center gap-2">
+                        <span class="text-[10px] font-bold uppercase tracking-wide text-white px-2 py-0.5 rounded" style="background-color: #6b7280">Em breve</span>
+                        <p class="text-sm font-semibold text-gray-700">Tributos e itens (Declarado × SEFAZ)</p>
+                    </div>
+                    <p class="text-[12px] text-gray-500 mt-1">Comparação de ICMS/PIS/COFINS/IPI e confronto item-a-item — requer certificado digital A1/A3 da empresa. Cadastre o certificado para habilitar (em breve).</p>
+                </div>
+            @endunless
+
             <p class="text-[11px] text-gray-500 mt-2">
                 Dados confrontados com a Receita Federal em
                 {{ $lote->processado_em?->format('d/m/Y H:i') ?? '—' }}.

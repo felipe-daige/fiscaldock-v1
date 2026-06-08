@@ -60,3 +60,45 @@ it('com flag full OFF, tier=full é coagido para basico (não cobra o dobro)', f
     expect($lote->creditos_cobrados)->toBe(ValidacaoContabilService::custoUnitarioPorTier('basico'));
     Bus::assertBatched(fn ($b) => collect($b->jobs)->every(fn ($j) => $j instanceof ProcessarClearanceJob));
 });
+
+it('resultado mostra placeholder em breve de tributos/itens quando Full está off', function () {
+    config()->set('clearance.full.habilitado', false);
+    $user = fullPhUser();
+    $lote = ConsultaLote::create([
+        'user_id' => $user->id, 'plano_id' => null, 'status' => ConsultaLote::STATUS_FINALIZADO,
+        'total_participantes' => 1, 'creditos_cobrados' => 3, 'tab_id' => 'tab-ph', 'processado_em' => now(),
+    ]);
+    NfeConsulta::create([
+        'user_id' => $user->id, 'consulta_lote_id' => $lote->id, 'chave_acesso' => str_repeat('5', 44),
+        'tipo_documento' => 'NFE', 'modelo' => '55', 'status' => 'AUTORIZADA', 'valor_total' => 100, 'consultado_em' => now(),
+    ]);
+
+    actingAs($user)->get("/app/clearance/notas/resultado/{$lote->id}")
+        ->assertOk()
+        ->assertSee('Tributos e itens', false)
+        ->assertSee('Em breve', false)
+        ->assertSee('certificado', false);
+});
+
+it('tela de notas marca o tier Full como em breve quando Full está off', function () {
+    config()->set('clearance.full.habilitado', false);
+    $user = fullPhUser();
+    fullPhEfdNota($user);
+
+    actingAs($user)->get('/app/clearance/notas')
+        ->assertOk()
+        ->assertSee('plan-card-full', false)
+        ->assertSee('Em breve', false)
+        ->assertSee('pointer-events-none', false);
+});
+
+it('Empresa mostra card Certificado Digital em breve quando Full está off', function () {
+    config()->set('clearance.full.habilitado', false);
+    $user = fullPhUser();
+    fullPhCliente($user);
+
+    actingAs($user)->get('/app/minha-empresa')
+        ->assertOk()
+        ->assertSee('Certificado Digital', false)
+        ->assertSee('Em breve', false);
+});

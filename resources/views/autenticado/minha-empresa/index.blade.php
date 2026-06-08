@@ -290,5 +290,17 @@
                 </div>
             </div>
         </div>
+
+        @unless(config('clearance.full.habilitado'))
+            <div class="bg-white rounded border border-dashed border-gray-300 overflow-hidden mb-6 sm:mb-8">
+                <div class="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center gap-2">
+                    <span class="text-[10px] font-bold uppercase tracking-wide text-white px-2 py-0.5 rounded" style="background-color: #6b7280">Em breve</span>
+                    <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Certificado Digital (A1/A3)</span>
+                </div>
+                <div class="p-4">
+                    <p class="text-sm text-gray-700">Em breve você poderá cadastrar o certificado digital A1/A3 da empresa para habilitar o <strong>Clearance Full</strong> — confronto de tributos (ICMS/PIS/COFINS/IPI) e comparação item-a-item das notas com a SEFAZ.</p>
+                </div>
+            </div>
+        @endunless
     </div>
 </div>

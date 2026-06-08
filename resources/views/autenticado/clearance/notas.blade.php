@@ -329,13 +329,17 @@
                         </span>
                     </div>
                 </div>
-                <div id="plan-card-full" class="bg-white rounded border p-4 cursor-pointer transition" role="radio" aria-checked="false" tabindex="0" data-tier="full" style="border-color: #e5e7eb">
+                <div id="plan-card-full" class="bg-white rounded border p-4 transition {{ config('clearance.full.habilitado') ? 'cursor-pointer' : 'pointer-events-none opacity-60' }}" role="radio" aria-checked="false" tabindex="0" data-tier="full" style="border-color: #e5e7eb">
                     <div class="flex items-start justify-between mb-3">
                         <div>
                             <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Clearance</p>
                             <p class="text-base font-bold text-gray-900">Full</p>
                         </div>
-                        <span class="plan-chip hidden px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: #1f2937">Selecionado</span>
+                        @if(config('clearance.full.habilitado'))
+                            <span class="plan-chip hidden px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: #1f2937">Selecionado</span>
+                        @else
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: #6b7280">Em breve</span>
+                        @endif
                     </div>
                     <ul class="space-y-1.5 text-xs text-gray-700 mb-3">
                         <li class="flex items-start gap-2"><svg class="w-3.5 h-3.5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: #047857"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>Tudo do Básico</li>
