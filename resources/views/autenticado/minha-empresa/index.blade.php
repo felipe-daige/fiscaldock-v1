@@ -323,7 +323,8 @@
                         @csrf
                         <div>
                             <label class="block text-[11px] text-gray-500 mb-1">Arquivo (.pfx/.p12)</label>
-                            <input type="file" name="certificado" accept=".pfx,.p12" required class="text-[13px]">
+                            <input type="file" name="certificado" accept=".pfx,.p12" required
+                                class="text-[13px] text-gray-600 file:mr-3 file:cursor-pointer file:rounded file:border-0 file:bg-gray-800 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-gray-700">
                         </div>
                         <div>
                             <label class="block text-[11px] text-gray-500 mb-1">Senha do certificado</label>
