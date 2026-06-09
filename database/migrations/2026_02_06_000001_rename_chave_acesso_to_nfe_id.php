@@ -61,6 +61,48 @@ return new class extends Migration
             $t->index('modelo');
             $t->index('status_autorizacao');
         });
+
+        // xml_notas_itens — espelha efd_notas_itens (+ extras NF-e) para UNION read-side.
+        // Tabela nova consolidada nesta migration de Plano B (regra: não criar migration nova).
+        // ATENÇÃO: em prod, aplicar CREATE TABLE manualmente (editar migration rodada não aplica delta).
+        if (! Schema::hasTable('xml_notas_itens')) {
+            Schema::create('xml_notas_itens', function (Blueprint $t) {
+                $t->id();
+                $t->foreignId('xml_nota_id')->constrained('xml_notas')->cascadeOnDelete();
+                $t->foreignId('user_id')->constrained()->cascadeOnDelete();
+                $t->integer('numero_item');                 // det@nItem
+                $t->string('codigo_item', 60)->nullable();  // cProd
+                $t->string('descricao', 255)->nullable();   // xProd
+                $t->decimal('quantidade', 15, 4)->nullable();
+                $t->string('unidade_medida', 10)->nullable();
+                $t->decimal('valor_unitario', 21, 10)->nullable();
+                $t->decimal('valor_total', 15, 2)->nullable();
+                $t->string('cfop', 5)->nullable();
+                $t->string('cst_icms', 4)->nullable();
+                $t->decimal('aliquota_icms', 7, 4)->nullable();
+                $t->decimal('valor_icms', 15, 2)->nullable();
+                $t->string('cst_pis', 4)->nullable();
+                $t->decimal('aliquota_pis', 9, 4)->nullable();
+                $t->decimal('valor_pis', 15, 2)->nullable();
+                $t->string('cst_cofins', 4)->nullable();
+                $t->decimal('aliquota_cofins', 9, 4)->nullable();
+                $t->decimal('valor_cofins', 15, 2)->nullable();
+                // Extras NF-e (no EFD vêm do catálogo 0200)
+                $t->string('ncm', 8)->nullable();
+                $t->string('cest', 7)->nullable();
+                $t->string('ean', 14)->nullable();
+                $t->string('origem_mercadoria', 1)->nullable(); // ICMS/orig
+                $t->string('cst_ipi', 2)->nullable();
+                $t->decimal('valor_ipi', 15, 2)->nullable();
+                $t->jsonb('metadados')->nullable();
+                $t->timestamps();
+
+                $t->index(['user_id', 'codigo_item']);
+                $t->index('xml_nota_id');
+                $t->index('ncm');
+                $t->index('cfop');
+            });
+        }
     }
 
     public function down(): void

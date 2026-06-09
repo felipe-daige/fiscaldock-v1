@@ -146,6 +146,11 @@ class XmlNota extends Model
         return $this->belongsTo(Cliente::class, 'dest_cliente_id');
     }
 
+    public function itens(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(XmlNotaItem::class, 'xml_nota_id');
+    }
+
     /**
      * Nota XML referenciada (para devoluções).
      */
