@@ -107,7 +107,15 @@ class XmlImportacaoController extends Controller
                 ->withQueryString();
         }
 
-        $data = compact('importacao', 'participantes');
+        // Notas efetivamente gravadas por esta importação (vazio em lote 100% duplicado,
+        // pois a dedup não religa a nota existente a este importacao_xml_id).
+        $notas = XmlNota::where('importacao_xml_id', $id)
+            ->where('user_id', $userId)
+            ->orderByDesc('data_emissao')
+            ->limit(200)
+            ->get();
+
+        $data = compact('importacao', 'participantes', 'notas');
 
         if ($this->isAjaxRequest($request)) {
             return response(view($view, $data)->render())->header('Content-Type', 'text/html');

@@ -188,6 +188,88 @@
             </div>
         </div>
 
+        @php
+            $notasColl = $notas ?? collect();
+            $loteTodoDuplicado = $importacao->status === 'concluido'
+                && ($importacao->xmls_novos ?? 0) === 0
+                && ($importacao->xmls_duplicados_processados ?? 0) > 0;
+        @endphp
+
+        {{-- Lote 100% duplicado: explica por que o resultado vem vazio --}}
+        @if($loteTodoDuplicado)
+        <div class="bg-white rounded border border-gray-300 border-l-4 mb-4 px-4 py-3" style="border-left-color: #d97706">
+            <p class="text-sm font-semibold text-gray-900">Nenhuma nota nova neste lote</p>
+            <p class="text-xs text-gray-600 mt-1">
+                {{ number_format($importacao->xmls_duplicados_processados) }} {{ $importacao->xmls_duplicados_processados == 1 ? 'nota já existia' : 'notas já existiam' }} no seu acervo e {{ $importacao->xmls_duplicados_processados == 1 ? 'foi ignorada' : 'foram ignoradas' }}. As notas continuam disponíveis na importação original.
+            </p>
+            <a href="/app/notas" data-link class="inline-flex items-center gap-1.5 mt-2 text-xs font-semibold text-gray-700 hover:text-gray-900 hover:underline">
+                Ver notas no acervo
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+            </a>
+        </div>
+        @endif
+
+        {{-- Notas Fiscais importadas neste lote --}}
+        <div class="bg-white rounded border border-gray-300 mb-4 overflow-hidden">
+            <div class="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Notas Fiscais Importadas</span>
+                    @if($notasColl->count() > 0)
+                        <span class="text-[10px] font-semibold text-gray-400 bg-gray-200 px-2 py-0.5 rounded">{{ $notasColl->count() }}</span>
+                    @endif
+                </div>
+            </div>
+            @if($notasColl->count() > 0)
+            <div class="overflow-x-auto">
+                <table class="min-w-full">
+                    <thead>
+                        <tr class="border-b border-gray-300">
+                            <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Nº / Série</th>
+                            <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Emissão</th>
+                            <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Emitente</th>
+                            <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Destinatário</th>
+                            <th class="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Valor</th>
+                            <th class="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Tipo</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        @foreach($notasColl as $nota)
+                        @php
+                            $ehSaida = $nota->tipo_nota === \App\Models\XmlNota::TIPO_SAIDA;
+                            $tipoHex = $ehSaida ? '#d97706' : '#047857';
+                        @endphp
+                        <tr class="hover:bg-gray-50/50 transition-colors">
+                            <td class="px-3 py-3 text-sm font-mono text-gray-900 whitespace-nowrap">{{ $nota->numero_documento ?: '—' }}<span class="text-gray-400">/{{ $nota->serie ?: '0' }}</span></td>
+                            <td class="px-3 py-3 text-sm text-gray-700 whitespace-nowrap">{{ $nota->data_emissao?->format('d/m/Y') ?: '—' }}</td>
+                            <td class="px-3 py-3 text-sm text-gray-900 max-w-[220px] truncate" title="{{ $nota->emit_razao_social }}">{{ $nota->emit_razao_social ?: $nota->emit_documento_formatado ?: '—' }}</td>
+                            <td class="px-3 py-3 text-sm text-gray-700 max-w-[220px] truncate" title="{{ $nota->dest_razao_social }}">{{ $nota->dest_razao_social ?: $nota->dest_documento_formatado ?: '—' }}</td>
+                            <td class="px-3 py-3 text-sm text-gray-900 font-mono text-right whitespace-nowrap">{{ $nota->valor_formatado }}</td>
+                            <td class="px-3 py-3 text-center whitespace-nowrap">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $tipoHex }}">{{ $nota->tipo_nota_descricao }}</span>
+                            </td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+            @if(($importacao->xmls_novos ?? 0) > $notasColl->count())
+            <div class="px-4 py-2 border-t border-gray-200">
+                <p class="text-[11px] text-gray-500">Exibindo as primeiras {{ $notasColl->count() }} notas de {{ number_format($importacao->xmls_novos) }}.</p>
+            </div>
+            @endif
+            @else
+            <div class="px-6 py-10 text-center">
+                <svg class="w-10 h-10 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                <p class="text-sm font-medium text-gray-700">{{ $loteTodoDuplicado ? 'Notas já existiam no acervo' : 'Nenhuma nota importada' }}</p>
+                <p class="text-xs text-gray-500 mt-1">{{ $loteTodoDuplicado ? 'Este lote não gerou notas novas — todas eram duplicadas.' : 'Esta importação não gravou notas fiscais.' }}</p>
+            </div>
+            @endif
+        </div>
+
         {{-- Card Cliente --}}
         <div class="bg-white rounded border border-gray-300 mb-4">
             <div class="bg-gray-50 px-4 py-2 border-b border-gray-200">
