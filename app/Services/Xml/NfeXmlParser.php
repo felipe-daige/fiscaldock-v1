@@ -17,11 +17,7 @@ class NfeXmlParser
 
     public function parse(string $content): array
     {
-        try {
-            $root = new SimpleXMLElement($content);
-        } catch (\Throwable $e) {
-            throw new NfeParseException('XML inválido: '.$e->getMessage(), 0, $e);
-        }
+        $root = $this->loadXml($content);
 
         $rootName = $root->getName();
         if ($rootName === 'nfeProc') {
@@ -239,6 +235,44 @@ class NfeXmlParser
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    /**
+     * Carrega o XML de forma robusta a encoding: remove BOM e lixo antes do prolog
+     * e, se os bytes forem ISO-8859-1 com declaração UTF-8 (mismatch comum em NF-e
+     * real), reinterpreta como latin1 normalizando a declaração para UTF-8.
+     */
+    private function loadXml(string $content): SimpleXMLElement
+    {
+        // Remove BOM (UTF-8/UTF-16) e qualquer coisa antes do prolog/raiz.
+        $content = preg_replace('/^(\xEF\xBB\xBF|\xFF\xFE|\xFE\xFF)/', '', $content) ?? $content;
+        $pos = strpos($content, '<?xml');
+        if ($pos === false) {
+            $pos = strpos($content, '<');
+        }
+        if ($pos !== false && $pos > 0) {
+            $content = substr($content, $pos);
+        }
+
+        $previous = libxml_use_internal_errors(true);
+        libxml_clear_errors();
+        try {
+            $xml = simplexml_load_string($content);
+            if ($xml === false) {
+                $alt = mb_convert_encoding($content, 'UTF-8', 'ISO-8859-1');
+                $alt = preg_replace('/(<\?xml[^>]*encoding=")[^"]*(")/i', '${1}UTF-8${2}', $alt, 1) ?? $alt;
+                libxml_clear_errors();
+                $xml = simplexml_load_string($alt);
+            }
+        } finally {
+            libxml_use_internal_errors($previous);
+        }
+
+        if ($xml === false) {
+            throw new NfeParseException('XML inválido: não foi possível parsear (estrutura ou encoding).');
+        }
+
+        return $xml;
     }
 
     private function num(SimpleXMLElement $v): float

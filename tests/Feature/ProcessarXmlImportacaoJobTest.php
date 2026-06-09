@@ -58,3 +58,23 @@ it('conta duplicados ao reprocessar o mesmo diretório', function () {
     expect($imp2->xmls_novos)->toBe(0);
     expect(XmlNota::where('user_id', $user->id)->count())->toBe(10);
 });
+
+it('deduplica a mesma chave repetida dentro do mesmo lote', function () {
+    Storage::fake('local');
+    $user = User::factory()->create();
+    $imp = XmlImportacao::create(['user_id' => $user->id, 'tipo_documento' => 'NFE', 'modo_envio' => 'zip', 'status' => 'processando', 'iniciado_em' => now()]);
+
+    // Mesmo XML gravado com dois nomes diferentes no mesmo diretório.
+    $dir = "xml-imports/{$imp->id}";
+    $conteudo = file_get_contents(base_path('tests/Fixtures/nfe/50240197551165000193550010000248021000214750-nfe.xml'));
+    Storage::disk('local')->put($dir.'/nota-a.xml', $conteudo);
+    Storage::disk('local')->put($dir.'/nota-b.xml', $conteudo);
+
+    (new ProcessarXmlImportacaoJob($imp->id, $user->id, 't1', '97551165000193', $dir))
+        ->handle(app(\App\Services\Xml\NfeXmlParser::class), app(\App\Services\Xml\XmlNotaImporter::class));
+
+    $imp->refresh();
+    expect($imp->xmls_novos)->toBe(1);
+    expect($imp->xmls_duplicados_processados)->toBe(1);
+    expect(XmlNota::where('user_id', $user->id)->count())->toBe(1);
+});

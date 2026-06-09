@@ -72,3 +72,45 @@ it('rejeita modelo diferente de 55', function () {
     expect(fn () => (new NfeXmlParser())->parse($xml))
         ->toThrow(\App\Services\Xml\NfeParseException::class);
 });
+
+// --- Robustez de encoding (NF-e real costuma ser latin1 / ter BOM) ---
+
+it('parseia XML com BOM UTF-8 e espaço antes do prolog', function () {
+    $xml = "\xEF\xBB\xBF\n  ".fixtureNfe('50240197551165000193550010000248021000214750-nfe.xml');
+    $p = (new NfeXmlParser())->parse($xml);
+    expect($p['header']['chave_acesso'])->toBe('50240197551165000193550010000248021000214750');
+});
+
+it('parseia XML latin1 com encoding declarado preservando acentos', function () {
+    $utf8 = str_replace('RETORNO DE MERC', 'OPERAÇÃO ÁÉÍ', fixtureNfe('50240197551165000193550010000248021000214750-nfe.xml'));
+    $latin1 = mb_convert_encoding($utf8, 'ISO-8859-1', 'UTF-8');
+    $latin1 = str_replace('encoding="UTF-8"', 'encoding="ISO-8859-1"', $latin1);
+
+    $p = (new NfeXmlParser())->parse($latin1);
+    expect($p['header']['natureza_operacao'])->toContain('OPERAÇÃO');
+    expect($p['header']['chave_acesso'])->toHaveLength(44);
+});
+
+it('parseia XML com bytes latin1 mas declaração UTF-8 errada (mismatch)', function () {
+    $utf8 = str_replace('RETORNO DE MERC', 'OPERAÇÃO ÁÉÍ', fixtureNfe('50240197551165000193550010000248021000214750-nfe.xml'));
+    // Mantém a declaração UTF-8 mas grava bytes ISO-8859-1 → libxml falharia sem fallback.
+    $latin1 = mb_convert_encoding($utf8, 'ISO-8859-1', 'UTF-8');
+
+    $p = (new NfeXmlParser())->parse($latin1);
+    expect($p['header']['natureza_operacao'])->toContain('OPERAÇÃO');
+    expect($p['header']['chave_acesso'])->toHaveLength(44);
+});
+
+// --- Simples Nacional: ICMS por CSOSN em vez de CST ---
+
+it('parseia item de Simples Nacional usando CSOSN no cst_icms', function () {
+    $xml = str_replace(
+        '<ICMS><ICMS40><orig>0</orig><CST>41</CST></ICMS40></ICMS>',
+        '<ICMS><ICMSSN102><orig>0</orig><CSOSN>102</CSOSN></ICMSSN102></ICMS>',
+        fixtureNfe('50240197551165000193550010000248021000214750-nfe.xml')
+    );
+    $p = (new NfeXmlParser())->parse($xml);
+
+    expect($p['itens'][0]['cst_icms'])->toBe('102');
+    expect($p['itens'][0]['origem_mercadoria'])->toBe('0');
+});
