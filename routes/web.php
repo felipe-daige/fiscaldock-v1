@@ -101,6 +101,12 @@ Route::middleware('auth')->group(function () {
     Route::post('/app/assinatura/cancelar', [\App\Http\Controllers\Dashboard\AssinaturaController::class, 'cancelar'])
         ->name('app.assinatura.cancelar');
 
+    // Recarga automática por tempo (preapproval recorrente de um pacote de créditos).
+    Route::post('/app/recarga-automatica', [\App\Http\Controllers\Dashboard\RecargaController::class, 'criar'])
+        ->name('app.recarga.criar');
+    Route::post('/app/recarga-automatica/cancelar', [\App\Http\Controllers\Dashboard\RecargaController::class, 'cancelar'])
+        ->name('app.recarga.cancelar');
+
     // Rotas de créditos
     Route::prefix('app/credits')->name('app.credits.')->group(function () {
         Route::get('/balance', [CreditController::class, 'balance'])->name('balance');

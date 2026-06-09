@@ -46,10 +46,28 @@ return new class extends Migration
                 $table->index(['user_id', 'status']);
             });
         }
+
+        // Recarga automática por tempo (Fase 2): recompra recorrente de um pacote de
+        // créditos via preapproval do Mercado Pago. Uma por usuário (unique user_id).
+        if (! Schema::hasTable('recarga_automaticas')) {
+            Schema::create('recarga_automaticas', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('user_id')->unique()->constrained('users')->onDelete('cascade');
+                $table->string('pacote');                 // slug do catálogo (business, volume, custom)
+                $table->integer('creditos');              // créditos liberados a cada cobrança (do catálogo)
+                $table->decimal('valor', 10, 2);          // R$ por cobrança (do catálogo backend)
+                $table->integer('frequencia_meses')->default(1); // periodicidade da recompra
+                $table->string('status')->default('pendente');   // pendente|ativa|inadimplente|cancelada
+                $table->string('mp_preapproval_id')->nullable()->unique(); // id do preapproval no MP
+                $table->timestamp('ultima_cobranca_em')->nullable();
+                $table->timestamps();
+            });
+        }
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('recarga_automaticas');
         Schema::dropIfExists('mercado_pago_payments');
         Schema::dropIfExists('credit_transactions');
     }

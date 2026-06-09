@@ -939,6 +939,8 @@ class DashboardController extends Controller
             'pacotes' => $this->pricingCatalogService->getPackages(),
             'pricing' => $pricing,
             'trialResumo' => $this->buildTrialResumo($user),
+            'mpPublicKey' => (string) config('services.mercadopago.public_key'),
+            'recargaAtual' => \App\Models\RecargaAutomatica::where('user_id', $user->id)->first(),
         ];
 
         if ($this->isAjaxRequest($request)) {
