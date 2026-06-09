@@ -981,7 +981,7 @@ class DashboardController extends Controller
 
     public function checkout(Request $request, string $pacote)
     {
-        $dados = $this->pricingCatalogService->resolveCheckoutSelection($pacote, $request->query('amount'));
+        $dados = $this->pricingCatalogService->resolveCheckoutSelection($pacote, $request->query('amount'), Auth::user());
 
         if (! $dados) {
             return redirect()
