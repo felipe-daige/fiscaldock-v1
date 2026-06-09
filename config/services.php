@@ -66,6 +66,11 @@ return [
         // Teto de cobrança por transação do preapproval MP (BRL). Acima disso, o MP recusa
         // ("Cannot pay an amount greater than R$ 4000.00") → roteamos pra checkout assistido (WhatsApp).
         'preapproval_teto_centavos' => (int) env('MERCADO_PAGO_PREAPPROVAL_TETO_CENTAVOS', 400000),
+        // Auto top-up por saldo baixo: cooldown entre cobranças (min) + teto diário de recompras.
+        'auto_topup' => [
+            'cooldown_minutos' => (int) env('MERCADO_PAGO_AUTOTOPUP_COOLDOWN_MIN', 5),
+            'max_por_dia' => (int) env('MERCADO_PAGO_AUTOTOPUP_MAX_DIA', 3),
+        ],
     ],
 
 ];

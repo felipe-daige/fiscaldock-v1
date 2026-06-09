@@ -56,10 +56,17 @@ return new class extends Migration
                 $table->string('pacote');                 // slug do catálogo (business, volume, custom)
                 $table->integer('creditos');              // créditos liberados a cada cobrança (do catálogo)
                 $table->decimal('valor', 10, 2);          // R$ por cobrança (do catálogo backend)
-                $table->integer('frequencia_meses')->default(1); // periodicidade da recompra
+                $table->integer('frequencia_meses')->nullable()->default(1); // periodicidade (só gatilho=tempo)
                 $table->string('status')->default('pendente');   // pendente|ativa|inadimplente|cancelada
-                $table->string('mp_preapproval_id')->nullable()->unique(); // id do preapproval no MP
+                $table->string('mp_preapproval_id')->nullable()->unique(); // id do preapproval no MP (só tempo)
                 $table->timestamp('ultima_cobranca_em')->nullable();
+                // Auto top-up por saldo baixo: gatilho exclusivo via vault de cartão (MIT on-demand).
+                $table->string('gatilho')->default('tempo');     // tempo | saldo
+                $table->integer('limite_creditos')->nullable();  // threshold (só gatilho=saldo)
+                $table->string('mp_customer_id')->nullable();    // vault: customer MP (só saldo)
+                $table->string('mp_card_id')->nullable();        // vault: cartão salvo (só saldo)
+                $table->boolean('cobranca_em_andamento')->default(false); // guarda de cobrança em voo
+                $table->timestamp('ultima_tentativa_em')->nullable();     // cooldown + teto diário
                 $table->timestamps();
             });
         }
