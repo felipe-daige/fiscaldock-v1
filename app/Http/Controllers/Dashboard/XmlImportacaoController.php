@@ -35,20 +35,38 @@ class XmlImportacaoController extends Controller
      */
     public function index(Request $request)
     {
-        $placeholderView = self::AUTH_VIEW_PREFIX . 'xml-placeholder';
+        $xmlView = self::AUTH_VIEW_PREFIX . 'xml';
 
         if (!Auth::check()) {
             return $this->redirectToLogin($request);
         }
 
+        $user = Auth::user();
+
+        // Clientes do usuário (empresa própria primeiro) para o seletor de dono da importação.
+        $clientes = Cliente::where('user_id', $user->id)
+            ->orderByDesc('is_empresa_propria')
+            ->orderBy('razao_social')
+            ->get(['id', 'razao_social', 'documento', 'is_empresa_propria']);
+        $empresaPropriaId = $clientes->firstWhere('is_empresa_propria', true)?->id;
+
+        $importacoes = XmlImportacao::where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get();
+
+        $data = [
+            'clientes' => $clientes,
+            'empresaPropriaId' => $empresaPropriaId,
+            'importacoes' => $importacoes,
+        ];
+
         if ($this->isAjaxRequest($request)) {
-            $renderedView = view($placeholderView)->render();
+            $renderedView = view($xmlView, $data)->render();
             return response($renderedView)->header('Content-Type', 'text/html');
         }
 
-        return view(self::AUTH_LAYOUT_VIEW, [
-            'initialView' => $placeholderView,
-        ]);
+        return view(self::AUTH_LAYOUT_VIEW, array_merge(['initialView' => $xmlView], $data));
     }
 
     /**

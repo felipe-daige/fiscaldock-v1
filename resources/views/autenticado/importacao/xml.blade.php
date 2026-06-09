@@ -1,5 +1,5 @@
 {{-- Monitoramento - Importar XMLs --}}
-<div class="min-h-screen bg-gray-100" id="importacao-xml-container" data-em-breve="1">
+<div class="min-h-screen bg-gray-100" id="importacao-xml-container" data-em-breve="0">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
 
         {{-- Page Header --}}
@@ -20,26 +20,6 @@
             </a>
         </div>
 
-        <div class="mb-6">
-            <div class="bg-white rounded border border-gray-300 overflow-hidden">
-                <div class="border-l-4 border-l-amber-500 px-4 py-4 sm:px-5">
-                    <div class="flex items-start gap-3">
-                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded border border-amber-200 bg-amber-50 text-amber-700">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v4m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z"></path>
-                            </svg>
-                        </div>
-                        <div class="min-w-0">
-                            <p class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Alerta Operacional</p>
-                            <h2 class="mt-1 text-base font-bold text-gray-900 uppercase tracking-wide">Importação XML indisponível</h2>
-                            <p class="mt-1 text-sm text-gray-700">Esta tela está marcada como <strong>Em Breve</strong>. A funcionalidade ainda não está em desenvolvimento para uso operacional e todos os botões de importação permanecem desabilitados.</p>
-                            <p class="mt-1 text-xs text-gray-500">Você ainda pode consultar o histórico e voltar para outras áreas do painel normalmente.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <div id="importacao-xml-error-region" class="mb-6"></div>
 
         {{-- Upload Section --}}
@@ -49,26 +29,35 @@
                     <div class="bg-white rounded border border-gray-300 overflow-hidden">
                         <div class="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between gap-3">
                             <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Upload dos Arquivos</span>
-                            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: #d97706">Em Breve</span>
                         </div>
                         <div class="p-4 sm:p-5">
+                            <div class="mb-4">
+                                <label for="xml-cliente" class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Cliente (dono destas notas) <span class="text-red-500">*</span></label>
+                                <select id="xml-cliente" required class="text-[13px] py-2.5 px-3 border border-gray-300 rounded w-full bg-white">
+                                    <option value="">Selecione…</option>
+                                    @foreach (($clientes ?? collect()) as $c)
+                                        <option value="{{ $c->id }}" @selected(isset($empresaPropriaId) && $c->id === $empresaPropriaId)>{{ $c->razao_social }}{{ $c->is_empresa_propria ? ' (própria)' : '' }}</option>
+                                    @endforeach
+                                </select>
+                                <p class="text-[11px] text-gray-400 mt-1">Define se cada nota é entrada (compra) ou saída (venda) na perspectiva deste cliente.</p>
+                            </div>
                             <div class="mb-4">
                                 <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Tipo de Documento</label>
                                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                     <label class="flex flex-col items-start gap-1 p-3 border border-gray-300 rounded cursor-pointer transition tipo-doc-label has-[:checked]:border-gray-700 has-[:checked]:bg-gray-50 hover:border-gray-400" data-tipo="NFE">
-                                        <input type="radio" name="tipo-documento" value="NFE" class="sr-only" disabled>
+                                        <input type="radio" name="tipo-documento" value="NFE" class="sr-only" checked>
                                         <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: #0f766e">NF-e</span>
                                         <span class="text-[11px] text-gray-500 leading-tight">Nota Fiscal Eletrônica</span>
                                     </label>
-                                    <label class="flex flex-col items-start gap-1 p-3 border border-gray-300 rounded cursor-pointer transition tipo-doc-label has-[:checked]:border-gray-700 has-[:checked]:bg-gray-50 hover:border-gray-400" data-tipo="NFSE">
+                                    <label class="flex flex-col items-start gap-1 p-3 border border-gray-200 rounded cursor-not-allowed opacity-50 tipo-doc-label" data-tipo="NFSE">
                                         <input type="radio" name="tipo-documento" value="NFSE" class="sr-only" disabled>
                                         <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: #4338ca">NFS-e</span>
-                                        <span class="text-[11px] text-gray-500 leading-tight">Nota Fiscal de Serviços</span>
+                                        <span class="text-[11px] text-gray-500 leading-tight">Nota Fiscal de Serviços <em>(em breve)</em></span>
                                     </label>
-                                    <label class="flex flex-col items-start gap-1 p-3 border border-gray-300 rounded cursor-pointer transition tipo-doc-label has-[:checked]:border-gray-700 has-[:checked]:bg-gray-50 hover:border-gray-400" data-tipo="CTE">
+                                    <label class="flex flex-col items-start gap-1 p-3 border border-gray-200 rounded cursor-not-allowed opacity-50 tipo-doc-label" data-tipo="CTE">
                                         <input type="radio" name="tipo-documento" value="CTE" class="sr-only" disabled>
                                         <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: #374151">CT-e</span>
-                                        <span class="text-[11px] text-gray-500 leading-tight">Conhecimento de Transporte</span>
+                                        <span class="text-[11px] text-gray-500 leading-tight">Conhecimento de Transporte <em>(em breve)</em></span>
                                     </label>
                                 </div>
                             </div>
@@ -77,7 +66,7 @@
                                 <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Modo de Envio</label>
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <label class="flex flex-col items-start gap-1 p-3 border border-gray-300 rounded cursor-pointer transition modo-envio-label has-[:checked]:border-gray-700 has-[:checked]:bg-gray-50 hover:border-gray-400" data-modo="zip">
-                                        <input type="radio" name="modo-envio" value="zip" class="sr-only" disabled>
+                                        <input type="radio" name="modo-envio" value="zip" class="sr-only">
                                         <div class="flex items-center gap-2">
                                             <span class="text-sm font-semibold text-gray-900">Arquivo ZIP</span>
                                             <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: #374151">50 MB</span>
@@ -85,7 +74,7 @@
                                         <span class="text-[11px] text-gray-500 leading-tight">Até 5.000 XMLs em um ZIP</span>
                                     </label>
                                     <label class="flex flex-col items-start gap-1 p-3 border border-gray-300 rounded cursor-pointer transition modo-envio-label has-[:checked]:border-gray-700 has-[:checked]:bg-gray-50 hover:border-gray-400" data-modo="xml">
-                                        <input type="radio" name="modo-envio" value="xml" class="sr-only" disabled>
+                                        <input type="radio" name="modo-envio" value="xml" class="sr-only">
                                         <div class="flex items-center gap-2">
                                             <span class="text-sm font-semibold text-gray-900">XMLs Avulsos</span>
                                             <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: #374151">100 arq</span>
@@ -147,7 +136,7 @@
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
                                     </svg>
-                                    <span class="btn-text">Em Breve</span>
+                                    <span class="btn-text">Importar</span>
                                 </button>
                             </div>
                         </div>
@@ -2221,6 +2210,12 @@
                     return;
                 }
 
+                const clienteId = document.getElementById('xml-cliente')?.value || '';
+                if (!clienteId) {
+                    if (window.showToast) window.showToast('Selecione o cliente dono destas notas.', 'warning');
+                    return;
+                }
+
                 if (selectedFiles.length === 0) {
                     if (window.showToast) window.showToast('Selecione ao menos um arquivo.', 'warning');
                     return;
@@ -2260,6 +2255,7 @@
                     const payload = {
                         tipo_documento: tipoDoc,
                         modo_envio: modoEnvio,
+                        cliente_id: clienteId,
                         tab_id: tabId,
                         salvar_movimentacoes: false,
                         arquivos: arquivos
