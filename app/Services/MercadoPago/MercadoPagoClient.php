@@ -102,6 +102,50 @@ class MercadoPagoClient
         return $this->request()->get($this->baseUrl.'/authorized_payments/'.$id)->json() ?? [];
     }
 
+    /**
+     * Busca customers por email (evita duplicar customer no vault).
+     *
+     * @return array<string, mixed>
+     */
+    public function buscarCustomerPorEmail(string $email): array
+    {
+        return $this->request()->get($this->baseUrl.'/v1/customers/search', ['email' => $email])->json() ?? [];
+    }
+
+    /**
+     * Cria um customer no MP (vault).
+     *
+     * @return array<string, mixed>
+     */
+    public function criarCustomer(string $email): array
+    {
+        return $this->request()->post($this->baseUrl.'/v1/customers', ['email' => $email])->json() ?? [];
+    }
+
+    /**
+     * Salva um cartão (a partir de um card_token) num customer. PAN fica no MP.
+     *
+     * @return array<string, mixed>
+     */
+    public function salvarCartao(string $customerId, string $cardToken): array
+    {
+        return $this->request()
+            ->post($this->baseUrl.'/v1/customers/'.$customerId.'/cards', ['token' => $cardToken])
+            ->json() ?? [];
+    }
+
+    /**
+     * Gera um card_token novo a partir de um cartão salvo (MIT, sem CVV).
+     *
+     * @return array<string, mixed>
+     */
+    public function tokenDeCartaoSalvo(string $cardId): array
+    {
+        return $this->request()
+            ->post($this->baseUrl.'/v1/card_tokens', ['card_id' => $cardId])
+            ->json() ?? [];
+    }
+
     private function request(): PendingRequest
     {
         return Http::withToken($this->accessToken)
