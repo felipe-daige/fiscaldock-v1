@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Http\JsonResponse;
 use ZipArchive;
@@ -150,209 +151,114 @@ class XmlImportacaoController extends Controller
      */
     public function importar(Request $request)
     {
-        if (!Auth::check()) {
-            return response()->json([
-                'success' => false,
-                'error' => 'Usuário não autenticado.',
-            ], Response::HTTP_UNAUTHORIZED);
+        if (! Auth::check()) {
+            return response()->json(['success' => false, 'error' => 'Usuário não autenticado.'], Response::HTTP_UNAUTHORIZED);
         }
 
         $user = Auth::user();
 
         $validated = $request->validate([
-            'tipo_documento' => 'required|in:NFE,NFSE,CTE',
-            'modo_envio' => 'required|in:zip,xml',
-            'cliente_id' => 'nullable|integer|exists:clientes,id',
-            'salvar_movimentacoes' => 'nullable|boolean',
-            'tab_id' => 'required|string|max:36',
-            'arquivos' => 'required|array|min:1|max:100',
-            'arquivos.*.nome' => 'required|string|max:255',
-            'arquivos.*.tipo' => 'required|string|max:100',
+            'tipo_documento' => 'required|in:NFE',
+            'modo_envio'     => 'required|in:zip,xml',
+            'cliente_id'     => ['required', 'integer', \Illuminate\Validation\Rule::exists('clientes', 'id')->where('user_id', $user->id)],
+            'tab_id'         => 'required|string|max:36',
+            'arquivos'       => 'required|array|min:1|max:100',
+            'arquivos.*.nome'            => 'required|string|max:255',
+            'arquivos.*.tipo'            => 'required|string|max:100',
             'arquivos.*.conteudo_base64' => 'required|string',
         ]);
 
-        // Calcular tamanho total
         $tamanhoTotal = 0;
-        $totalArquivos = count($validated['arquivos']);
-
         foreach ($validated['arquivos'] as $arquivo) {
             $tamanhoTotal += strlen(base64_decode($arquivo['conteudo_base64']));
         }
-
-        // Limite de 200MB total
         if ($tamanhoTotal > 200 * 1024 * 1024) {
-            return response()->json([
-                'success' => false,
-                'error' => 'Tamanho total dos arquivos excede o limite de 200MB.',
-            ], Response::HTTP_BAD_REQUEST);
+            return response()->json(['success' => false, 'error' => 'Tamanho total excede 200MB.'], Response::HTTP_BAD_REQUEST);
         }
 
-        // Verificar webhook configurado
-        $webhookUrl = config('services.webhook.importacao_xml_url');
-
-        if (empty($webhookUrl)) {
-            Log::error('XmlImportacao: webhook não configurado');
-            return response()->json([
-                'success' => false,
-                'error' => 'Configuração de webhook ausente. Contate o suporte.',
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        $ownerDoc = $this->getClienteCnpj($validated['cliente_id']);
+        if (empty($ownerDoc)) {
+            return response()->json(['success' => false, 'error' => 'Cliente sem documento cadastrado.'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         try {
-            // Criar registro de importação
             $importacao = XmlImportacao::create([
-                'user_id' => $user->id,
-                'cliente_id' => $validated['cliente_id'] ?? null,
-                'tipo_documento' => $validated['tipo_documento'],
-                'modo_envio' => $validated['modo_envio'],
-                'total_arquivos' => $totalArquivos,
+                'user_id'             => $user->id,
+                'cliente_id'          => $validated['cliente_id'],
+                'tipo_documento'      => 'NFE',
+                'modo_envio'          => $validated['modo_envio'],
+                'total_arquivos'      => count($validated['arquivos']),
                 'tamanho_total_bytes' => $tamanhoTotal,
-                'status' => 'pendente',
-                'iniciado_em' => now(),
+                'status'              => 'pendente',
+                'iniciado_em'         => now(),
             ]);
 
-            Log::info('XmlImportacao: registro criado', [
-                'importacao_id' => $importacao->id,
-                'user_id' => $user->id,
-                'tipo_documento' => $validated['tipo_documento'],
-                'modo_envio' => $validated['modo_envio'],
-                'total_arquivos' => $totalArquivos,
-                'tamanho_bytes' => $tamanhoTotal,
-            ]);
+            $dir = "xml-imports/{$importacao->id}";
+            $totalXmls = $this->extrairXmlsParaStorage($validated, $dir);
 
-            // Preparar ZIP para n8n (sempre enviamos ZIP como arquivo)
-            $tempZipPath = null;
+            $importacao->update(['status' => 'processando', 'total_xmls' => $totalXmls]);
 
-            try {
-                if ($validated['modo_envio'] === 'zip') {
-                    // Já é ZIP - salvar em arquivo temporário e contar XMLs
-                    $arquivo = $validated['arquivos'][0];
-                    $tempZipPath = tempnam(sys_get_temp_dir(), 'xml_import_') . '.zip';
-                    file_put_contents($tempZipPath, base64_decode($arquivo['conteudo_base64']));
-                    $totalXmls = $this->contarXmlsNoZip($tempZipPath);
-                } else {
-                    // XMLs avulsos - comprimir em ZIP
-                    $resultado = $this->comprimirXmlsEmZip($validated['arquivos']);
-                    $tempZipPath = $resultado['path'];
-                    $totalXmls = $resultado['total'];
-                }
-
-                $zipFileName = "importacao_{$importacao->id}.zip";
-                $zipFileSize = filesize($tempZipPath);
-
-                Log::info('XmlImportacao: enviando para n8n', [
-                    'importacao_id' => $importacao->id,
-                    'modo_envio_original' => $validated['modo_envio'],
-                    'total_xmls' => $totalXmls,
-                    'zip_size_bytes' => $zipFileSize,
-                ]);
-
-                // Enviar para n8n como multipart/form-data
-                $response = Http::timeout(120)
-                    ->withHeaders([
-                        'X-API-Token' => config('services.api.token'),
-                    ])
-                    ->attach('file', file_get_contents($tempZipPath), $zipFileName)
-                    ->post($webhookUrl, [
-                        'user_id' => $user->id,
-                        'importacao_id' => $importacao->id,
-                        'tab_id' => $validated['tab_id'],
-                        'tipo_documento' => $validated['tipo_documento'],
-                        'modo_envio' => $validated['modo_envio'],
-                        'cliente_id' => $validated['cliente_id'] ?? null,
-                        'cliente_cnpj' => $this->getClienteCnpj($validated['cliente_id'] ?? null),
-                        'salvar_movimentacoes' => $validated['salvar_movimentacoes'] ?? false,
-                        'total_xmls' => $totalXmls,
-                        'progress_url' => url('/api/importacao/xml/progress'),
-                    ]);
-
-                if ($response->successful()) {
-                    $importacao->update(['status' => 'processando']);
-
-                    Log::info('XmlImportacao: enviado para n8n com sucesso', [
-                        'importacao_id' => $importacao->id,
-                        'response_status' => $response->status(),
-                    ]);
-
-                    return response()->json([
-                        'success' => true,
-                        'importacao_id' => $importacao->id,
-                        'message' => 'Importação iniciada com sucesso.',
-                    ]);
-                } else {
-                    $importacao->update([
-                        'status' => 'erro',
-                        'erro_mensagem' => 'Erro ao enviar para processamento: ' . $response->status(),
-                    ]);
-
-                    Log::error('XmlImportacao: erro na resposta do n8n', [
-                        'importacao_id' => $importacao->id,
-                        'response_status' => $response->status(),
-                        'response_body' => $response->body(),
-                    ]);
-
-                    return response()->json([
-                        'success' => false,
-                        'error' => 'Erro ao iniciar processamento. Tente novamente.',
-                    ], Response::HTTP_BAD_GATEWAY);
-                }
-            } finally {
-                // Limpar arquivo temporário
-                if ($tempZipPath && file_exists($tempZipPath)) {
-                    @unlink($tempZipPath);
-                }
-            }
-
-        } catch (\Exception $e) {
-            Log::error('XmlImportacao: exceção ao enviar', [
-                'user_id' => $user->id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-
-            if (isset($importacao)) {
-                $importacao->update([
-                    'status' => 'erro',
-                    'erro_mensagem' => 'Erro interno: ' . $e->getMessage(),
-                ]);
-            }
+            \App\Jobs\ProcessarXmlImportacaoJob::dispatch(
+                $importacao->id, (int) $user->id, $validated['tab_id'], $ownerDoc, $dir
+            );
 
             return response()->json([
-                'success' => false,
-                'error' => 'Erro interno ao processar importação.',
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+                'success'       => true,
+                'importacao_id' => $importacao->id,
+                'message'       => 'Importação iniciada com sucesso.',
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('XmlImportacao: exceção ao iniciar', ['user_id' => $user->id, 'error' => $e->getMessage()]);
+            if (isset($importacao)) {
+                $importacao->update(['status' => 'erro', 'erro_mensagem' => 'Erro interno: '.$e->getMessage()]);
+            }
+
+            return response()->json(['success' => false, 'error' => 'Erro interno ao processar importação.'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
     /**
-     * Comprime XMLs avulsos em um único arquivo ZIP temporário.
-     *
-     * IMPORTANTE: O chamador é responsável por deletar o arquivo temporário.
-     *
-     * @param array $arquivos Array de arquivos com nome e conteudo_base64
-     * @return array ['path' => string, 'total' => int]
+     * Extrai os XMLs (avulsos ou de dentro de um ZIP) para o disco local,
+     * retornando a contagem de .xml gravados. O Job lê desse diretório.
      */
-    private function comprimirXmlsEmZip(array $arquivos): array
+    private function extrairXmlsParaStorage(array $validated, string $dir): int
     {
-        $tempZip = tempnam(sys_get_temp_dir(), 'xml_import_') . '.zip';
+        $disk = \Illuminate\Support\Facades\Storage::disk('local');
+        $count = 0;
 
-        $zip = new ZipArchive();
-        if ($zip->open($tempZip, ZipArchive::CREATE) !== true) {
-            throw new \RuntimeException('Não foi possível criar arquivo ZIP temporário');
+        if ($validated['modo_envio'] === 'zip') {
+            $tmp = tempnam(sys_get_temp_dir(), 'xmlimp_').'.zip';
+            file_put_contents($tmp, base64_decode($validated['arquivos'][0]['conteudo_base64']));
+            try {
+                $zip = new ZipArchive();
+                if ($zip->open($tmp) === true) {
+                    for ($i = 0; $i < $zip->numFiles; $i++) {
+                        $name = $zip->getNameIndex($i);
+                        if (! str_ends_with(strtolower($name), '.xml')) {
+                            continue;
+                        }
+                        $conteudo = $zip->getFromIndex($i);
+                        if ($conteudo !== false) {
+                            $disk->put($dir.'/'.$this->sanitizarNomeArquivo(basename($name)).'-'.$i.'.xml', $conteudo);
+                            $count++;
+                        }
+                    }
+                    $zip->close();
+                }
+            } finally {
+                @unlink($tmp);
+            }
+        } else {
+            foreach ($validated['arquivos'] as $idx => $arquivo) {
+                if (! str_ends_with(strtolower($arquivo['nome']), '.xml')) {
+                    continue;
+                }
+                $disk->put($dir.'/'.$this->sanitizarNomeArquivo($arquivo['nome']).'-'.$idx.'.xml', base64_decode($arquivo['conteudo_base64']));
+                $count++;
+            }
         }
 
-        foreach ($arquivos as $arquivo) {
-            $nome = $this->sanitizarNomeArquivo($arquivo['nome']);
-            $conteudo = base64_decode($arquivo['conteudo_base64']);
-            $zip->addFromString($nome, $conteudo);
-        }
-
-        $zip->close();
-
-        return [
-            'path' => $tempZip,
-            'total' => count($arquivos),
-        ];
+        return $count;
     }
 
     /**
