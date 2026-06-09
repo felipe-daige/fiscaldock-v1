@@ -2,15 +2,25 @@
 
 namespace App\Jobs;
 
+use App\Actions\MercadoPago\CobrarAutoTopUp;
+use App\Mail\RecargaAutomaticaPausada;
+use App\Models\MercadoPagoPayment;
+use App\Models\RecargaAutomatica;
+use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 /**
- * Processa um auto top-up por saldo baixo (cobrança on-demand). Lógica em handle():
- * lock + re-check + teto diário + cobrança via CobrarAutoTopUp.
+ * Processa um auto top-up por saldo baixo (cobrança on-demand).
+ *
+ * Sob lock: re-checa gatilho/status/saldo/flag/cooldown e o teto diário (defesa em
+ * profundidade contra runaway). Só então marca "em voo" e dispara a cobrança via
+ * CobrarAutoTopUp. O crédito em si vem pelo webhook `payment` (idempotente).
  */
 class ProcessarAutoTopUpJob implements ShouldQueue
 {
@@ -21,8 +31,49 @@ class ProcessarAutoTopUpJob implements ShouldQueue
 
     public function __construct(public int $userId) {}
 
-    public function handle(): void
+    public function handle(CobrarAutoTopUp $cobrar = new CobrarAutoTopUp): void
     {
-        // Implementado na Task 7.
+        $recarga = DB::transaction(function () {
+            $r = RecargaAutomatica::where('user_id', $this->userId)
+                ->where('gatilho', RecargaAutomatica::GATILHO_SALDO)
+                ->where('status', RecargaAutomatica::STATUS_ATIVA)
+                ->lockForUpdate()
+                ->first();
+
+            if ($r === null || $r->cobranca_em_andamento || $r->limite_creditos === null) {
+                return null;
+            }
+
+            $user = User::find($this->userId);
+            if ($user === null || (int) $user->credits >= (int) $r->limite_creditos) {
+                return null;
+            }
+
+            $cooldown = (int) config('services.mercadopago.auto_topup.cooldown_minutos', 5);
+            if ($r->ultima_tentativa_em && $r->ultima_tentativa_em->gt(now()->subMinutes($cooldown))) {
+                return null;
+            }
+
+            // Teto diário (defesa em profundidade contra runaway).
+            $max = (int) config('services.mercadopago.auto_topup.max_por_dia', 3);
+            $hoje = MercadoPagoPayment::where('user_id', $this->userId)
+                ->where('tipo', 'auto_topup')
+                ->where('created_at', '>=', now()->startOfDay())
+                ->count();
+            if ($hoje >= $max) {
+                $r->update(['status' => RecargaAutomatica::STATUS_INADIMPLENTE]);
+                Mail::to($user->email)->send(new RecargaAutomaticaPausada($user, 'limite diário de recargas atingido'));
+
+                return null;
+            }
+
+            $r->update(['cobranca_em_andamento' => true, 'ultima_tentativa_em' => now()]);
+
+            return $r;
+        });
+
+        if ($recarga !== null) {
+            $cobrar->execute($recarga);
+        }
     }
 }
