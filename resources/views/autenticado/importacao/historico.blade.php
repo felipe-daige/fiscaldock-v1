@@ -97,6 +97,13 @@
                                     $clienteId = $imp['cliente']['id'] ?? null;
                                     $volume = $imp['volume_label'] ?? '—';
 
+                                    $competencia = null;
+                                    if (!empty($imp['periodo_inicio'])) {
+                                        $mesesPt = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+                                        $pi = \Carbon\Carbon::parse($imp['periodo_inicio']);
+                                        $competencia = $mesesPt[$pi->month - 1] . '/' . $pi->year;
+                                    }
+
                                     $tempoProc = '—';
                                     if (!empty($imp['iniciado_em']) && !empty($imp['concluido_em'])) {
                                         $inicio = \Carbon\Carbon::parse($imp['iniciado_em']);
@@ -149,6 +156,9 @@
                                     </td>
                                     <td class="pl-4 pr-2 py-3 text-sm text-gray-700 max-w-0">
                                         <a href="{{ $href }}" data-link class="block truncate text-gray-900 hover:text-gray-600 hover:underline" title="{{ $filename }}">{{ $filename }}</a>
+                                        @if($competencia)
+                                            <span class="block text-[11px] text-gray-500 mt-0.5">{{ $competencia }}</span>
+                                        @endif
                                     </td>
                                     <td class="px-2 py-3 text-sm text-gray-700 max-w-0">
                                         @if($clienteId)
@@ -159,7 +169,7 @@
                                     </td>
                                     <td class="px-2 py-3 text-sm text-gray-700 whitespace-nowrap">{{ $dataFormatada }}</td>
                                     <td class="px-2 py-3 text-sm text-gray-700 whitespace-nowrap">{{ $tempoProc }}</td>
-                                    <td class="pl-2 pr-6 py-3 text-sm text-gray-700 whitespace-nowrap" title="{{ $volume }}">{{ $volume }}</td>
+                                    <td class="pl-2 pr-3 py-3 text-sm text-gray-700 leading-tight" title="{{ $volume }}">{{ $volume }}</td>
                                     <td class="px-1 py-3 whitespace-nowrap">
                                         <span class="inline-block max-w-full truncate px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white align-middle" style="background-color: {{ $statusBadge['hex'] }}">{{ $statusBadge['label'] }}</span>
                                     </td>
@@ -191,6 +201,13 @@
                             $clienteNome = $imp['cliente']['razao_social'] ?? 'Sem cliente';
                             $clienteId = $imp['cliente']['id'] ?? null;
                             $volume = $imp['volume_label'] ?? '—';
+
+                            $competencia = null;
+                            if (!empty($imp['periodo_inicio'])) {
+                                $mesesPt = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+                                $pi = \Carbon\Carbon::parse($imp['periodo_inicio']);
+                                $competencia = $mesesPt[$pi->month - 1] . '/' . $pi->year;
+                            }
 
                             $tempoProc = '—';
                             if (!empty($imp['iniciado_em']) && !empty($imp['concluido_em'])) {
@@ -242,6 +259,9 @@
                                 <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $statusBadge['hex'] }}">{{ $statusBadge['label'] }}</span>
                             </div>
                             <a href="{{ $href }}" data-link class="block text-sm text-gray-900 hover:text-gray-600 hover:underline">{{ $filename }}</a>
+                            @if($competencia)
+                                <span class="block text-[11px] text-gray-500 mt-0.5">{{ $competencia }}</span>
+                            @endif
                             @if($tipo === 'efd')
                                 @php $procMob = ($imp['status'] ?? '') === 'processando'; @endphp
                                 @if($procMob)
