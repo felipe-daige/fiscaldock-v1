@@ -63,13 +63,6 @@ return [
         // Secret da assinatura do webhook (gerado no painel MP ao cadastrar a notificação).
         'webhook_secret' => env('MERCADO_PAGO_WEBHOOK_SECRET'),
         'base_url' => env('MERCADO_PAGO_BASE_URL', 'https://api.mercadopago.com'),
-        // Allowlist de e-mails que podem usar o pacote de TESTE de produção (R$1).
-        // Exceção temporária pra validar o fluxo real sem pagar o mínimo operacional.
-        // CSV via MERCADO_PAGO_TESTE_EMAILS; default já inclui o e-mail do dono da conta.
-        'teste_emails' => array_values(array_filter(array_map(
-            'trim',
-            explode(',', (string) env('MERCADO_PAGO_TESTE_EMAILS', 'felipedaige@gmail.com'))
-        ))),
     ],
 
 ];

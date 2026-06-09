@@ -28,7 +28,7 @@ class CriarPagamentoMercadoPago
      */
     public function execute(User $user, string $slug, ?float $amount, array $dadosPagamento): MercadoPagoPayment
     {
-        $pacote = $this->catalog->resolveCheckoutSelection($slug, $amount, $user);
+        $pacote = $this->catalog->resolveCheckoutSelection($slug, $amount);
 
         if ($pacote === null) {
             throw new RuntimeException('Pacote de créditos inválido.');

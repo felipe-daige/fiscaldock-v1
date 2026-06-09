@@ -13,13 +13,6 @@ class PricingCatalogService
 
     public const MINIMUM_DEPOSIT = 50.00;
 
-    /**
-     * Slug do pacote de TESTE de produção (R$1 / 5 créditos). Exceção temporária,
-     * liberada só para os e-mails em config('services.mercadopago.teste_emails'),
-     * para validar o fluxo real do gateway sem pagar o mínimo operacional.
-     */
-    public const TEST_DEPOSIT_SLUG = 'teste-1real';
-
     public const FIRST_PURCHASE_LOCKED_PRODUCTS = ['compliance', 'due_diligence'];
 
     public function __construct(
@@ -179,50 +172,8 @@ class PricingCatalogService
         ];
     }
 
-    /**
-     * Pacote de TESTE de produção: R$1 = 5 créditos (1 crédito = R$ 0,20).
-     */
-    public function buildTestDeposit(): array
+    public function resolveCheckoutSelection(string $slug, mixed $amount = null): ?array
     {
-        return [
-            'slug' => self::TEST_DEPOSIT_SLUG,
-            'nome' => 'Teste de produção (R$ 1)',
-            'creditos' => (int) round(1.00 / self::CREDIT_UNIT_PRICE),
-            'preco' => 1.00,
-            'badge' => 'Teste',
-            'usage_hint' => 'Validação do fluxo real',
-            'featured' => false,
-            'descricao' => 'Pagamento mínimo para validar a integração de produção ponta a ponta.',
-            'is_custom' => false,
-            'kind' => 'teste',
-        ];
-    }
-
-    /**
-     * O usuário pode usar o pacote de teste de R$1?
-     * Liberado só para a allowlist de e-mails — nenhum cliente compra 5 créditos por R$1.
-     */
-    public function userPodeUsarTeste(?User $user): bool
-    {
-        if ($user === null) {
-            return false;
-        }
-
-        $allowlist = (array) config('services.mercadopago.teste_emails', []);
-
-        return in_array(strtolower(trim((string) $user->email)), array_map(
-            fn ($email) => strtolower(trim((string) $email)),
-            $allowlist
-        ), true);
-    }
-
-    public function resolveCheckoutSelection(string $slug, mixed $amount = null, ?User $user = null): ?array
-    {
-        if ($slug === self::TEST_DEPOSIT_SLUG) {
-            // Gate por usuário: sem User autorizado, o slug de teste simplesmente não existe.
-            return $this->userPodeUsarTeste($user) ? $this->buildTestDeposit() : null;
-        }
-
         if ($slug === 'custom') {
             $normalizedAmount = $this->normalizeAmount($amount);
 

@@ -68,10 +68,15 @@
                     <div class="flex items-center gap-2 max-w-sm mx-auto">
                         <input type="text" readonly id="ck-pix-code"
                                class="flex-1 min-w-0 px-3 py-2.5 border border-gray-300 rounded text-xs text-gray-500 bg-gray-50 font-mono truncate">
-                        <button type="button" onclick="window._ckCopyPix && window._ckCopyPix()"
-                                class="px-3 py-2.5 bg-white border border-gray-300 hover:bg-gray-50 rounded text-xs font-medium text-gray-700 transition-colors whitespace-nowrap">
-                            Copiar
-                        </button>
+                        <div class="relative">
+                            <button type="button" onclick="window._ckCopyPix && window._ckCopyPix()"
+                                    class="px-3 py-2.5 bg-white border border-gray-300 hover:bg-gray-50 rounded text-xs font-medium text-gray-700 transition-colors whitespace-nowrap">
+                                Copiar
+                            </button>
+                            <span id="ck-pix-copied"
+                                  class="pointer-events-none absolute -top-8 left-1/2 whitespace-nowrap px-2 py-1 rounded text-[11px] font-medium text-white opacity-0 transition-opacity duration-150"
+                                  style="background-color: #111827; transform: translateX(-50%);">Copiado!</span>
+                        </div>
                     </div>
                     <p class="text-[11px] text-gray-500 mt-3">Os créditos entram automaticamente após a confirmação do pagamento.</p>
                 </div>
@@ -155,6 +160,18 @@ window.initCheckout = function() {
         code.select();
         try { document.execCommand('copy'); } catch (e) {}
         if (navigator.clipboard) { navigator.clipboard.writeText(code.value).catch(function(){}); }
+
+        // Feedback visual: tooltip "Copiado!" some sozinho.
+        var tip = document.getElementById('ck-pix-copied');
+        if (tip) {
+            tip.classList.remove('opacity-0');
+            tip.classList.add('opacity-100');
+            if (window._ckCopiedTimer) clearTimeout(window._ckCopiedTimer);
+            window._ckCopiedTimer = setTimeout(function () {
+                tip.classList.add('opacity-0');
+                tip.classList.remove('opacity-100');
+            }, 1500);
+        }
     };
 
     function handleResult(d) {
@@ -278,6 +295,7 @@ window.initCheckout = function() {
         }
         window._ckBrickController = null;
         window._ckCopyPix = null;
+        if (window._ckCopiedTimer) { clearTimeout(window._ckCopiedTimer); window._ckCopiedTimer = null; }
         if (root) { root.__ckInit = false; root.__ckBooted = false; }
     };
 };
