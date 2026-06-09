@@ -104,6 +104,8 @@ Route::middleware('auth')->group(function () {
     // Recarga automática por tempo (preapproval recorrente de um pacote de créditos).
     Route::post('/app/recarga-automatica', [\App\Http\Controllers\Dashboard\RecargaController::class, 'criar'])
         ->name('app.recarga.criar');
+    Route::post('/app/recarga-automatica/saldo', [\App\Http\Controllers\Dashboard\RecargaController::class, 'criarPorSaldo'])
+        ->name('app.recarga.criar-saldo');
     Route::post('/app/recarga-automatica/cancelar', [\App\Http\Controllers\Dashboard\RecargaController::class, 'cancelar'])
         ->name('app.recarga.cancelar');
 

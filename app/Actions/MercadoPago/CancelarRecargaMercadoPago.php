@@ -21,12 +21,16 @@ class CancelarRecargaMercadoPago
             ->whereIn('status', [RecargaAutomatica::STATUS_ATIVA, RecargaAutomatica::STATUS_INADIMPLENTE])
             ->first();
 
-        if ($recarga === null || $recarga->mp_preapproval_id === null) {
+        if ($recarga === null) {
             throw new RuntimeException('Nenhuma recarga automática ativa para cancelar.');
         }
 
-        $this->client->cancelarPreapproval($recarga->mp_preapproval_id);
-        $recarga->update(['status' => RecargaAutomatica::STATUS_CANCELADA]);
+        // Por tempo: cancela o preapproval no MP. Por saldo: não há preapproval, só limpa.
+        if ($recarga->mp_preapproval_id !== null) {
+            $this->client->cancelarPreapproval($recarga->mp_preapproval_id);
+        }
+
+        $recarga->update(['status' => RecargaAutomatica::STATUS_CANCELADA, 'cobranca_em_andamento' => false]);
 
         return $recarga->fresh();
     }

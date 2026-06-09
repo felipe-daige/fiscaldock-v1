@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Dashboard;
 
 use App\Actions\MercadoPago\CancelarRecargaMercadoPago;
 use App\Actions\MercadoPago\CriarRecargaAutomatica;
+use App\Actions\MercadoPago\SalvarCartaoVault;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -35,6 +36,27 @@ class RecargaController extends Controller
             'status' => $recarga->status,
             'recarga_id' => $recarga->id,
             'mensagem' => 'Recarga automática criada. Aguardando confirmação do pagamento.',
+        ]);
+    }
+
+    public function criarPorSaldo(Request $request, SalvarCartaoVault $action): JsonResponse
+    {
+        $dados = $request->validate([
+            'pacote' => ['required', 'string'],
+            'token' => ['required', 'string'],
+            'limite_creditos' => ['required', 'integer', 'min:1'],
+        ]);
+
+        try {
+            $recarga = $action->execute(Auth::user(), $dados['token'], $dados['pacote'], (int) $dados['limite_creditos']);
+        } catch (RuntimeException $e) {
+            return response()->json(['error' => $e->getMessage()], 422);
+        }
+
+        return response()->json([
+            'status' => $recarga->status,
+            'recarga_id' => $recarga->id,
+            'mensagem' => 'Auto top-up por saldo ativado.',
         ]);
     }
 
