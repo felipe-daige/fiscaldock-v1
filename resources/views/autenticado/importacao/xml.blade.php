@@ -278,6 +278,7 @@
                         <div class="bg-gray-200 rounded h-2 overflow-hidden">
                             <div id="barra-progresso" class="bg-gray-800 h-full transition-all duration-500 ease-out" style="width: 0%"></div>
                         </div>
+                        @include('autenticado.partials.progresso-tempo', ['prefixo' => 'xml-progresso', 'dica' => 'lendo e gravando as notas — pode levar alguns instantes em lotes grandes.'])
                     </div>
 
                     {{-- Stats em tempo real --}}
@@ -632,6 +633,7 @@
     </div>
 </div>
 
+<script src="/js/progresso-automacao.js?v={{ @filemtime(public_path('js/progresso-automacao.js')) ?: time() }}"></script>
 <script>
 (function() {
     'use strict';
@@ -1305,6 +1307,16 @@
         const barraProgresso = document.getElementById('barra-progresso');
         const progressoPorcentagem = document.getElementById('progresso-porcentagem');
         const progressoMensagem = document.getElementById('progresso-mensagem');
+
+        // Cronômetro + shimmer + microcopy honestos (mesmo padrão de Consulta/Clearance/EFD).
+        // A largura da barra segue o % real; o módulo só dá a "sensação de vivo".
+        const progAuto = window.ProgressoAutomacao
+            ? window.ProgressoAutomacao.criar({
+                bar: barraProgresso,
+                tempoValor: document.getElementById('xml-progresso-tempo-valor'),
+                dica: document.getElementById('xml-progresso-dica'),
+            })
+            : { iniciar() {}, parar() {}, trabalhando() {}, destruir() {} };
         const progressoTitulo = document.getElementById('progresso-titulo');
         const progressoIcon = document.getElementById('progresso-icon');
         const progressoStats = document.getElementById('progresso-stats');
@@ -1398,6 +1410,13 @@
 
             atualizarIconeStatus(status);
 
+            // Espelha o estado no módulo de progresso (cronômetro/shimmer).
+            if (status === 'concluido' || status === 'erro' || status === 'timeout') {
+                progAuto.parar();
+            } else {
+                progAuto.trabalhando(true);
+            }
+
             if (status === 'erro' && progressoErroMsg) {
                 const criticalError = window.SystemCriticalError
                     ? window.SystemCriticalError.fromPayload(payload, {
@@ -1425,6 +1444,8 @@
         function mostrarProgresso() {
             if (progressoContainer) progressoContainer.classList.remove('hidden');
             if (uploadSection) uploadSection.classList.add('hidden');
+            progAuto.iniciar();
+            progAuto.trabalhando(true);
         }
 
         // Ocultar progresso e voltar ao upload
@@ -1432,6 +1453,7 @@
             if (progressoContainer) progressoContainer.classList.add('hidden');
             if (uploadSection) uploadSection.classList.remove('hidden');
             if (resultadoContainer) resultadoContainer.classList.add('hidden');
+            progAuto.parar();
         }
 
         // Resetar progresso
