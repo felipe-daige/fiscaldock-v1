@@ -82,6 +82,9 @@ return new class extends Migration
             $table->decimal('valor_cofins', 15, 2)->nullable();
             $table->jsonb('metadados')->nullable();
             $table->timestamps();
+
+            // Dedup do item dentro da nota — alvo do ON CONFLICT do node C170/A170/D190 do n8n.
+            $table->unique(['efd_nota_id', 'numero_item'], 'efd_notas_itens_unique');
         });
 
         // Apuração PIS/COFINS — Bloco M (EFD Contribuições)
