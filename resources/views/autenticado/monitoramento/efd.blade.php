@@ -308,6 +308,45 @@
     </div>
 </div>
 
+{{-- Modal de duplicidade de importação (padrão design system, tom âmbar = atenção/substituir) --}}
+<div id="modal-duplicidade-efd" class="hidden fixed inset-0 z-50 overflow-y-auto">
+    <div class="flex items-center justify-center min-h-screen px-4">
+        <div class="fixed inset-0 bg-black/50 transition-opacity" id="modal-duplicidade-overlay"></div>
+        <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6 z-10">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900" id="modal-duplicidade-titulo">Importação duplicada</h3>
+            </div>
+            <div class="mb-4">
+                <p class="text-sm text-gray-700 mb-3" id="modal-duplicidade-mensagem"></p>
+                <div class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-[13px]">
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-500">Importação existente</span>
+                        <span class="font-medium text-gray-900" id="modal-duplicidade-tipo"></span>
+                    </div>
+                    <div class="flex items-center justify-between mt-1">
+                        <span class="text-gray-500">Período</span>
+                        <span class="font-medium text-gray-900" id="modal-duplicidade-periodo"></span>
+                    </div>
+                    <div class="flex items-center justify-between mt-1">
+                        <span class="text-gray-500">Importada em</span>
+                        <span class="font-medium text-gray-900" id="modal-duplicidade-data"></span>
+                    </div>
+                </div>
+                <p class="hidden text-[13px] text-amber-700 font-medium mt-3" id="modal-duplicidade-aviso-retificadora">Este arquivo é uma retificadora.</p>
+            </div>
+            <div class="flex justify-end gap-3">
+                <button type="button" id="modal-duplicidade-cancelar" class="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 text-sm font-semibold shadow-sm transition hover:bg-gray-50">Cancelar</button>
+                <button type="button" id="modal-duplicidade-confirmar" class="px-4 py-2 rounded-lg text-white text-sm font-semibold shadow-sm transition" style="background-color: #d97706;" onmouseover="this.style.backgroundColor='#b45309'" onmouseout="this.style.backgroundColor='#d97706'">Substituir</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 (function () {
     'use strict';
@@ -529,6 +568,60 @@
         });
     });
 
+    // Abre o modal de duplicidade e resolve com true (substituir/reimportar) ou false (cancelar).
+    function confirmarDuplicidade(data) {
+        const modal = document.getElementById('modal-duplicidade-efd');
+        if (!modal) {
+            // Fallback defensivo: se o modal não existir, mantém o fluxo via confirm nativo.
+            return Promise.resolve(window.confirm('Já existe uma importação para este documento. Substituir a anterior?'));
+        }
+
+        const imp = data.importacao || {};
+        const identico = data.caso === 'identico';
+        const periodo = (imp.periodo_inicio || '—') + ' a ' + (imp.periodo_fim || '—');
+
+        document.getElementById('modal-duplicidade-titulo').textContent =
+            identico ? 'Arquivo já importado' : 'Período já importado';
+        document.getElementById('modal-duplicidade-mensagem').textContent = identico
+            ? 'Este arquivo idêntico já foi importado. Nada mudou no conteúdo. Você pode reimportar mesmo assim — isso substitui a importação anterior.'
+            : 'Já existe uma importação deste período. Substituir pela nova versão remove a anterior e reprocessa com este arquivo.';
+        document.getElementById('modal-duplicidade-tipo').textContent = imp.tipo_efd || '—';
+        document.getElementById('modal-duplicidade-periodo').textContent = periodo;
+        document.getElementById('modal-duplicidade-data').textContent = imp.criada_em || '—';
+
+        const avisoRetif = document.getElementById('modal-duplicidade-aviso-retificadora');
+        avisoRetif.classList.toggle('hidden', !(!identico && data.retificadora));
+
+        const btnConfirmar = document.getElementById('modal-duplicidade-confirmar');
+        btnConfirmar.textContent = identico ? 'Reimportar' : 'Substituir';
+
+        modal.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+
+        return new Promise(function (resolve) {
+            const btnCancelar = document.getElementById('modal-duplicidade-cancelar');
+            const overlay = document.getElementById('modal-duplicidade-overlay');
+
+            function fechar(resultado) {
+                modal.classList.add('hidden');
+                document.body.classList.remove('overflow-hidden');
+                btnConfirmar.removeEventListener('click', onConfirmar);
+                btnCancelar.removeEventListener('click', onCancelar);
+                overlay.removeEventListener('click', onCancelar);
+                document.removeEventListener('keydown', onKey);
+                resolve(resultado);
+            }
+            function onConfirmar() { fechar(true); }
+            function onCancelar() { fechar(false); }
+            function onKey(e) { if (e.key === 'Escape') fechar(false); }
+
+            btnConfirmar.addEventListener('click', onConfirmar);
+            btnCancelar.addEventListener('click', onCancelar);
+            overlay.addEventListener('click', onCancelar);
+            document.addEventListener('keydown', onKey);
+        });
+    }
+
     if (txtImportarBtn) {
         txtImportarBtn.addEventListener('click', async function () {
             const tipoEfd = getSelectedTipoEfd();
@@ -563,18 +656,8 @@
 
                 // Duplicidade: backend pede confirmação antes de substituir.
                 if (response.status === 409 && data.caso) {
-                    const imp = data.importacao || {};
-                    let msg;
-                    if (data.caso === 'identico') {
-                        msg = 'Este arquivo já foi importado em ' + (imp.criada_em || '—') +
-                            '. Nada mudou. Deseja reimportar mesmo assim (substitui a anterior)?';
-                    } else {
-                        const periodo = (imp.periodo_inicio || '') + ' a ' + (imp.periodo_fim || '');
-                        msg = 'Já existe uma importação ' + (imp.tipo_efd || '') + ' do período ' + periodo +
-                            (data.retificadora ? ' e este arquivo é uma retificadora.' : '.') +
-                            ' Substituir a importação anterior pela nova versão?';
-                    }
-                    if (window.confirm(msg)) {
+                    const confirmou = await confirmarDuplicidade(data);
+                    if (confirmou) {
                         return enviar(true);
                     }
                     return null; // usuário cancelou
