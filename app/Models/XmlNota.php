@@ -273,6 +273,19 @@ class XmlNota extends Model
     }
 
     /**
+     * Lado que é o DONO da nota (cliente/perspectiva): 'emit' em saída, 'dest' em entrada.
+     * O outro lado é a contraparte (participante a monitorar). null quando indeterminado.
+     */
+    public function getLadoDonoAttribute(): ?string
+    {
+        return match ($this->tipo_nota) {
+            self::TIPO_SAIDA => 'emit',
+            self::TIPO_ENTRADA => 'dest',
+            default => null,
+        };
+    }
+
+    /**
      * Descrição legível da finalidade.
      */
     public function getFinalidadeDescricaoAttribute(): string

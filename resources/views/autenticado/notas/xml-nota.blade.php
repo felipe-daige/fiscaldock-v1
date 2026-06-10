@@ -119,10 +119,24 @@
             @endif
         </div>
 
+        @php
+            // Papel de cada lado: o DONO (perspectiva) é o seu cliente; o outro é o participante (contraparte).
+            $papelBadge = function (string $lado) use ($nota) {
+                if ($nota->lado_dono === $lado) {
+                    $cli = $lado === 'emit' ? $nota->emitCliente : $nota->destCliente;
+                    return ['label' => $cli?->is_empresa_propria ? 'Empresa própria' : 'Cliente', 'hex' => '#1d4ed8'];
+                }
+                return ['label' => 'Participante', 'hex' => '#6b7280'];
+            };
+            $badgeEmit = $papelBadge('emit');
+            $badgeDest = $papelBadge('dest');
+        @endphp
+
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
             <div class="bg-white rounded border border-gray-300 overflow-hidden">
-                <div class="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                <div class="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between gap-2">
                     <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Emitente</span>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $badgeEmit['hex'] }}">{{ $badgeEmit['label'] }}</span>
                 </div>
                 <div class="p-4">
                     <div class="flex flex-wrap items-start justify-between gap-3">
@@ -163,8 +177,9 @@
             </div>
 
             <div class="bg-white rounded border border-gray-300 overflow-hidden">
-                <div class="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                <div class="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between gap-2">
                     <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Destinatario</span>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $badgeDest['hex'] }}">{{ $badgeDest['label'] }}</span>
                 </div>
                 <div class="p-4">
                     <div class="flex flex-wrap items-start justify-between gap-3">

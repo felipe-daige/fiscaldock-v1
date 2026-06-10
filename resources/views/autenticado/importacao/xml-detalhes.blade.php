@@ -244,12 +244,20 @@
                         @php
                             $ehSaida = $nota->tipo_nota === \App\Models\XmlNota::TIPO_SAIDA;
                             $tipoHex = $ehSaida ? '#d97706' : '#047857';
+                            $donoEmit = $nota->lado_dono === 'emit';
+                            $donoDest = $nota->lado_dono === 'dest';
                         @endphp
                         <tr class="hover:bg-gray-50/50 transition-colors">
                             <td class="px-3 py-3 text-sm font-mono text-gray-900 whitespace-nowrap">{{ $nota->numero_documento ?: '—' }}<span class="text-gray-400">/{{ $nota->serie ?: '0' }}</span></td>
                             <td class="px-3 py-3 text-sm text-gray-700 whitespace-nowrap">{{ $nota->data_emissao?->format('d/m/Y') ?: '—' }}</td>
-                            <td class="px-3 py-3 text-sm text-gray-900 max-w-[220px] truncate" title="{{ $nota->emit_razao_social }}">{{ $nota->emit_razao_social ?: $nota->emit_documento_formatado ?: '—' }}</td>
-                            <td class="px-3 py-3 text-sm text-gray-700 max-w-[220px] truncate" title="{{ $nota->dest_razao_social }}">{{ $nota->dest_razao_social ?: $nota->dest_documento_formatado ?: '—' }}</td>
+                            <td class="px-3 py-3 max-w-[220px]">
+                                <p class="text-sm text-gray-900 truncate" title="{{ $nota->emit_razao_social }}">{{ $nota->emit_razao_social ?: $nota->emit_documento_formatado ?: '—' }}</p>
+                                <span class="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $donoEmit ? '#1d4ed8' : '#6b7280' }}">{{ $donoEmit ? 'Cliente' : 'Participante' }}</span>
+                            </td>
+                            <td class="px-3 py-3 max-w-[220px]">
+                                <p class="text-sm text-gray-700 truncate" title="{{ $nota->dest_razao_social }}">{{ $nota->dest_razao_social ?: $nota->dest_documento_formatado ?: '—' }}</p>
+                                <span class="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $donoDest ? '#1d4ed8' : '#6b7280' }}">{{ $donoDest ? 'Cliente' : 'Participante' }}</span>
+                            </td>
                             <td class="px-3 py-3 text-sm text-gray-900 font-mono text-right whitespace-nowrap">{{ $nota->valor_formatado }}</td>
                             <td class="px-3 py-3 text-center whitespace-nowrap">
                                 <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $tipoHex }}">{{ $nota->tipo_nota_descricao }}</span>
