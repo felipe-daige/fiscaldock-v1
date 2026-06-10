@@ -115,13 +115,116 @@ class XmlImportacaoController extends Controller
             ->limit(200)
             ->get();
 
-        $data = compact('importacao', 'participantes', 'notas');
+        // Agregados para o resultado consolidado (toda a base do lote, não só as 200 exibidas).
+        [$resumoTributario, $porUf, $catalogoItens, $alertas] = $this->montarConsolidado($id, $userId);
+
+        $data = compact('importacao', 'participantes', 'notas', 'resumoTributario', 'porUf', 'catalogoItens', 'alertas');
 
         if ($this->isAjaxRequest($request)) {
             return response(view($view, $data)->render())->header('Content-Type', 'text/html');
         }
 
         return view(self::AUTH_LAYOUT_VIEW, array_merge(['initialView' => $view], $data));
+    }
+
+    /**
+     * Monta os agregados do resultado consolidado de uma importação XML:
+     * resumo tributário, distribuição por UF (contraparte), catálogo de itens e alertas.
+     *
+     * @return array{0: array<string,mixed>, 1: \Illuminate\Support\Collection, 2: \Illuminate\Support\Collection, 3: array<int,array<string,mixed>>}
+     */
+    private function montarConsolidado(int $importacaoId, int $userId): array
+    {
+        $base = fn () => XmlNota::where('importacao_xml_id', $importacaoId)->where('user_id', $userId);
+
+        $agg = $base()->selectRaw('
+            COUNT(*) as qtd,
+            COALESCE(SUM(valor_total),0) as valor_total,
+            COALESCE(SUM(valor_desconto),0) as desconto,
+            COALESCE(SUM(icms_valor),0) as icms,
+            COALESCE(SUM(icms_st_valor),0) as icms_st,
+            COALESCE(SUM(pis_valor),0) as pis,
+            COALESCE(SUM(cofins_valor),0) as cofins,
+            COALESCE(SUM(ipi_valor),0) as ipi,
+            COALESCE(SUM(tributos_total),0) as tributos,
+            COALESCE(SUM(CASE WHEN tipo_nota = 0 THEN 1 ELSE 0 END),0) as entradas,
+            COALESCE(SUM(CASE WHEN tipo_nota = 1 THEN 1 ELSE 0 END),0) as saidas,
+            COALESCE(SUM(CASE WHEN finalidade = 4 THEN 1 ELSE 0 END),0) as devolucoes,
+            COALESCE(SUM(CASE WHEN tipo_nota = 0 THEN valor_total ELSE 0 END),0) as valor_entradas,
+            COALESCE(SUM(CASE WHEN tipo_nota = 1 THEN valor_total ELSE 0 END),0) as valor_saidas
+        ')->first();
+
+        $qtd = (int) ($agg->qtd ?? 0);
+        $resumoTributario = [
+            'qtd' => $qtd,
+            'valor_total' => (float) $agg->valor_total,
+            'desconto' => (float) $agg->desconto,
+            'icms' => (float) $agg->icms,
+            'icms_st' => (float) $agg->icms_st,
+            'pis' => (float) $agg->pis,
+            'cofins' => (float) $agg->cofins,
+            'ipi' => (float) $agg->ipi,
+            'tributos' => (float) $agg->tributos,
+            'entradas' => (int) $agg->entradas,
+            'saidas' => (int) $agg->saidas,
+            'devolucoes' => (int) $agg->devolucoes,
+            'valor_entradas' => (float) $agg->valor_entradas,
+            'valor_saidas' => (float) $agg->valor_saidas,
+            'ticket_medio' => $qtd > 0 ? ((float) $agg->valor_total) / $qtd : 0.0,
+        ];
+
+        // UF da contraparte: em saída o cliente é o dest; em entrada o fornecedor é o emit.
+        $porUf = $base()
+            ->selectRaw('CASE WHEN tipo_nota = 1 THEN dest_uf ELSE emit_uf END as uf, COUNT(*) as qtd, COALESCE(SUM(valor_total),0) as valor')
+            ->groupByRaw('CASE WHEN tipo_nota = 1 THEN dest_uf ELSE emit_uf END')
+            ->orderByDesc('valor')
+            ->limit(10)
+            ->get()
+            ->filter(fn ($r) => ! empty($r->uf))
+            ->values();
+
+        $catalogoItens = \App\Models\XmlNotaItem::query()
+            ->join('xml_notas', 'xml_notas.id', '=', 'xml_notas_itens.xml_nota_id')
+            ->where('xml_notas.importacao_xml_id', $importacaoId)
+            ->where('xml_notas_itens.user_id', $userId)
+            ->selectRaw('
+                xml_notas_itens.codigo_item,
+                MAX(xml_notas_itens.descricao) as descricao,
+                MAX(xml_notas_itens.ncm) as ncm,
+                MAX(xml_notas_itens.cfop) as cfop,
+                COUNT(*) as ocorrencias,
+                COALESCE(SUM(xml_notas_itens.quantidade),0) as quantidade,
+                COALESCE(SUM(xml_notas_itens.valor_total),0) as valor_total
+            ')
+            ->groupBy('xml_notas_itens.codigo_item')
+            ->orderByDesc('valor_total')
+            ->limit(100)
+            ->get();
+
+        // Alertas NF-e (leves, derivados do acervo deste lote).
+        $alertas = [];
+        $itensSemNcm = \App\Models\XmlNotaItem::query()
+            ->join('xml_notas', 'xml_notas.id', '=', 'xml_notas_itens.xml_nota_id')
+            ->where('xml_notas.importacao_xml_id', $importacaoId)
+            ->where('xml_notas_itens.user_id', $userId)
+            ->where(fn ($q) => $q->whereNull('xml_notas_itens.ncm')->orWhere('xml_notas_itens.ncm', ''))
+            ->count();
+        if ($itensSemNcm > 0) {
+            $alertas[] = ['sev' => 'alerta', 'titulo' => 'Itens sem NCM', 'detalhe' => "{$itensSemNcm} item(ns) sem código NCM — pode comprometer classificação fiscal e catálogo."];
+        }
+        $notasValorZero = $base()->where('valor_total', '<=', 0)->count();
+        if ($notasValorZero > 0) {
+            $alertas[] = ['sev' => 'alerta', 'titulo' => 'Notas com valor zero', 'detalhe' => "{$notasValorZero} nota(s) com valor total igual a zero."];
+        }
+        if ($resumoTributario['devolucoes'] > 0) {
+            $alertas[] = ['sev' => 'info', 'titulo' => 'Devoluções no lote', 'detalhe' => "{$resumoTributario['devolucoes']} nota(s) de devolução (finalidade 4) — confira o impacto no faturamento."];
+        }
+        $semParticipante = $base()->whereNull('emit_participante_id')->whereNull('dest_participante_id')->count();
+        if ($semParticipante > 0) {
+            $alertas[] = ['sev' => 'alerta', 'titulo' => 'Notas sem participante', 'detalhe' => "{$semParticipante} nota(s) sem emitente nem destinatário vinculado a um participante cadastrado."];
+        }
+
+        return [$resumoTributario, $porUf, $catalogoItens, $alertas];
     }
 
     /**

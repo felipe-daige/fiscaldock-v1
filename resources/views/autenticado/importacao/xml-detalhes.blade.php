@@ -145,6 +145,9 @@
         @endif
 
         @if(! $emProcessamento)
+        @php $notasColl = $notas ?? collect(); @endphp
+        @include('autenticado.importacao.xml-detalhes._sticky-nav')
+
         {{-- Indicadores --}}
         @php
             $valorTotal = $importacao->valor_total ?? 0;
@@ -211,8 +214,10 @@
         </div>
         @endif
 
+        @include('autenticado.importacao.xml-detalhes._resumo-tributario')
+
         {{-- Notas Fiscais importadas neste lote --}}
-        <div class="bg-white rounded border border-gray-300 mb-4 overflow-hidden">
+        <div class="bg-white rounded border border-gray-300 mb-4 overflow-hidden" id="notas-section">
             <div class="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between gap-3">
                 <div class="flex items-center gap-2">
                     <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Notas Fiscais Importadas</span>
@@ -270,6 +275,8 @@
             @endif
         </div>
 
+        @include('autenticado.importacao.xml-detalhes._catalogo')
+
         {{-- Card Cliente --}}
         <div class="bg-white rounded border border-gray-300 mb-4">
             <div class="bg-gray-50 px-4 py-2 border-b border-gray-200">
@@ -315,7 +322,7 @@
         </div>
 
         {{-- Participantes --}}
-        <div class="bg-white rounded border border-gray-300">
+        <div class="bg-white rounded border border-gray-300" id="participantes-section">
             <div class="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between gap-4 flex-wrap">
                 <div class="flex items-center gap-2">
                     <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Participantes</span>
@@ -459,6 +466,8 @@
             </div>
             @endif
         </div>
+
+        @include('autenticado.importacao.xml-detalhes._alertas')
         @endif
 
     </div>
@@ -486,6 +495,59 @@
     document.querySelectorAll('[data-href]').forEach(function (row) {
         row.addEventListener('click', function () { navigateToHref(this); });
     });
+
+    // Sticky-nav scrollspy (paridade com o resultado do EFD): destaca a seção ativa,
+    // faz scroll suave ao clicar e revela o "Voltar" flutuante ao rolar.
+    (function initScrollSpy() {
+        var nav = document.getElementById('xml-sticky-nav');
+        if (!nav) return;
+        var links = Array.prototype.slice.call(nav.querySelectorAll('.xml-nav-link'));
+        var sections = links.map(function (link) {
+            var id = link.getAttribute('href');
+            var el = id && id.charAt(0) === '#' ? document.getElementById(id.substring(1)) : null;
+            if (el) {
+                link.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    var top = el.getBoundingClientRect().top + window.pageYOffset - 90;
+                    window.scrollTo({ top: top, behavior: 'smooth' });
+                });
+            }
+            return { link: link, el: el };
+        }).filter(function (s) { return s.el; });
+
+        var btnVoltar = document.getElementById('xml-btn-voltar-sticky');
+
+        function onScroll() {
+            var y = window.scrollY + 110;
+            var active = null;
+            for (var i = sections.length - 1; i >= 0; i--) {
+                if (sections[i].el.offsetTop <= y) { active = sections[i].link; break; }
+            }
+            links.forEach(function (l) {
+                l.classList.remove('bg-gray-800', 'text-white');
+                l.classList.add('text-gray-600');
+            });
+            if (active) { active.classList.add('bg-gray-800', 'text-white'); active.classList.remove('text-gray-600'); }
+            if (btnVoltar) {
+                var revelar = window.scrollY > 200;
+                btnVoltar.classList.toggle('opacity-0', !revelar);
+                btnVoltar.classList.toggle('pointer-events-none', !revelar);
+                btnVoltar.classList.toggle('translate-x-4', !revelar);
+                btnVoltar.classList.toggle('opacity-100', revelar);
+                btnVoltar.classList.toggle('translate-x-0', revelar);
+            }
+        }
+
+        if (window._cleanupFunctions && window._cleanupFunctions.xmlDetalhesScroll) {
+            window._cleanupFunctions.xmlDetalhesScroll();
+        }
+        window.addEventListener('scroll', onScroll, { passive: true });
+        onScroll();
+        window._cleanupFunctions = window._cleanupFunctions || {};
+        window._cleanupFunctions.xmlDetalhesScroll = function () {
+            window.removeEventListener('scroll', onScroll);
+        };
+    })();
 
     // Client-side search filter
     var input = document.getElementById('busca-participantes-xml');
