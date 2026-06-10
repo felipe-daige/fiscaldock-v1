@@ -22,7 +22,7 @@ function payloadImportar(int $clienteId): array
     ];
 }
 
-it('importa sem cliente_id em modo auto (ownerDoc vazio)', function () {
+it('exige cliente_id (escolha do cliente é obrigatória no upload)', function () {
     Bus::fake();
     Storage::fake('local');
     $user = User::factory()->create();
@@ -30,9 +30,9 @@ it('importa sem cliente_id em modo auto (ownerDoc vazio)', function () {
     unset($payload['cliente_id']);
 
     $this->actingAs($user)->postJson('/app/importacao/xml/importar', $payload)
-        ->assertOk()->assertJson(['success' => true]);
+        ->assertStatus(422)->assertJsonValidationErrorFor('cliente_id');
 
-    Bus::assertDispatched(ProcessarXmlImportacaoJob::class, fn ($job) => $job->ownerDoc === '');
+    Bus::assertNotDispatched(ProcessarXmlImportacaoJob::class);
 });
 
 it('despacha o Job e persiste os XMLs no storage', function () {

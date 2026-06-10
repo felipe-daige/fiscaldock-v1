@@ -350,7 +350,7 @@ class XmlImportacaoController extends Controller
         $validated = $request->validate([
             'tipo_documento' => 'required|in:NFE',
             'modo_envio' => 'required|in:zip,xml',
-            'cliente_id' => ['nullable', 'integer', \Illuminate\Validation\Rule::exists('clientes', 'id')->where('user_id', $user->id)],
+            'cliente_id' => ['required', 'integer', \Illuminate\Validation\Rule::exists('clientes', 'id')->where('user_id', $user->id)],
             'tab_id' => 'required|string|max:36',
             'arquivos' => 'required|array|min:1|max:100',
             'arquivos.*.nome' => 'required|string|max:255',
@@ -366,11 +366,12 @@ class XmlImportacaoController extends Controller
             return response()->json(['success' => false, 'error' => 'Tamanho total excede 200MB.'], Response::HTTP_BAD_REQUEST);
         }
 
-        // Dono FORÇADO (override manual). Sem cliente = modo AUTO: o Job/importer
-        // infere a perspectiva por nota pelo cliente cadastrado que casar.
-        $clienteId = $validated['cliente_id'] ?? null;
-        $ownerDoc = $clienteId ? (string) $this->getClienteCnpj($clienteId) : '';
-        if ($clienteId && $ownerDoc === '') {
+        // Cliente é obrigatório (dono/perspectiva escolhido no upload) → vira o ownerDoc
+        // forçado e o importacao.cliente_id, que o histórico exibe. A classificação
+        // entrada/saída do importer (resolverDono) continua intacta — só sempre forçada.
+        $clienteId = $validated['cliente_id'];
+        $ownerDoc = (string) $this->getClienteCnpj($clienteId);
+        if ($ownerDoc === '') {
             return response()->json(['success' => false, 'error' => 'Cliente selecionado sem documento cadastrado.'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 

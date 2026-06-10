@@ -33,14 +33,14 @@
                         </div>
                         <div class="p-4 sm:p-5">
                             <div class="mb-4">
-                                <label for="xml-cliente" class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Dono das notas (perspectiva)</label>
-                                <select id="xml-cliente" class="text-[13px] py-2.5 px-3 border border-gray-300 rounded w-full bg-white">
-                                    <option value="" selected>Detectar automaticamente</option>
+                                <label for="xml-cliente" class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Cliente (dono das notas) <span style="color: #dc2626">*</span></label>
+                                <select id="xml-cliente" required class="text-[13px] py-2.5 px-3 border border-gray-300 rounded w-full bg-white">
+                                    <option value="" disabled selected>Selecione o cliente…</option>
                                     @foreach (($clientes ?? collect()) as $c)
                                         <option value="{{ $c->id }}">{{ $c->razao_social }}{{ $c->is_empresa_propria ? ' (própria)' : '' }}</option>
                                     @endforeach
                                 </select>
-                                <p class="text-[11px] text-gray-400 mt-1">No automático, cada nota é classificada pelo cliente cadastrado que casar (empresa própria tem prioridade). Selecione um cliente para forçar a perspectiva.</p>
+                                <p class="text-[11px] text-gray-400 mt-1">Escolha de quem são estas notas — define a perspectiva (entrada/saída) e passa a aparecer no histórico. <a href="/app/clientes" data-link class="text-gray-600 hover:text-gray-900 underline">Cadastrar novo cliente</a>.</p>
                             </div>
                             <div class="mb-4">
                                 <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Tipo de Documento</label>
@@ -892,6 +892,7 @@
                 return;
             }
 
+            const hasCliente = (document.getElementById('xml-cliente')?.value || '') !== '';
             const hasTipoDoc = getSelectedTipoDoc() !== '';
             const hasModoEnvio = getSelectedModoEnvio() !== '';
             const hasFiles = selectedFiles.length > 0;
@@ -899,8 +900,8 @@
             const isValidating = selectedFiles.some(f => f.status === 'validating');
 
             if (importarBtn) {
-                // Disable if: no tipo doc, no modo envio, no files, still validating, or no valid files
-                importarBtn.disabled = !(hasTipoDoc && hasModoEnvio && hasFiles && validFiles > 0 && !isValidating);
+                // Disable se: sem cliente, sem tipo doc, sem modo envio, sem arquivos, validando ou sem válidos
+                importarBtn.disabled = !(hasCliente && hasTipoDoc && hasModoEnvio && hasFiles && validFiles > 0 && !isValidating);
                 const btnText = importarBtn.querySelector('.btn-text');
                 if (btnText) {
                     if (isValidating) {
@@ -1249,6 +1250,12 @@
                 updateImportButtonState();
             });
         });
+
+        // Cliente obrigatório: reavalia o botão ao escolher
+        const xmlClienteSelect = document.getElementById('xml-cliente');
+        if (xmlClienteSelect) {
+            xmlClienteSelect.addEventListener('change', updateImportButtonState);
+        }
 
         // Dropzone click
         if (dropzone && fileInput) {
