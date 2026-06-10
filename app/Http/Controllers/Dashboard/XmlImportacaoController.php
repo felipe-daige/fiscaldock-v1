@@ -316,11 +316,19 @@ class XmlImportacaoController extends Controller
             return response()->json(['success' => false, 'error' => 'Cliente selecionado sem documento cadastrado.'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        // Nome do arquivo enviado (padrão EFD): ZIP/XML único = o próprio nome; vários
+        // avulsos = primeiro nome + sufixo de contagem.
+        $nomes = array_column($validated['arquivos'], 'nome');
+        $filename = count($nomes) === 1
+            ? $nomes[0]
+            : $nomes[0].' (+'.(count($nomes) - 1).')';
+
         try {
             $importacao = XmlImportacao::create([
                 'user_id' => $user->id,
                 'cliente_id' => $clienteId,
                 'tipo_documento' => 'NFE',
+                'filename' => $filename,
                 'modo_envio' => $validated['modo_envio'],
                 'total_arquivos' => count($validated['arquivos']),
                 'tamanho_total_bytes' => $tamanhoTotal,

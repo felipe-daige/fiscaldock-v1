@@ -227,7 +227,7 @@
                                             <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $recentTipoBadge['hex'] }}">{{ $recentTipoBadge['label'] }}</span>
                                             <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $recentStatus['hex'] }}">{{ $recentStatus['label'] }}</span>
                                         </div>
-                                        <p class="text-sm text-gray-900 mt-2 truncate">{{ $recentImp->arquivo ?? ('Importação #' . $recentImp->id) }}</p>
+                                        <p class="text-sm text-gray-900 mt-2 truncate">{{ $recentImp->filename ?? ('Importação #' . $recentImp->id) }}</p>
                                         <p class="text-[11px] text-gray-500 mt-1">
                                             {{ optional($recentImp->created_at)->format('d/m/Y H:i') }}
                                             @if(!empty($recentImp->total_xmls))

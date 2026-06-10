@@ -15,6 +15,7 @@ class XmlImportacao extends Model
         'user_id',
         'cliente_id',
         'tipo_documento',
+        'filename',
         'modo_envio',
         'total_arquivos',
         'total_xmls',

@@ -89,6 +89,36 @@ it('segue o fluxo normal num lote com vários XMLs distintos', function () {
     Bus::assertDispatched(ProcessarXmlImportacaoJob::class);
 });
 
+it('grava o filename do arquivo enviado (1 arquivo = o próprio nome)', function () {
+    Bus::fake();
+    Storage::fake('local');
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->postJson('/app/importacao/xml/importar', payloadXmlAvulso([
+        arquivoBase64('50240197551165000193550010000248021000214750-nfe.xml', 'NFe-janeiro.xml'),
+    ]))->assertOk();
+
+    expect(XmlImportacao::where('user_id', $user->id)->firstOrFail()->filename)
+        ->toBe('NFe-janeiro.xml');
+});
+
+it('grava o filename com sufixo de contagem em lote de vários arquivos', function () {
+    Bus::fake();
+    Storage::fake('local');
+    $user = User::factory()->create();
+
+    $fixtures = collect(glob(base_path('tests/Fixtures/nfe/*-nfe.xml')))
+        ->take(2)->map(fn ($p) => basename($p))->values();
+
+    $this->actingAs($user)->postJson('/app/importacao/xml/importar', payloadXmlAvulso([
+        arquivoBase64($fixtures[0], 'a.xml'),
+        arquivoBase64($fixtures[1], 'b.xml'),
+    ]))->assertOk();
+
+    expect(XmlImportacao::where('user_id', $user->id)->firstOrFail()->filename)
+        ->toBe('a.xml (+1)');
+});
+
 it('segue o fluxo normal quando o XML único ainda não está no acervo', function () {
     Bus::fake();
     Storage::fake('local');

@@ -16,6 +16,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->foreignId('cliente_id')->nullable()->constrained('clientes')->nullOnDelete();
             $table->string('tipo_documento', 10); // NFE, NFSE, CTE
+            $table->string('filename')->nullable(); // nome do arquivo enviado (padrão EFD)
             $table->string('modo_envio', 10)->default('xml'); // zip, xml
             $table->integer('total_arquivos')->default(0);
             $table->integer('total_xmls')->default(0);
