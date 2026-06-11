@@ -8,6 +8,7 @@ use App\Models\XmlNota;
 use App\Services\Xml\DefinirClienteXmlService;
 use App\Services\Xml\NfeXmlParser;
 use App\Services\Xml\XmlNotaImporter;
+use Tests\Fixtures\NfeFixtureMint;
 
 uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
 
@@ -264,4 +265,23 @@ it('após reclassificar, participante_ids da importação contém só a contrapa
     $imp->refresh();
     expect($imp->participante_ids)->toContain($destProvisorio);
     expect($imp->participante_ids)->not->toContain($emitProvisorio);
+});
+
+it('clientesResolvidos conta donos distintos das notas do lote', function () {
+    $user = User::factory()->create();
+    // 2 clientes cadastrados (cada um emitente de 1 nota → 2 donos) + 1 nota sem dono.
+    Cliente::create(['user_id' => $user->id, 'documento' => '11111111000191', 'tipo_pessoa' => 'PJ', 'razao_social' => 'A', 'ativo' => true, 'is_empresa_propria' => false]);
+    Cliente::create(['user_id' => $user->id, 'documento' => '33333333000191', 'tipo_pessoa' => 'PJ', 'razao_social' => 'B', 'ativo' => true, 'is_empresa_propria' => false]);
+
+    $imp = XmlImportacao::create(['user_id' => $user->id, 'tipo_documento' => 'NFE', 'modo_envio' => 'xml', 'status' => 'concluido', 'iniciado_em' => now()]);
+    foreach ([
+        ['11111111000191', '22222222000191', '1'], // dono = cliente A
+        ['33333333000191', '44444444000191', '2'], // dono = cliente B
+        ['55555555000191', '66666666000191', '3'], // nenhum lado cadastrado → sem dono (cliente_id null)
+    ] as [$emit, $dest, $n]) {
+        $xml = NfeFixtureMint::make($emit, $dest, str_pad($n, 44, '0'));
+        app(XmlNotaImporter::class)->importar(app(NfeXmlParser::class)->parse($xml), '', $imp);
+    }
+
+    expect($imp->clientesResolvidos())->toBe(2); // a nota sem dono (null) não conta
 });

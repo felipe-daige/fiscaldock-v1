@@ -93,8 +93,10 @@
                                     $id = $imp['id'];
                                     $dataFormatada = isset($imp['created_at']) ? \Carbon\Carbon::parse($imp['created_at'])->format('d/m/Y H:i') : '—';
                                     $filename = $imp['filename'] ?? $imp['arquivo'] ?? ('Importação #' . $id);
-                                    $clienteNome = $imp['cliente']['razao_social'] ?? 'Sem cliente';
                                     $clienteId = $imp['cliente']['id'] ?? null;
+                                    $clientesN = (int) ($imp['clientes_resolvidos'] ?? 0);
+                                    $clienteNome = $imp['cliente']['razao_social']
+                                        ?? ($clientesN > 1 ? "Vários ({$clientesN} clientes)" : 'Sem cliente');
                                     $volume = $imp['volume_label'] ?? '—';
 
                                     $competencia = null;
@@ -205,8 +207,10 @@
                             $id = $imp['id'];
                             $dataFormatada = isset($imp['created_at']) ? \Carbon\Carbon::parse($imp['created_at'])->format('d/m/Y H:i') : '—';
                             $filename = $imp['filename'] ?? $imp['arquivo'] ?? ('Importação #' . $id);
-                            $clienteNome = $imp['cliente']['razao_social'] ?? 'Sem cliente';
                             $clienteId = $imp['cliente']['id'] ?? null;
+                            $clientesN = (int) ($imp['clientes_resolvidos'] ?? 0);
+                            $clienteNome = $imp['cliente']['razao_social']
+                                ?? ($clientesN > 1 ? "Vários ({$clientesN} clientes)" : 'Sem cliente');
                             $volume = $imp['volume_label'] ?? '—';
 
                             $competencia = null;

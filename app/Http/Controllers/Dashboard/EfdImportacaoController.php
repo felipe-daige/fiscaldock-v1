@@ -232,6 +232,7 @@ class EfdImportacaoController extends Controller
                 return array_merge($importacao->toArray(), [
                     '_tipo' => 'xml',
                     'volume_label' => $totalXmls.' XML'.($totalXmls !== 1 ? 's' : ''),
+                    'clientes_resolvidos' => $importacao->cliente_id ? 1 : $importacao->clientesResolvidos(),
                 ]);
             });
 

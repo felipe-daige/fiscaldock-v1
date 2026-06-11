@@ -210,4 +210,16 @@ class XmlImportacao extends Model
     {
         return $this->publicErrorUi($context)['message'] ?? '';
     }
+
+    /**
+     * Nº de clientes-DONO distintos resolvidos nas notas deste lote (por-nota).
+     * Usado pra exibir "Vários (N clientes)" quando o header não tem FK única.
+     */
+    public function clientesResolvidos(): int
+    {
+        return (int) XmlNota::where('importacao_xml_id', $this->id)
+            ->whereNotNull('cliente_id')
+            ->distinct()
+            ->count('cliente_id');
+    }
 }
