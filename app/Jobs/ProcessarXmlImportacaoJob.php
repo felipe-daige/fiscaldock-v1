@@ -96,14 +96,7 @@ class ProcessarXmlImportacaoJob implements ShouldQueue
         // Header só recebe FK quando o lote está TODO resolvido para 1 único dono; se há mais
         // de um dono OU ainda resta nota sem dono, fica null (= "Vários (N)" / pendente de grupo).
         if (! $clienteImportacao) {
-            $temSemDono = XmlNota::where('importacao_xml_id', $imp->id)->whereNull('cliente_id')->exists();
-            $donosDistintos = XmlNota::where('importacao_xml_id', $imp->id)
-                ->whereNotNull('cliente_id')
-                ->distinct()
-                ->pluck('cliente_id');
-            $clienteImportacao = (! $temSemDono && $donosDistintos->count() === 1)
-                ? (int) $donosDistintos->first()
-                : null;
+            $clienteImportacao = $imp->resolverHeaderClienteId();
         }
 
         $imp->update([

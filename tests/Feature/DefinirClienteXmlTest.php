@@ -396,6 +396,8 @@ it('executePorDocumento é idempotente (rodar 2x não duplica nem troca)', funct
 
     $svc = app(DefinirClienteXmlService::class);
     $svc->executePorDocumento($imp, '11111111000191', 'emit');
+    $clienteA = Cliente::where('user_id', $user->id)->where('documento', '11111111000191')->first();
+    expect($imp->refresh()->cliente_id)->toBe($clienteA->id); // lote 1-nota totalmente resolvido → header setado
     $partCount = Participante::where('user_id', $user->id)->count();
 
     $res2 = $svc->executePorDocumento($imp, '11111111000191', 'emit');

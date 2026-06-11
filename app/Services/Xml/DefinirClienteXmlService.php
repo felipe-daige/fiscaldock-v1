@@ -139,6 +139,9 @@ class DefinirClienteXmlService
     public function executePorDocumento(XmlImportacao $imp, string $documento, string $lado): array
     {
         $documento = preg_replace('/\D/', '', (string) $documento);
+        if ($documento === '') {
+            return ['participantes_removidos' => 0, 'notas' => 0, 'cliente_id' => null];
+        }
         $tipoNota = $lado === 'emit' ? XmlNota::TIPO_SAIDA : XmlNota::TIPO_ENTRADA;
         $docCol = $lado === 'emit' ? 'emit_documento' : 'dest_documento';
         $razaoCol = $lado === 'emit' ? 'emit_razao_social' : 'dest_razao_social';
@@ -199,14 +202,8 @@ class DefinirClienteXmlService
                 ]);
             }
 
-            // Header: seta só quando o lote está TODO resolvido para 1 único dono.
-            // Enquanto restar nota sem dono OU houver >1 dono, fica null ("Vários"/pendente).
-            $temSemDono = XmlNota::where('importacao_xml_id', $imp->id)->whereNull('cliente_id')->exists();
-            $donosDistintos = XmlNota::where('importacao_xml_id', $imp->id)
-                ->whereNotNull('cliente_id')->distinct()->pluck('cliente_id');
-            $imp->cliente_id = (! $temSemDono && $donosDistintos->count() === 1)
-                ? (int) $donosDistintos->first()
-                : null;
+            // Header: dono único só quando o lote está TODO resolvido (regra no model).
+            $imp->cliente_id = $imp->resolverHeaderClienteId();
 
             $imp->participante_ids = XmlNota::where('importacao_xml_id', $imp->id)
                 ->get(['emit_participante_id', 'dest_participante_id'])

@@ -222,4 +222,16 @@ class XmlImportacao extends Model
             ->distinct()
             ->count('cliente_id');
     }
+
+    /**
+     * Cliente-dono único do lote, ou null. Header recebe FK só quando o lote está
+     * TODO resolvido para exatamente 1 dono; >1 dono ou nota sem dono → null ("Vários").
+     */
+    public function resolverHeaderClienteId(): ?int
+    {
+        $temSemDono = XmlNota::where('importacao_xml_id', $this->id)->whereNull('cliente_id')->exists();
+        $donos = XmlNota::where('importacao_xml_id', $this->id)->whereNotNull('cliente_id')->distinct()->pluck('cliente_id');
+
+        return (! $temSemDono && $donos->count() === 1) ? (int) $donos->first() : null;
+    }
 }
