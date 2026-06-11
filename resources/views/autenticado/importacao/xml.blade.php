@@ -58,6 +58,10 @@
                                             </label>
                                         </div>
                                     </div>
+                                    <label class="flex items-start gap-2 cursor-pointer mt-2">
+                                        <input type="checkbox" id="xml-decidir-depois" class="mt-0.5">
+                                        <span class="text-[11px] text-gray-600"><strong>Decidir depois</strong> — importar sem definir o cliente e escolher no resultado, vendo nome/razão/CNPJ de cada lado.</span>
+                                    </label>
                                 </div>
                             </div>
                             <div class="mb-4">
@@ -910,10 +914,11 @@
                 return;
             }
 
+            const decidirDepois = document.getElementById('xml-decidir-depois')?.checked;
             const criarCliente = document.getElementById('xml-criar-cliente')?.checked;
             const ladoEscolhido = !!document.querySelector('input[name="xml-cliente-lado"]:checked');
             const clienteSelecionado = (document.getElementById('xml-cliente')?.value || '') !== '';
-            const hasCliente = criarCliente ? ladoEscolhido : clienteSelecionado;
+            const hasCliente = decidirDepois ? true : (criarCliente ? ladoEscolhido : clienteSelecionado);
             const hasTipoDoc = getSelectedTipoDoc() !== '';
             const hasModoEnvio = getSelectedModoEnvio() !== '';
             const hasFiles = selectedFiles.length > 0;
@@ -1278,21 +1283,35 @@
             xmlClienteSelect.addEventListener('change', updateImportButtonState);
         }
 
-        // Criar cliente automaticamente (pelo lado): alterna o seletor x a escolha do lado
+        // Modos de cliente: seletor (existente) x criar automaticamente (lado) x decidir depois.
         const criarClienteChk = document.getElementById('xml-criar-cliente');
         const criarClienteLado = document.getElementById('xml-criar-cliente-lado');
+        const decidirDepoisChk = document.getElementById('xml-decidir-depois');
+
+        function sincronizarModoCliente() {
+            const criar = criarClienteChk?.checked;
+            const depois = decidirDepoisChk?.checked;
+            if (criarClienteLado) criarClienteLado.classList.toggle('hidden', !criar);
+            if (xmlClienteSelect) {
+                xmlClienteSelect.disabled = !!(criar || depois);
+                if (criar || depois) xmlClienteSelect.value = '';
+            }
+            if (!criar) {
+                document.querySelectorAll('input[name="xml-cliente-lado"]').forEach(r => { r.checked = false; });
+            }
+            updateImportButtonState();
+        }
+
         if (criarClienteChk) {
             criarClienteChk.addEventListener('change', function() {
-                const on = criarClienteChk.checked;
-                if (criarClienteLado) criarClienteLado.classList.toggle('hidden', !on);
-                if (xmlClienteSelect) {
-                    xmlClienteSelect.disabled = on;
-                    if (on) xmlClienteSelect.value = '';
-                }
-                if (!on) {
-                    document.querySelectorAll('input[name="xml-cliente-lado"]').forEach(r => { r.checked = false; });
-                }
-                updateImportButtonState();
+                if (criarClienteChk.checked && decidirDepoisChk) decidirDepoisChk.checked = false;
+                sincronizarModoCliente();
+            });
+        }
+        if (decidirDepoisChk) {
+            decidirDepoisChk.addEventListener('change', function() {
+                if (decidirDepoisChk.checked && criarClienteChk) criarClienteChk.checked = false;
+                sincronizarModoCliente();
             });
         }
         document.querySelectorAll('input[name="xml-cliente-lado"]').forEach(r => {
@@ -2328,10 +2347,13 @@
                         salvar_movimentacoes: false,
                         arquivos: arquivos
                     };
-                    // Cliente: existente (cliente_id) OU criar pelo lado escolhido (criar_cliente_lado).
+                    // Cliente: existente (cliente_id) | criar pelo lado (criar_cliente_lado) | decidir depois.
+                    const decidirDepoisAuto = document.getElementById('xml-decidir-depois')?.checked;
                     const criarClienteAuto = document.getElementById('xml-criar-cliente')?.checked;
                     const ladoAuto = document.querySelector('input[name="xml-cliente-lado"]:checked');
-                    if (criarClienteAuto && ladoAuto) {
+                    if (decidirDepoisAuto) {
+                        payload.decidir_depois = 1;
+                    } else if (criarClienteAuto && ladoAuto) {
                         payload.criar_cliente_lado = ladoAuto.value;
                     } else {
                         payload.cliente_id = clienteId;

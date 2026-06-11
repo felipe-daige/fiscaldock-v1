@@ -157,6 +157,74 @@
         @php $notasColl = $notas ?? collect(); @endphp
         @include('autenticado.importacao.xml-detalhes._sticky-nav')
 
+        {{-- Decidir depois: escolher qual lado é o cliente, vendo os dados de cada parte --}}
+        @if($definirClienteCandidatos ?? null)
+        @php
+            $fmtDoc = fn ($d) => $d && strlen($d) === 14
+                ? preg_replace('/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/', '$1.$2.$3/$4-$5', $d)
+                : ($d ?: '—');
+        @endphp
+        <div class="bg-white rounded border border-gray-300 border-l-4 mb-4 overflow-hidden" id="definir-cliente-card" data-importacao-id="{{ $importacao->id }}" style="border-left-color: #1d4ed8">
+            <div class="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Defina o cliente deste lote</span>
+            </div>
+            <div class="p-4">
+                <p class="text-sm text-gray-700 mb-3">Esta importação foi feita sem definir o cliente. Confirme qual lado é o cliente — o outro lado vira participante:</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    @foreach(['emit' => 'Emitente · saídas', 'dest' => 'Destinatário · entradas'] as $lado => $titulo)
+                        @php $cand = $definirClienteCandidatos[$lado] ?? []; @endphp
+                        <button type="button" data-definir-cliente-lado="{{ $lado }}"
+                            class="text-left p-3 rounded border border-gray-300 hover:border-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
+                            @disabled(empty($cand['documento']))>
+                            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">{{ $titulo }}</p>
+                            <p class="text-sm font-semibold text-gray-900 mt-1 truncate" title="{{ $cand['razao'] ?? '' }}">{{ $cand['razao'] ?: '—' }}</p>
+                            <p class="text-xs font-mono text-gray-600">{{ $fmtDoc($cand['documento'] ?? null) }}</p>
+                            @if(($cand['distintos'] ?? 0) > 1)
+                                <p class="text-[11px] text-gray-400 mt-1">+{{ $cand['distintos'] - 1 }} {{ $cand['distintos'] - 1 === 1 ? 'outro' : 'outros' }} neste lado</p>
+                            @endif
+                        </button>
+                    @endforeach
+                </div>
+                <p id="definir-cliente-erro" class="hidden text-xs mt-2" style="color:#dc2626"></p>
+            </div>
+        </div>
+        <script>
+        (function () {
+            var card = document.getElementById('definir-cliente-card');
+            if (!card || card.dataset.bound === '1') return;
+            card.dataset.bound = '1';
+            var impId = card.dataset.importacaoId;
+            var erro = document.getElementById('definir-cliente-erro');
+            function csrf() { var m = document.querySelector('meta[name="csrf-token"]'); return m ? m.getAttribute('content') : ''; }
+            card.querySelectorAll('[data-definir-cliente-lado]').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var lado = btn.getAttribute('data-definir-cliente-lado');
+                    card.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
+                    if (erro) erro.classList.add('hidden');
+                    fetch('/app/importacao/xml/' + impId + '/definir-cliente', {
+                        method: 'POST',
+                        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': csrf(), 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ lado: lado })
+                    })
+                    .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+                    .then(function (res) {
+                        if (!res.ok || !res.j.success) {
+                            if (erro) { erro.textContent = res.j.error || 'Falha ao definir o cliente.'; erro.classList.remove('hidden'); }
+                            card.querySelectorAll('button').forEach(function (b) { b.disabled = false; });
+                            return;
+                        }
+                        window.location.reload();
+                    })
+                    .catch(function () {
+                        if (erro) { erro.textContent = 'Erro de rede.'; erro.classList.remove('hidden'); }
+                        card.querySelectorAll('button').forEach(function (b) { b.disabled = false; });
+                    });
+                });
+            });
+        })();
+        </script>
+        @endif
+
         {{-- Indicadores --}}
         @php
             $valorTotal = $importacao->valor_total ?? 0;
