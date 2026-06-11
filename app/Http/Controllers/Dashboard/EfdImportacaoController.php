@@ -222,19 +222,27 @@ class EfdImportacaoController extends Controller
                 ]);
             });
 
-        $xmlImportacoes = XmlImportacao::where('user_id', $userId)
+        $xmlRows = XmlImportacao::where('user_id', $userId)
             ->with('cliente')
             ->orderBy('created_at', 'desc')
-            ->get()
-            ->map(function (XmlImportacao $importacao) {
-                $totalXmls = (int) ($importacao->total_xmls ?? 0);
+            ->get();
 
-                return array_merge($importacao->toArray(), [
-                    '_tipo' => 'xml',
-                    'volume_label' => $totalXmls.' XML'.($totalXmls !== 1 ? 's' : ''),
-                    'clientes_resolvidos' => $importacao->cliente_id ? 1 : $importacao->clientesResolvidos(),
-                ]);
-            });
+        $nullClienteIds = $xmlRows->filter(fn ($i) => $i->cliente_id === null)->pluck('id');
+        $countMap = \App\Models\XmlNota::whereIn('importacao_xml_id', $nullClienteIds)
+            ->whereNotNull('cliente_id')
+            ->groupBy('importacao_xml_id')
+            ->selectRaw('importacao_xml_id, COUNT(DISTINCT cliente_id) as cnt')
+            ->pluck('cnt', 'importacao_xml_id');
+
+        $xmlImportacoes = $xmlRows->map(function (XmlImportacao $importacao) use ($countMap) {
+            $totalXmls = (int) ($importacao->total_xmls ?? 0);
+
+            return array_merge($importacao->toArray(), [
+                '_tipo' => 'xml',
+                'volume_label' => $totalXmls.' XML'.($totalXmls !== 1 ? 's' : ''),
+                'clientes_resolvidos' => $importacao->cliente_id ? 1 : (int) ($countMap[$importacao->id] ?? 0),
+            ]);
+        });
 
         $importacoes = $efdImportacoes->concat($xmlImportacoes)
             ->sortByDesc('created_at')
