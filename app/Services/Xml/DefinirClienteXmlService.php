@@ -207,7 +207,10 @@ class DefinirClienteXmlService
             ]);
         }
 
-        $participante->cliente_id = $clienteId;
+        // Fill-only: não rouba uma contraparte já vinculada a outro cliente (ver XmlNotaImporter).
+        if (empty($participante->cliente_id)) {
+            $participante->cliente_id = $clienteId;
+        }
 
         if (! $participante->importacao_xml_id) {
             $participante->importacao_xml_id = $imp->id;

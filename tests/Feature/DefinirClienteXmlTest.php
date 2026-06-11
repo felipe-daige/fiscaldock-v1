@@ -158,3 +158,110 @@ it('não permite definir cliente de importação de outro usuário', function ()
         ->postJson("/app/importacao/xml/{$imp->id}/definir-cliente", ['lado' => 'emit'])
         ->assertNotFound();
 });
+
+// === Fechamento da feature: simetria dest, ausência de match, idempotência, contadores ===
+
+it('execute(dest) cria o cliente destinatário e associa o emitente como participante', function () {
+    $user = User::factory()->create();
+    $imp = seedDecidirDepois($user->id);
+
+    $res = app(DefinirClienteXmlService::class)->execute($imp, 'dest');
+
+    $cliente = Cliente::where('user_id', $user->id)->where('documento', '44373108000600')->first();
+    expect($cliente)->not->toBeNull();
+
+    $nota = XmlNota::where('importacao_xml_id', $imp->id)->first();
+    expect($nota->tipo_nota)->toBe(XmlNota::TIPO_ENTRADA);
+    expect($nota->dest_cliente_id)->toBe($cliente->id);
+    expect($nota->dest_participante_id)->toBeNull();      // dono virou cliente
+    expect($nota->emit_participante_id)->not->toBeNull(); // contraparte segue participante
+    expect(Participante::find($nota->emit_participante_id)->cliente_id)->toBe($cliente->id);
+    expect($res['participantes_removidos'])->toBe(1);
+});
+
+it('autoDefinir retorna null quando nenhum lado é cliente', function () {
+    $user = User::factory()->create();
+    $imp = seedDecidirDepois($user->id);
+
+    expect(app(DefinirClienteXmlService::class)->autoDefinirSeClienteExistente($imp))->toBeNull();
+    expect($imp->refresh()->cliente_id)->toBeNull();
+});
+
+it('a tela de detalhes mantém o picker quando nenhum lado é cliente', function () {
+    $user = User::factory()->create();
+    $imp = seedDecidirDepois($user->id);
+
+    $resp = $this->actingAs($user)->get("/app/importacao/xml/{$imp->id}");
+
+    $resp->assertOk();
+    $resp->assertSee('Defina o cliente deste lote');
+    $resp->assertDontSee('já é um cliente');
+    expect($imp->refresh()->cliente_id)->toBeNull();
+});
+
+it('execute é idempotente: rodar duas vezes não duplica participante nem troca cliente', function () {
+    $user = User::factory()->create();
+    $imp = seedDecidirDepois($user->id);
+
+    $service = app(DefinirClienteXmlService::class);
+    $service->execute($imp, 'emit');
+    $clienteId = $imp->refresh()->cliente_id;
+    $partCount = Participante::where('user_id', $user->id)->count();
+
+    $res2 = $service->execute($imp, 'emit');
+
+    expect($imp->refresh()->cliente_id)->toBe($clienteId);
+    expect(Participante::where('user_id', $user->id)->count())->toBe($partCount);
+    expect($res2['participantes_removidos'])->toBe(0); // nada órfão na 2ª passada
+});
+
+it('GET é idempotente: reabrir após auto-vínculo não duplica participante nem troca cliente', function () {
+    $user = User::factory()->create();
+    $imp = seedDecidirDepois($user->id);
+    Cliente::create([
+        'user_id' => $user->id, 'documento' => '97551165000193',
+        'tipo_pessoa' => 'PJ', 'razao_social' => 'Emit Já Cliente', 'ativo' => true, 'is_empresa_propria' => false,
+    ]);
+
+    $this->actingAs($user)->get("/app/importacao/xml/{$imp->id}")->assertOk();
+    $clienteId = $imp->refresh()->cliente_id;
+    $partCount = Participante::where('user_id', $user->id)->count();
+
+    $this->actingAs($user)->get("/app/importacao/xml/{$imp->id}")->assertOk();
+
+    expect($imp->refresh()->cliente_id)->toBe($clienteId);
+    expect(Participante::where('user_id', $user->id)->count())->toBe($partCount);
+});
+
+it('execute não sobrescreve o cliente_id de uma contraparte já vinculada a outro cliente', function () {
+    $user = User::factory()->create();
+    $imp = seedDecidirDepois($user->id);
+    $nota = XmlNota::where('importacao_xml_id', $imp->id)->first();
+
+    // A contraparte (dest) já pertence ao Cliente A antes de decidir o dono do lote.
+    $clienteA = Cliente::create([
+        'user_id' => $user->id, 'documento' => '11111111000191',
+        'tipo_pessoa' => 'PJ', 'razao_social' => 'CLIENTE A', 'ativo' => true, 'is_empresa_propria' => false,
+    ]);
+    Participante::where('id', $nota->dest_participante_id)->update(['cliente_id' => $clienteA->id]);
+
+    app(DefinirClienteXmlService::class)->execute($imp, 'emit');
+
+    // Vínculo original preservado — o reclassify não rouba a contraparte pro novo cliente.
+    expect(Participante::find($nota->dest_participante_id)->cliente_id)->toBe($clienteA->id);
+});
+
+it('após reclassificar, participante_ids da importação contém só a contraparte', function () {
+    $user = User::factory()->create();
+    $imp = seedDecidirDepois($user->id);
+    $nota = XmlNota::where('importacao_xml_id', $imp->id)->first();
+    $emitProvisorio = $nota->emit_participante_id;
+    $destProvisorio = $nota->dest_participante_id;
+    expect($emitProvisorio)->not->toBeNull();
+
+    app(DefinirClienteXmlService::class)->execute($imp, 'emit');
+
+    $imp->refresh();
+    expect($imp->participante_ids)->toContain($destProvisorio);
+    expect($imp->participante_ids)->not->toContain($emitProvisorio);
+});

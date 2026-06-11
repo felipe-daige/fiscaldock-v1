@@ -95,16 +95,22 @@ class XmlNotaImporter
                 $payload['_dono_ausente'] = true;
             }
 
+            $clienteDonoId = match ($lado) {
+                'emit' => $emitCliente?->id,
+                'dest' => $destCliente?->id,
+                default => null,
+            };
+
             // Só a CONTRAPARTE (lado não-dono) vira participante. O lado dono é o cliente
             // (vinculado por *_cliente_id), nunca participante. Sem dono na nota ($lado null,
             // raro com cliente obrigatório) → ambos os lados são contrapartes.
-            $emitPart = $lado === 'emit' ? null : $this->participante($userId, $emitDoc, $h['emit_razao_social'], $h['emit_uf'], $h['emit_municipio_ibge'], $h['emit_ie'], $imp);
-            $destPart = $lado === 'dest' ? null : $this->participante($userId, $destDoc, $h['dest_razao_social'], $h['dest_uf'], $h['dest_municipio_ibge'], $h['dest_ie'], $imp);
+            $emitPart = $lado === 'emit' ? null : $this->participante($userId, $clienteDonoId, $emitDoc, $h['emit_razao_social'], $h['emit_uf'], $h['emit_municipio_ibge'], $h['emit_ie'], $imp);
+            $destPart = $lado === 'dest' ? null : $this->participante($userId, $clienteDonoId, $destDoc, $h['dest_razao_social'], $h['dest_uf'], $h['dest_municipio_ibge'], $h['dest_ie'], $imp);
 
             $nota = XmlNota::create(array_merge($h, [
                 'user_id' => $userId,
                 'importacao_xml_id' => $imp->id,
-                'cliente_id' => $imp->cliente_id,
+                'cliente_id' => $imp->cliente_id ?: $clienteDonoId,
                 'payload' => $payload,
                 'emit_participante_id' => $emitPart?->id,
                 'dest_participante_id' => $destPart?->id,
@@ -167,16 +173,17 @@ class XmlNotaImporter
         return [null, true]; // nenhum lado é cliente cadastrado
     }
 
-    private function participante(int $userId, ?string $doc, ?string $razao, ?string $uf, ?string $mun, ?string $ie, XmlImportacao $imp): ?Participante
+    private function participante(int $userId, ?int $clienteId, ?string $doc, ?string $razao, ?string $uf, ?string $mun, ?string $ie, XmlImportacao $imp): ?Participante
     {
         if (empty($doc)) {
             return null; // dest exterior / sem documento
         }
         $tipoDoc = strlen($doc) === 11 ? 'CPF' : 'CNPJ';
 
-        return Participante::firstOrCreate(
-            ['user_id' => $userId, 'documento' => $doc],
-            [
+        $participante = Participante::firstOrNew(['user_id' => $userId, 'documento' => $doc]);
+
+        if (! $participante->exists) {
+            $participante->fill([
                 'razao_social' => $razao,
                 'uf' => $uf,
                 'codigo_municipal' => $mun,
@@ -184,8 +191,28 @@ class XmlNotaImporter
                 'origem_tipo' => 'xml',
                 'importacao_xml_id' => $imp->id,
                 'tipo_documento' => $tipoDoc,
-            ]
-        );
+            ]);
+        }
+
+        // Fill-only: nunca sobrescreve um vínculo já existente. Uma contraparte pode servir
+        // a vários clientes, mas a coluna guarda 1 — preservamos o primeiro (first-writer-wins).
+        if ($clienteId && empty($participante->cliente_id)) {
+            $participante->cliente_id = $clienteId;
+        }
+
+        if (! $participante->importacao_xml_id) {
+            $participante->importacao_xml_id = $imp->id;
+        }
+
+        if (! $participante->origem_tipo) {
+            $participante->origem_tipo = 'xml';
+        }
+
+        if ($participante->isDirty()) {
+            $participante->save();
+        }
+
+        return $participante;
         // NÃO atualizamos situacao_cadastral/regime_tributario/ultima_consulta_em (regra do projeto).
     }
 
