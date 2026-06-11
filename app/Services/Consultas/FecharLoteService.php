@@ -15,6 +15,7 @@ class FecharLoteService
     public function __construct(
         private CreditService $creditService,
         private RiskScoreService $riskScoreService,
+        private AtualizarFichaCadastralService $fichaCadastral,
     ) {}
 
     public function fechar(int $loteId, array $resumo = []): void
@@ -75,8 +76,10 @@ class FecharLoteService
             try {
                 if ($resultado->participante) {
                     $this->riskScoreService->atualizarScore($resultado->participante, $dados);
+                    $this->fichaCadastral->aplicar($resultado->participante, $dados);
                 } elseif ($resultado->cliente) {
                     $this->riskScoreService->atualizarScoreCliente($resultado->cliente, $dados);
+                    $this->fichaCadastral->aplicar($resultado->cliente, $dados);
                 }
             } catch (\Throwable $e) {
                 Log::warning('Falha ao persistir score do alvo da consulta', [
