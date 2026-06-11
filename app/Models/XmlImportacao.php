@@ -234,4 +234,26 @@ class XmlImportacao extends Model
 
         return (! $temSemDono && $donos->count() === 1) ? (int) $donos->first() : null;
     }
+
+    /**
+     * Regra de header no modo ÂNCORA (cliente escolhido no upload): >1 dono distinto
+     * resolvido → null ("Vários"); exatamente 1 → esse dono; nenhum resolvido → a âncora
+     * (honra a escolha). Notas sem dono NÃO rebaixam o header (diferente de resolverHeaderClienteId).
+     */
+    public function resolverHeaderClienteIdAncora(?int $anchor): ?int
+    {
+        $donos = XmlNota::where('importacao_xml_id', $this->id)
+            ->whereNotNull('cliente_id')
+            ->distinct()
+            ->pluck('cliente_id');
+
+        if ($donos->count() > 1) {
+            return null;
+        }
+        if ($donos->count() === 1) {
+            return (int) $donos->first();
+        }
+
+        return $anchor ?: null;
+    }
 }

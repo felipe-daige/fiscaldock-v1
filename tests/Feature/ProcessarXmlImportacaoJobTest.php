@@ -141,3 +141,50 @@ it('header recebe o cliente único quando o lote resolve um só dono', function 
     expect($imp->cliente_id)->toBe($cliente->id);
     expect($imp->clientesResolvidos())->toBe(1);
 });
+
+it('âncora: lote só do cliente escolhido → header recebe o escolhido', function () {
+    Storage::fake('local');
+    $user = User::factory()->create();
+    $cliente = Cliente::create(['user_id' => $user->id, 'documento' => '11111111000191', 'tipo_pessoa' => 'PJ', 'razao_social' => 'A', 'ativo' => true, 'is_empresa_propria' => false]);
+    $imp = XmlImportacao::create(['user_id' => $user->id, 'tipo_documento' => 'NFE', 'modo_envio' => 'xml', 'status' => 'processando', 'iniciado_em' => now(), 'cliente_id' => null]);
+    $dir = "xml-imports/{$imp->id}";
+    Storage::disk('local')->put("$dir/a.xml", NfeFixtureMint::make('11111111000191', '22222222000191', str_pad('1', 44, '0')));
+
+    (new ProcessarXmlImportacaoJob($imp->id, $user->id, 'tab-a', '11111111000191', $dir, '', $cliente->id))
+        ->handle(app(NfeXmlParser::class), app(XmlNotaImporter::class));
+
+    expect($imp->refresh()->cliente_id)->toBe($cliente->id);
+});
+
+it('âncora: âncora + outro cliente cadastrado → header Vários (null)', function () {
+    Storage::fake('local');
+    $user = User::factory()->create();
+    $cliente = Cliente::create(['user_id' => $user->id, 'documento' => '11111111000191', 'tipo_pessoa' => 'PJ', 'razao_social' => 'A', 'ativo' => true, 'is_empresa_propria' => false]);
+    Cliente::create(['user_id' => $user->id, 'documento' => '33333333000191', 'tipo_pessoa' => 'PJ', 'razao_social' => 'B', 'ativo' => true, 'is_empresa_propria' => false]);
+    $imp = XmlImportacao::create(['user_id' => $user->id, 'tipo_documento' => 'NFE', 'modo_envio' => 'xml', 'status' => 'processando', 'iniciado_em' => now(), 'cliente_id' => null]);
+    $dir = "xml-imports/{$imp->id}";
+    Storage::disk('local')->put("$dir/a.xml", NfeFixtureMint::make('11111111000191', '22222222000191', str_pad('1', 44, '0')));
+    Storage::disk('local')->put("$dir/b.xml", NfeFixtureMint::make('33333333000191', '44444444000191', str_pad('2', 44, '0')));
+
+    (new ProcessarXmlImportacaoJob($imp->id, $user->id, 'tab-b', '11111111000191', $dir, '', $cliente->id))
+        ->handle(app(NfeXmlParser::class), app(XmlNotaImporter::class));
+
+    expect($imp->refresh()->cliente_id)->toBeNull();
+    expect($imp->clientesResolvidos())->toBe(2);
+});
+
+it('âncora: âncora + nota de empresa não cadastrada → header honra o escolhido (não rebaixa)', function () {
+    Storage::fake('local');
+    $user = User::factory()->create();
+    $cliente = Cliente::create(['user_id' => $user->id, 'documento' => '11111111000191', 'tipo_pessoa' => 'PJ', 'razao_social' => 'A', 'ativo' => true, 'is_empresa_propria' => false]);
+    $imp = XmlImportacao::create(['user_id' => $user->id, 'tipo_documento' => 'NFE', 'modo_envio' => 'xml', 'status' => 'processando', 'iniciado_em' => now(), 'cliente_id' => null]);
+    $dir = "xml-imports/{$imp->id}";
+    Storage::disk('local')->put("$dir/a.xml", NfeFixtureMint::make('11111111000191', '22222222000191', str_pad('1', 44, '0')));
+    Storage::disk('local')->put("$dir/x.xml", NfeFixtureMint::make('55555555000191', '66666666000191', str_pad('2', 44, '0')));
+
+    (new ProcessarXmlImportacaoJob($imp->id, $user->id, 'tab-c', '11111111000191', $dir, '', $cliente->id))
+        ->handle(app(NfeXmlParser::class), app(XmlNotaImporter::class));
+
+    expect($imp->refresh()->cliente_id)->toBe($cliente->id);
+    expect(XmlNota::where('importacao_xml_id', $imp->id)->whereNull('cliente_id')->count())->toBe(1);
+});

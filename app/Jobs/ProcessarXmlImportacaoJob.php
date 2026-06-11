@@ -31,6 +31,7 @@ class ProcessarXmlImportacaoJob implements ShouldQueue
         public string $ownerDoc,
         public string $storageDir,
         public string $ownerLado = '',
+        public int $anchorClienteId = 0,
     ) {}
 
     public function handle(NfeXmlParser $parser, XmlNotaImporter $importer): void
@@ -93,10 +94,12 @@ class ProcessarXmlImportacaoJob implements ShouldQueue
         }
 
         // Lote misto (decidir_depois / auto): o dono de cada nota está em xml_notas.cliente_id.
-        // Header só recebe FK quando o lote está TODO resolvido para 1 único dono; se há mais
-        // de um dono OU ainda resta nota sem dono, fica null (= "Vários (N)" / pendente de grupo).
+        // Modo âncora: header honra o cliente escolhido salvo >1 dono resolvido (notas sem dono
+        // não rebaixam). Modo padrão: toda nota precisa estar resolvida para exatamente 1 dono.
         if (! $clienteImportacao) {
-            $clienteImportacao = $imp->resolverHeaderClienteId();
+            $clienteImportacao = $this->anchorClienteId > 0
+                ? $imp->resolverHeaderClienteIdAncora($this->anchorClienteId)
+                : $imp->resolverHeaderClienteId();
         }
 
         $imp->update([
