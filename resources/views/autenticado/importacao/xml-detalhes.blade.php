@@ -385,11 +385,8 @@
                             </span>
                         </div>
                         <div class="ml-auto">
-                            @php
-                                $docBusca = $importacao->cliente->documento ?? '';
-                            @endphp
                             <a
-                                href="/app/clientes?search={{ urlencode($docBusca) }}"
+                                href="/app/cliente/{{ $importacao->cliente->id }}"
                                 data-link
                                 class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-gray-300 bg-white text-gray-700 text-xs font-semibold hover:bg-gray-50 transition"
                             >
@@ -453,6 +450,7 @@
                             <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Situação</th>
                             <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">CRT</th>
                             <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Tipo</th>
+                            <th class="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Cadastro</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100" id="tbody-participantes-xml">
@@ -469,6 +467,12 @@
                             <td class="px-3 py-3 text-sm text-gray-700 whitespace-nowrap">{{ $part->situacao_cadastral ?: '—' }}</td>
                             <td class="px-3 py-3 text-sm text-gray-700 whitespace-nowrap">{{ $part->crt ?: '—' }}</td>
                             <td class="px-3 py-3 text-sm text-gray-700 whitespace-nowrap">{{ $part->tipo_pessoa ?: ($part->documento && strlen(preg_replace('/[^0-9]/', '', $part->documento)) === 11 ? 'PF' : 'PJ') }}</td>
+                            <td class="px-3 py-3 text-right whitespace-nowrap">
+                                <a href="/app/participante/{{ $part->id }}" data-link onclick="event.stopPropagation()" class="inline-flex items-center gap-1 text-xs font-semibold text-gray-700 hover:text-gray-900 hover:underline">
+                                    Ver no cadastro
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                </a>
+                            </td>
                         </tr>
                         @endforeach
                     </tbody>
@@ -490,6 +494,10 @@
                         @if($part->uf) <span>{{ $part->uf }}</span> @endif
                         @if($part->situacao_cadastral) <span>&middot;</span><span>{{ $part->situacao_cadastral }}</span> @endif
                     </div>
+                    <a href="/app/participante/{{ $part->id }}" data-link onclick="event.stopPropagation()" class="inline-flex items-center gap-1 mt-2 text-xs font-semibold text-gray-700 hover:text-gray-900 hover:underline">
+                        Ver no cadastro
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    </a>
                 </div>
                 @endforeach
             </div>
