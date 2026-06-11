@@ -1,11 +1,15 @@
 <?php
 
 use App\Jobs\ProcessarXmlImportacaoJob;
+use App\Models\Cliente;
 use App\Models\User;
 use App\Models\XmlImportacao;
 use App\Models\XmlNota;
+use App\Services\Xml\NfeXmlParser;
+use App\Services\Xml\XmlNotaImporter;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
+use Tests\Fixtures\NfeFixtureMint;
 
 uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
 
@@ -96,4 +100,44 @@ it('deduplica a mesma chave repetida dentro do mesmo lote', function () {
     expect($imp->xmls_novos)->toBe(1);
     expect($imp->xmls_duplicados_processados)->toBe(1);
     expect(XmlNota::where('user_id', $user->id)->count())->toBe(1);
+});
+
+it('header fica null (Vários) quando o lote resolve mais de um cliente dono', function () {
+    Storage::fake('local');
+    $user = User::factory()->create();
+    // Dois clientes cadastrados: cada um é EMITENTE de uma nota (saída) → 2 donos.
+    Cliente::create(['user_id' => $user->id, 'documento' => '11111111000191', 'tipo_pessoa' => 'PJ', 'razao_social' => 'CLIENTE A', 'ativo' => true, 'is_empresa_propria' => false]);
+    Cliente::create(['user_id' => $user->id, 'documento' => '33333333000191', 'tipo_pessoa' => 'PJ', 'razao_social' => 'CLIENTE B', 'ativo' => true, 'is_empresa_propria' => false]);
+
+    $imp = XmlImportacao::create(['user_id' => $user->id, 'tipo_documento' => 'NFE', 'modo_envio' => 'xml', 'status' => 'processando', 'iniciado_em' => now()]);
+    $dir = "xml-imports/{$imp->id}";
+    Storage::disk('local')->put("$dir/a.xml", NfeFixtureMint::make('11111111000191', '22222222000191', '50240111111111000191550010000999990000000001'));
+    Storage::disk('local')->put("$dir/b.xml", NfeFixtureMint::make('33333333000191', '44444444000191', '50240133333333000191550010000999990000000002'));
+
+    // decidir_depois: ownerDoc='' ownerLado=''
+    (new ProcessarXmlImportacaoJob($imp->id, $user->id, 'tab-1', '', $dir, ''))
+        ->handle(app(NfeXmlParser::class), app(XmlNotaImporter::class));
+
+    $imp->refresh();
+    expect($imp->cliente_id)->toBeNull();
+    expect($imp->clientesResolvidos())->toBe(2);
+});
+
+it('header recebe o cliente único quando o lote resolve um só dono', function () {
+    Storage::fake('local');
+    $user = User::factory()->create();
+    $cliente = Cliente::create(['user_id' => $user->id, 'documento' => '11111111000191', 'tipo_pessoa' => 'PJ', 'razao_social' => 'CLIENTE A', 'ativo' => true, 'is_empresa_propria' => false]);
+
+    $imp = XmlImportacao::create(['user_id' => $user->id, 'tipo_documento' => 'NFE', 'modo_envio' => 'xml', 'status' => 'processando', 'iniciado_em' => now()]);
+    $dir = "xml-imports/{$imp->id}";
+    // Mesmo emitente (cliente A) vende para 2 compradores distintos → 1 dono.
+    Storage::disk('local')->put("$dir/a.xml", NfeFixtureMint::make('11111111000191', '22222222000191', '50240111111111000191550010000999990000000001'));
+    Storage::disk('local')->put("$dir/b.xml", NfeFixtureMint::make('11111111000191', '44444444000191', '50240111111111000191550010000999990000000002'));
+
+    (new ProcessarXmlImportacaoJob($imp->id, $user->id, 'tab-2', '', $dir, ''))
+        ->handle(app(NfeXmlParser::class), app(XmlNotaImporter::class));
+
+    $imp->refresh();
+    expect($imp->cliente_id)->toBe($cliente->id);
+    expect($imp->clientesResolvidos())->toBe(1);
 });

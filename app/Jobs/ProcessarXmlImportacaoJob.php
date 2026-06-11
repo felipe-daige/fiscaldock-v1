@@ -92,6 +92,20 @@ class ProcessarXmlImportacaoJob implements ShouldQueue
                 ->value($col);
         }
 
+        // Lote misto (decidir_depois / auto): o dono de cada nota está em xml_notas.cliente_id.
+        // Header só recebe FK quando o lote está TODO resolvido para 1 único dono; se há mais
+        // de um dono OU ainda resta nota sem dono, fica null (= "Vários (N)" / pendente de grupo).
+        if (! $clienteImportacao) {
+            $temSemDono = XmlNota::where('importacao_xml_id', $imp->id)->whereNull('cliente_id')->exists();
+            $donosDistintos = XmlNota::where('importacao_xml_id', $imp->id)
+                ->whereNotNull('cliente_id')
+                ->distinct()
+                ->pluck('cliente_id');
+            $clienteImportacao = (! $temSemDono && $donosDistintos->count() === 1)
+                ? (int) $donosDistintos->first()
+                : null;
+        }
+
         $imp->update([
             'status' => 'concluido',
             'cliente_id' => $clienteImportacao,
