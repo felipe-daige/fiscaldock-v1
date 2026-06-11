@@ -123,3 +123,21 @@ it('show() mostra banner Vários quando o lote já resolveu múltiplos clientes'
     $resp->assertOk();
     $resp->assertSee('Vários (2 clientes)');
 });
+
+it('definir-cliente (whole-lote) é bloqueado num lote multi-cliente', function () {
+    $user = User::factory()->create();
+    $imp = XmlImportacao::create(['user_id' => $user->id, 'tipo_documento' => 'NFE', 'modo_envio' => 'xml', 'status' => 'concluido', 'iniciado_em' => now()]);
+    // Lote misto (emit e dest variam → ehMultiCandidato true), ambos sem cliente cadastrado.
+    foreach ([['11111111000191', '22222222000191', '1'], ['33333333000191', '44444444000191', '2']] as [$e, $d, $n]) {
+        $xml = NfeFixtureMint::make($e, $d, str_pad($n, 44, '0'));
+        app(XmlNotaImporter::class)->importar(app(NfeXmlParser::class)->parse($xml), '', $imp);
+    }
+
+    $this->actingAs($user)
+        ->postJson("/app/importacao/xml/{$imp->id}/definir-cliente", ['lado' => 'emit'])
+        ->assertStatus(409)
+        ->assertJson(['success' => false]);
+
+    // nenhuma nota foi reclassificada (continuam sem dono)
+    expect(XmlNota::where('importacao_xml_id', $imp->id)->whereNotNull('cliente_id')->count())->toBe(0);
+});

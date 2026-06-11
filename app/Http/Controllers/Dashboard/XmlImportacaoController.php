@@ -105,6 +105,13 @@ class XmlImportacaoController extends Controller
             return response()->json(['success' => false, 'error' => 'Importação ainda em processamento.'], Response::HTTP_CONFLICT);
         }
 
+        if ($this->definirClienteService->ehMultiCandidato($imp)) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Lote com vários clientes: use a atribuição por documento.',
+            ], Response::HTTP_CONFLICT);
+        }
+
         $validated = $request->validate(['lado' => 'required|in:emit,dest']);
         $resultado = $this->definirClienteService->execute($imp, $validated['lado']);
 
@@ -132,7 +139,7 @@ class XmlImportacaoController extends Controller
         }
 
         $validated = $request->validate([
-            'documento' => 'required|string|max:20',
+            'documento' => 'required|string|regex:/^\d{11,14}$/',
             'lado' => 'required|in:emit,dest',
         ]);
 
