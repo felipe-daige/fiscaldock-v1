@@ -30,6 +30,7 @@ class XmlImportacaoController extends Controller
     public function __construct(
         protected CreditService $creditService,
         protected \App\Services\Xml\ExcluirImportacaoXmlService $excluir,
+        protected \App\Services\Xml\DefinirClienteXmlService $definirClienteService,
     ) {}
 
     /**
@@ -87,6 +88,32 @@ class XmlImportacaoController extends Controller
             'message' => 'Importação excluída com sucesso.',
             'resultado' => $resultado,
         ]);
+    }
+
+    /**
+     * "Decidir depois": define qual lado (emit/dest) é o cliente e reclassifica o lote.
+     */
+    public function definirCliente(Request $request, $id): JsonResponse
+    {
+        if (! Auth::check()) {
+            return response()->json(['success' => false, 'error' => 'Usuário não autenticado.'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $imp = $this->importacaoDoDono($id);
+
+        if (in_array($imp->status, ['processando', 'pendente'], true)) {
+            return response()->json(['success' => false, 'error' => 'Importação ainda em processamento.'], Response::HTTP_CONFLICT);
+        }
+
+        $validated = $request->validate(['lado' => 'required|in:emit,dest']);
+        $resultado = $this->definirClienteService->execute($imp, $validated['lado']);
+
+        Log::info('Cliente da importação XML definido', [
+            'user_id' => (int) Auth::id(), 'importacao_id' => (int) $id,
+            'lado' => $validated['lado'], 'resultado' => $resultado,
+        ]);
+
+        return response()->json(['success' => true, 'message' => 'Cliente definido com sucesso.', 'resultado' => $resultado]);
     }
 
     /**
@@ -178,7 +205,12 @@ class XmlImportacaoController extends Controller
         // Agregados para o resultado consolidado (toda a base do lote, não só as 200 exibidas).
         [$resumoTributario, $porUf, $catalogoItens, $alertas] = $this->montarConsolidado($id, $userId);
 
-        $data = compact('importacao', 'participantes', 'notas', 'resumoTributario', 'porUf', 'catalogoItens', 'alertas');
+        // "Decidir depois": sem cliente definido e já concluída → oferece a escolha do lado.
+        $definirClienteCandidatos = (! $importacao->cliente_id && $importacao->status === 'concluido')
+            ? $this->definirClienteService->candidatos($importacao)
+            : null;
+
+        $data = compact('importacao', 'participantes', 'notas', 'resumoTributario', 'porUf', 'catalogoItens', 'alertas', 'definirClienteCandidatos');
 
         if ($this->isAjaxRequest($request)) {
             return response(view($view, $data)->render())->header('Content-Type', 'text/html');
@@ -350,8 +382,9 @@ class XmlImportacaoController extends Controller
         $validated = $request->validate([
             'tipo_documento' => 'required|in:NFE',
             'modo_envio' => 'required|in:zip,xml',
-            'cliente_id' => ['required_without:criar_cliente_lado', 'nullable', 'integer', \Illuminate\Validation\Rule::exists('clientes', 'id')->where('user_id', $user->id)],
-            'criar_cliente_lado' => ['required_without:cliente_id', 'nullable', 'in:emit,dest'],
+            'cliente_id' => ['required_without_all:criar_cliente_lado,decidir_depois', 'nullable', 'integer', \Illuminate\Validation\Rule::exists('clientes', 'id')->where('user_id', $user->id)],
+            'criar_cliente_lado' => ['required_without_all:cliente_id,decidir_depois', 'nullable', 'in:emit,dest'],
+            'decidir_depois' => ['nullable', 'boolean'],
             'tab_id' => 'required|string|max:36',
             'arquivos' => 'required|array|min:1|max:100',
             'arquivos.*.nome' => 'required|string|max:255',
@@ -367,13 +400,16 @@ class XmlImportacaoController extends Controller
             return response()->json(['success' => false, 'error' => 'Tamanho total excede 200MB.'], Response::HTTP_BAD_REQUEST);
         }
 
-        // Dono/perspectiva: ou um cliente JÁ cadastrado (ownerDoc forçado), ou o modo
-        // "criar pelo lado" (ownerLado emit/dest) — o importer cria o cliente desse lado a
-        // partir da nota e o Job preenche importacao.cliente_id. Em ambos o histórico exibe.
+        // Dono/perspectiva: cliente JÁ cadastrado (ownerDoc forçado) | criar pelo lado
+        // (ownerLado emit/dest) | DECIDIR DEPOIS (sem cliente; escolhido no resultado).
+        $decidirDepois = (bool) ($validated['decidir_depois'] ?? false);
         $ownerLado = $validated['criar_cliente_lado'] ?? '';
         $clienteId = $validated['cliente_id'] ?? null;
         $ownerDoc = '';
-        if ($ownerLado === '') {
+        if ($decidirDepois) {
+            $clienteId = null;
+            $ownerLado = ''; // importa sem dono; reclassifica no /definir-cliente
+        } elseif ($ownerLado === '') {
             $ownerDoc = (string) $this->getClienteCnpj($clienteId);
             if ($ownerDoc === '') {
                 return response()->json(['success' => false, 'error' => 'Cliente selecionado sem documento cadastrado.'], Response::HTTP_UNPROCESSABLE_ENTITY);
