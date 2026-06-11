@@ -4,8 +4,12 @@ use App\Jobs\ProcessarXmlImportacaoJob;
 use App\Models\Cliente;
 use App\Models\User;
 use App\Models\XmlImportacao;
+use App\Models\XmlNota;
+use App\Services\Xml\NfeXmlParser;
+use App\Services\Xml\XmlNotaImporter;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Storage;
+use Tests\Fixtures\NfeFixtureMint;
 
 uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
 
@@ -71,4 +75,20 @@ it('rejeita cliente de outro usuário', function () {
 
     $this->actingAs($user)->postJson('/app/importacao/xml/importar', payloadImportar($cliente->id))
         ->assertStatus(422)->assertJsonValidationErrorFor('cliente_id');
+});
+
+it('endpoint definir-cliente-documento classifica o grupo e responde sucesso', function () {
+    $user = User::factory()->create();
+    $imp = XmlImportacao::create(['user_id' => $user->id, 'tipo_documento' => 'NFE', 'modo_envio' => 'xml', 'status' => 'concluido', 'iniciado_em' => now()]);
+    foreach ([['11111111000191', '22222222000191', '1'], ['33333333000191', '44444444000191', '2']] as [$e, $d, $n]) {
+        $xml = NfeFixtureMint::make($e, $d, str_pad($n, 44, '0'));
+        app(XmlNotaImporter::class)->importar(app(NfeXmlParser::class)->parse($xml), '', $imp);
+    }
+
+    $this->actingAs($user)
+        ->postJson("/app/importacao/xml/{$imp->id}/definir-cliente-documento", ['documento' => '11111111000191', 'lado' => 'emit'])
+        ->assertOk()->assertJson(['success' => true]);
+
+    $nota = XmlNota::where('importacao_xml_id', $imp->id)->where('emit_documento', '11111111000191')->first();
+    expect($nota->cliente_id)->not->toBeNull();
 });

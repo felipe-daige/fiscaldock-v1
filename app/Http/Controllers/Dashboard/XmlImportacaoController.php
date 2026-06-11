@@ -117,6 +117,36 @@ class XmlImportacaoController extends Controller
     }
 
     /**
+     * Atribui o cliente de UM documento (lado) às notas sem dono daquele documento (lote misto).
+     */
+    public function definirClientePorDocumento(Request $request, $id): JsonResponse
+    {
+        if (! Auth::check()) {
+            return response()->json(['success' => false, 'error' => 'Usuário não autenticado.'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $imp = $this->importacaoDoDono($id);
+
+        if (in_array($imp->status, ['processando', 'pendente'], true)) {
+            return response()->json(['success' => false, 'error' => 'Importação ainda em processamento.'], Response::HTTP_CONFLICT);
+        }
+
+        $validated = $request->validate([
+            'documento' => 'required|string|max:20',
+            'lado' => 'required|in:emit,dest',
+        ]);
+
+        $resultado = $this->definirClienteService->executePorDocumento($imp, $validated['documento'], $validated['lado']);
+
+        Log::info('Cliente XML definido por documento', [
+            'user_id' => (int) Auth::id(), 'importacao_id' => (int) $id,
+            'documento' => $validated['documento'], 'lado' => $validated['lado'], 'resultado' => $resultado,
+        ]);
+
+        return response()->json(['success' => true, 'message' => 'Cliente atribuído ao grupo.', 'resultado' => $resultado]);
+    }
+
+    /**
      * Página de importação de XMLs (placeholder - em desenvolvimento).
      */
     public function index(Request $request)
@@ -183,10 +213,16 @@ class XmlImportacaoController extends Controller
         // reclassifica o lote antes de montar os dados da tela; senão mantém o picker.
         $definirClienteCandidatos = null;
         $clienteAutoVinculado = null;
+        $gruposClientes = null;
+        $clientesResolvidos = 0;
         if (! $importacao->cliente_id && $importacao->status === 'concluido') {
             $clienteAutoVinculado = $this->definirClienteService->autoDefinirSeClienteExistente($importacao);
             if ($clienteAutoVinculado) {
                 $importacao->refresh()->load('cliente');
+            } elseif ($this->definirClienteService->ehMultiCandidato($importacao)) {
+                // Lote misto: header "Vários (N)" + atribuição por grupo das notas sem dono.
+                $clientesResolvidos = $importacao->clientesResolvidos();
+                $gruposClientes = $this->definirClienteService->gruposPorDocumento($importacao);
             } else {
                 $definirClienteCandidatos = $this->definirClienteService->candidatos($importacao);
             }
@@ -218,7 +254,7 @@ class XmlImportacaoController extends Controller
         // Agregados para o resultado consolidado (toda a base do lote, não só as 200 exibidas).
         [$resumoTributario, $porUf, $catalogoItens, $alertas] = $this->montarConsolidado($id, $userId);
 
-        $data = compact('importacao', 'participantes', 'notas', 'resumoTributario', 'porUf', 'catalogoItens', 'alertas', 'definirClienteCandidatos', 'clienteAutoVinculado');
+        $data = compact('importacao', 'participantes', 'notas', 'resumoTributario', 'porUf', 'catalogoItens', 'alertas', 'definirClienteCandidatos', 'clienteAutoVinculado', 'gruposClientes', 'clientesResolvidos');
 
         if ($this->isAjaxRequest($request)) {
             return response(view($view, $data)->render())->header('Content-Type', 'text/html');
