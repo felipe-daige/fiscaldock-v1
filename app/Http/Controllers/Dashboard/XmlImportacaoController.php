@@ -179,6 +179,19 @@ class XmlImportacaoController extends Controller
         $allowedPerPages = [10, 25, 50, 100];
         $perPageParticipantes = in_array((int) $request->input('per_page_participantes'), $allowedPerPages) ? (int) $request->input('per_page_participantes') : 10;
 
+        // "Decidir depois": se exatamente um lado dominante já é cliente do usuário,
+        // reclassifica o lote antes de montar os dados da tela; senão mantém o picker.
+        $definirClienteCandidatos = null;
+        $clienteAutoVinculado = null;
+        if (! $importacao->cliente_id && $importacao->status === 'concluido') {
+            $clienteAutoVinculado = $this->definirClienteService->autoDefinirSeClienteExistente($importacao);
+            if ($clienteAutoVinculado) {
+                $importacao->refresh()->load('cliente');
+            } else {
+                $definirClienteCandidatos = $this->definirClienteService->candidatos($importacao);
+            }
+        }
+
         // Dual-path: participante_ids (n8n v2) ou importacao_xml_id (legado)
         if (! empty($importacao->participante_ids)) {
             $participantes = Participante::whereIn('id', $importacao->participante_ids)
@@ -205,12 +218,7 @@ class XmlImportacaoController extends Controller
         // Agregados para o resultado consolidado (toda a base do lote, não só as 200 exibidas).
         [$resumoTributario, $porUf, $catalogoItens, $alertas] = $this->montarConsolidado($id, $userId);
 
-        // "Decidir depois": sem cliente definido e já concluída → oferece a escolha do lado.
-        $definirClienteCandidatos = (! $importacao->cliente_id && $importacao->status === 'concluido')
-            ? $this->definirClienteService->candidatos($importacao)
-            : null;
-
-        $data = compact('importacao', 'participantes', 'notas', 'resumoTributario', 'porUf', 'catalogoItens', 'alertas', 'definirClienteCandidatos');
+        $data = compact('importacao', 'participantes', 'notas', 'resumoTributario', 'porUf', 'catalogoItens', 'alertas', 'definirClienteCandidatos', 'clienteAutoVinculado');
 
         if ($this->isAjaxRequest($request)) {
             return response(view($view, $data)->render())->header('Content-Type', 'text/html');

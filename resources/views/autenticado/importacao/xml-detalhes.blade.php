@@ -158,12 +158,28 @@
         @include('autenticado.importacao.xml-detalhes._sticky-nav')
 
         {{-- Decidir depois: escolher qual lado é o cliente, vendo os dados de cada parte --}}
-        @if($definirClienteCandidatos ?? null)
         @php
             $fmtDoc = fn ($d) => $d && strlen($d) === 14
                 ? preg_replace('/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/', '$1.$2.$3/$4-$5', $d)
                 : ($d ?: '—');
         @endphp
+        @if($clienteAutoVinculado ?? null)
+            @php
+                $clienteAuto = $clienteAutoVinculado['cliente'] ?? null;
+                $ladoAuto = ($clienteAutoVinculado['lado'] ?? '') === 'emit' ? 'emitente' : 'destinatário';
+            @endphp
+            <div class="bg-white rounded border border-gray-300 border-l-4 mb-4 overflow-hidden" style="border-left-color: #047857">
+                <div class="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                    <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Cliente vinculado automaticamente</span>
+                </div>
+                <div class="p-4">
+                    <p class="text-sm text-gray-700">
+                        O documento {{ $fmtDoc($clienteAuto?->documento) }} ({{ $clienteAuto?->razao_social ?: 'cliente cadastrado' }}) já é um cliente no sistema. Este lote foi vinculado ao {{ $ladoAuto }} e a contraparte foi associada como participante.
+                    </p>
+                </div>
+            </div>
+        @endif
+        @if($definirClienteCandidatos ?? null)
         <div class="bg-white rounded border border-gray-300 border-l-4 mb-4 overflow-hidden" id="definir-cliente-card" data-importacao-id="{{ $importacao->id }}" style="border-left-color: #1d4ed8">
             <div class="bg-gray-50 px-4 py-2 border-b border-gray-200">
                 <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Defina o cliente deste lote</span>

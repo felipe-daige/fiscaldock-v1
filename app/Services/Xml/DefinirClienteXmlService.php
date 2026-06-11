@@ -42,8 +42,14 @@ class DefinirClienteXmlService
         $ieCol = $lado === 'emit' ? 'emit_ie' : 'dest_ie';
         $clienteCol = $lado === 'emit' ? 'emit_cliente_id' : 'dest_cliente_id';
         $partCol = $lado === 'emit' ? 'emit_participante_id' : 'dest_participante_id';
+        $contraparteDocCol = $lado === 'emit' ? 'dest_documento' : 'emit_documento';
+        $contraparteRazaoCol = $lado === 'emit' ? 'dest_razao_social' : 'emit_razao_social';
+        $contraparteUfCol = $lado === 'emit' ? 'dest_uf' : 'emit_uf';
+        $contraparteMunCol = $lado === 'emit' ? 'dest_municipio_ibge' : 'emit_municipio_ibge';
+        $contraparteIeCol = $lado === 'emit' ? 'dest_ie' : 'emit_ie';
+        $contrapartePartCol = $lado === 'emit' ? 'dest_participante_id' : 'emit_participante_id';
 
-        return DB::transaction(function () use ($imp, $tipoNota, $docCol, $razaoCol, $ufCol, $ieCol, $clienteCol, $partCol) {
+        return DB::transaction(function () use ($imp, $tipoNota, $docCol, $razaoCol, $ufCol, $ieCol, $clienteCol, $partCol, $contraparteDocCol, $contraparteRazaoCol, $contraparteUfCol, $contraparteMunCol, $contraparteIeCol, $contrapartePartCol) {
             $userId = (int) $imp->user_id;
             $clienteIds = [];
             $donoPartIds = [];
@@ -72,10 +78,22 @@ class DefinirClienteXmlService
                     $donoPartIds[] = (int) $nota->{$partCol};
                 }
 
+                $contraparte = $this->participanteContraparte(
+                    $userId,
+                    $cliente->id,
+                    $nota->{$contraparteDocCol},
+                    $nota->{$contraparteRazaoCol},
+                    $nota->{$contraparteUfCol},
+                    $nota->{$contraparteMunCol},
+                    $nota->{$contraparteIeCol},
+                    $imp
+                );
+
                 $nota->update([
                     'tipo_nota' => $tipoNota,
                     $clienteCol => $cliente->id,
                     $partCol => null,
+                    $contrapartePartCol => $contraparte?->id,
                     'cliente_id' => $cliente->id,
                 ]);
             }
@@ -95,6 +113,45 @@ class DefinirClienteXmlService
 
             return ['participantes_removidos' => $removidos, 'notas' => $notas->count(), 'cliente_id' => $clienteImportacao];
         });
+    }
+
+    /**
+     * "Decidir depois" automático: se exatamente um lado dominante já for Cliente,
+     * reclassifica o lote por esse lado. Nenhum ou dois matches mantêm a escolha manual.
+     *
+     * @return array{lado:string, cliente:Cliente, resultado:array}|null
+     */
+    public function autoDefinirSeClienteExistente(XmlImportacao $imp): ?array
+    {
+        $candidatos = $this->candidatos($imp);
+
+        $matches = [];
+        foreach (['emit', 'dest'] as $lado) {
+            $doc = preg_replace('/\D/', '', (string) ($candidatos[$lado]['documento'] ?? ''));
+            if ($doc === '') {
+                continue;
+            }
+
+            $cliente = Cliente::where('user_id', (int) $imp->user_id)
+                ->where('documento', $doc)
+                ->first();
+
+            if ($cliente) {
+                $matches[$lado] = $cliente;
+            }
+        }
+
+        if (count($matches) !== 1) {
+            return null;
+        }
+
+        $lado = array_key_first($matches);
+
+        return [
+            'lado' => $lado,
+            'cliente' => $matches[$lado],
+            'resultado' => $this->execute($imp, $lado),
+        ];
     }
 
     /**
@@ -120,6 +177,51 @@ class DefinirClienteXmlService
             'razao' => $top->razao ?? null,
             'distintos' => $linhas->count(),
         ];
+    }
+
+    private function participanteContraparte(
+        int $userId,
+        int $clienteId,
+        ?string $doc,
+        ?string $razao,
+        ?string $uf,
+        ?string $municipioIbge,
+        ?string $ie,
+        XmlImportacao $imp
+    ): ?Participante {
+        $doc = preg_replace('/\D/', '', (string) $doc);
+        if ($doc === '') {
+            return null;
+        }
+
+        $participante = Participante::firstOrNew(['user_id' => $userId, 'documento' => $doc]);
+
+        if (! $participante->exists) {
+            $participante->fill([
+                'razao_social' => $razao,
+                'uf' => $uf,
+                'codigo_municipal' => $municipioIbge,
+                'inscricao_estadual' => $ie,
+                'origem_tipo' => 'xml',
+                'importacao_xml_id' => $imp->id,
+            ]);
+        }
+
+        $participante->cliente_id = $clienteId;
+
+        if (! $participante->importacao_xml_id) {
+            $participante->importacao_xml_id = $imp->id;
+        }
+
+        if (! $participante->origem_tipo) {
+            $participante->origem_tipo = 'xml';
+        }
+
+        if ($participante->isDirty()) {
+            $participante->save();
+        }
+
+        return $participante;
     }
 
     /**
