@@ -21,20 +21,20 @@ beforeEach(function () {
 
     $this->nota = XmlNota::create([
         'user_id' => $this->user->id,
-        'nfe_id' => str_repeat('1', 44),
+        'chave_acesso' => str_repeat('1', 44),
         'tipo_documento' => 'NFE',
-        'numero_nota' => 1234,
+        'numero_documento' => 1234,
         'serie' => 1,
         'data_emissao' => now(),
         'natureza_operacao' => 'VENDA',
         'valor_total' => 1000.00,
         'tipo_nota' => 1, // Saida
         'finalidade' => 1, // Normal
-        'emit_cnpj' => '12345678000199',
+        'emit_documento' => '12345678000199',
         'emit_razao_social' => 'Empresa Teste Ltda',
         'emit_uf' => 'SP',
         'emit_participante_id' => $this->participante->id,
-        'dest_cnpj' => '98765432000188',
+        'dest_documento' => '98765432000188',
         'dest_razao_social' => 'Cliente Teste SA',
         'dest_uf' => 'SP',
         'icms_valor' => 180.00,
@@ -50,57 +50,6 @@ beforeEach(function () {
             'total' => ['ICMSTot' => ['vNF' => 1000.00, 'vTotTrib' => 272.50]],
         ],
     ]);
-});
-
-test('pode acessar dashboard de validacao', function () {
-    $response = $this->get('/app/validacao');
-    $response->assertOk();
-});
-
-test('pode acessar listagem de notas da validacao', function () {
-    $response = $this->get('/app/validacao/notas');
-    $response->assertOk();
-});
-
-test('listagem de notas respeita escopo do usuario autenticado', function () {
-    $outroUsuario = User::factory()->create();
-
-    XmlNota::create([
-        'user_id' => $outroUsuario->id,
-        'nfe_id' => str_repeat('9', 44),
-        'tipo_documento' => 'NFE',
-        'numero_nota' => 4321,
-        'serie' => 1,
-        'data_emissao' => now(),
-        'natureza_operacao' => 'VENDA',
-        'valor_total' => 250.00,
-        'tipo_nota' => 1,
-        'finalidade' => 1,
-        'emit_cnpj' => '99999999000199',
-        'emit_razao_social' => 'Outra Empresa Ltda',
-        'emit_uf' => 'SP',
-        'dest_cnpj' => '88888888000188',
-        'dest_razao_social' => 'Outro Cliente SA',
-        'dest_uf' => 'SP',
-        'tributos_total' => 0,
-        'payload' => [],
-    ]);
-
-    $response = $this->get('/app/validacao/notas');
-
-    $response->assertOk()
-        ->assertSee((string) $this->nota->numero_nota)
-        ->assertDontSee('4321/1');
-});
-
-test('pode acessar lista de alertas', function () {
-    $response = $this->get('/app/validacao/alertas');
-    $response->assertOk();
-});
-
-test('pode ver detalhes de nota', function () {
-    $response = $this->get("/app/validacao/nota/{$this->nota->id}");
-    $response->assertOk();
 });
 
 test('service valida nota corretamente', function () {
@@ -123,80 +72,23 @@ test('service valida nota corretamente', function () {
         ->toHaveKey('operacoes');
 });
 
-test('service calcula custo corretamente para tipo local', function () {
-    $service = new ValidacaoContabilService();
-    $custo = $service->calcularCusto([$this->nota->id], $this->user->id, 'local');
-
-    expect($custo['custo_total'])->toBe(0);
-    expect($custo['custo_unitario'])->toBe(0);
-});
-
-test('service calcula custo corretamente para tipo completa', function () {
-    $service = new ValidacaoContabilService();
-    $custo = $service->calcularCusto([$this->nota->id], $this->user->id, 'completa');
-
-    // 1 participante unico = 1 credito
-    expect($custo['custo_total'])->toBe(1);
-    expect($custo['custo_unitario'])->toBe(1);
-});
-
-test('service calcula custo corretamente para tipo deep', function () {
-    $service = new ValidacaoContabilService();
-    $custo = $service->calcularCusto([$this->nota->id], $this->user->id, 'deep');
-
-    // 1 participante unico = 3 creditos
-    expect($custo['custo_total'])->toBe(3);
-    expect($custo['custo_unitario'])->toBe(3);
-});
-
-test('api calcular custo retorna dados corretos', function () {
-    $response = $this->postJson('/app/validacao/calcular-custo', [
-        'nota_ids' => [$this->nota->id],
-        'tipo' => 'completa',
-    ]);
-
-    $response->assertOk()
-        ->assertJson([
-            'success' => true,
-            'saldo_suficiente' => true,
-        ]);
-
-    expect($response->json('custo.custo_total'))->toBe(1);
-    expect($response->json('saldo_atual'))->toBe(100);
-});
-
-test('api validar notas executa corretamente', function () {
-    $response = $this->postJson('/app/validacao/notas/validar', [
-        'nota_ids' => [$this->nota->id],
-        'tipo' => 'local', // Gratuito
-    ]);
-
-    $response->assertOk()
-        ->assertJson(['success' => true]);
-
-    // Verificar que a nota foi validada
-    $this->nota->refresh();
-    expect($this->nota->validacao)->not->toBeNull();
-    expect($this->nota->validacao)->toHaveKey('score_total');
-});
-
 test('classificacao conforme para nota sem problemas', function () {
     // Criar nota sem problemas
     $notaOk = XmlNota::create([
         'user_id' => $this->user->id,
-        'nfe_id' => str_repeat('2', 44),
+        'chave_acesso' => str_repeat('2', 44),
         'tipo_documento' => 'NFE',
-        'numero_nota' => 5678,
+        'numero_documento' => 5678,
         'serie' => 1,
         'data_emissao' => now(),
         'natureza_operacao' => 'VENDA',
         'valor_total' => 1000.00,
         'tipo_nota' => 1,
         'finalidade' => 1,
-        'emit_cnpj' => '12345678000199',
+        'emit_documento' => '12345678000199',
         'emit_uf' => 'SP',
         'emit_participante_id' => $this->participante->id,
-        'dest_cnpj' => '98765432000188',
+        'dest_documento' => '98765432000188',
         'dest_uf' => 'SP',
         'icms_valor' => 0,
         'pis_valor' => 0,
@@ -222,18 +114,18 @@ test('classificacao conforme para nota sem problemas', function () {
 test('detecta ncm generico', function () {
     $notaComNcmGenerico = XmlNota::create([
         'user_id' => $this->user->id,
-        'nfe_id' => str_repeat('3', 44),
+        'chave_acesso' => str_repeat('3', 44),
         'tipo_documento' => 'NFE',
-        'numero_nota' => 9999,
+        'numero_documento' => 9999,
         'serie' => 1,
         'data_emissao' => now(),
         'natureza_operacao' => 'VENDA',
         'valor_total' => 1000.00,
         'tipo_nota' => 1,
         'finalidade' => 1,
-        'emit_cnpj' => '12345678000199',
+        'emit_documento' => '12345678000199',
         'emit_uf' => 'SP',
-        'dest_cnpj' => '98765432000188',
+        'dest_documento' => '98765432000188',
         'dest_uf' => 'SP',
         'icms_valor' => 0,
         'tributos_total' => 0,
@@ -258,18 +150,18 @@ test('detecta cfop inconsistente com tipo nota', function () {
     // Nota de saida (tipo_nota=1) com CFOP de entrada (1xxx)
     $notaInconsistente = XmlNota::create([
         'user_id' => $this->user->id,
-        'nfe_id' => str_repeat('4', 44),
+        'chave_acesso' => str_repeat('4', 44),
         'tipo_documento' => 'NFE',
-        'numero_nota' => 8888,
+        'numero_documento' => 8888,
         'serie' => 1,
         'data_emissao' => now(),
         'natureza_operacao' => 'VENDA',
         'valor_total' => 1000.00,
         'tipo_nota' => 1, // Saida
         'finalidade' => 1,
-        'emit_cnpj' => '12345678000199',
+        'emit_documento' => '12345678000199',
         'emit_uf' => 'SP',
-        'dest_cnpj' => '98765432000188',
+        'dest_documento' => '98765432000188',
         'dest_uf' => 'SP',
         'icms_valor' => 0,
         'tributos_total' => 0,

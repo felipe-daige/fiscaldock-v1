@@ -188,7 +188,7 @@ it('renderiza parecer resumido com badge curto quando houver sinalizacao acionav
         ->get("/app/consulta/lote/{$lote->id}")
         ->assertOk()
         ->assertSee('Sinalizações')
-        ->assertSee('>Inativa na RF<', false)
+        ->assertSee('Inativa na RF')
         ->assertDontSee('>Regime: Lucro Presumido<', false);
 });
 

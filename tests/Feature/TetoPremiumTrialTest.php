@@ -6,6 +6,7 @@ use App\Models\MonitoramentoPlano;
 use App\Models\Participante;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
@@ -16,7 +17,10 @@ uses(RefreshDatabase::class);
 beforeEach(function () {
     config()->set('services.api.token', 'token-teste');
     config()->set('services.webhook.consultas_cnpj_participante_url', 'https://n8n.test/webhook/consultas');
+    // Habilita o gate do InfoSimples para que o FonteRegistry cubra os planos pagos em testes
+    config(['consultas.infosimples_ativo' => true, 'consultas.providers.infosimples.token' => 'test-token']);
     Http::fake(['*' => Http::response(['ok' => true], 200)]);
+    Bus::fake(); // Evita dispatch real de jobs (sync driver rodaria imediatamente em testes)
 });
 
 function criarParticipantes(User $user, int $n): array

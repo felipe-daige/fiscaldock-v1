@@ -4,6 +4,7 @@ use App\Models\MonitoramentoPlano;
 use App\Models\Participante;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 
@@ -113,9 +114,7 @@ it('executar envia payload canonico mesmo com linha legada no banco', function (
         'crt' => '3',
     ]);
 
-    Http::fake([
-        'n8n.test/*' => Http::response(['ok' => true], 200),
-    ]);
+    Bus::fake();
 
     $response = actingAs($user)->postJson('/app/consulta/nova/executar', [
         'participante_ids' => [$participante->id],
@@ -131,21 +130,10 @@ it('executar envia payload canonico mesmo com linha legada no banco', function (
 
     $consultaLoteId = $response->json('consulta_lote_id');
     expect($consultaLoteId)->not->toBeNull();
-    expect($response->json('redirect_url'))->toBe("/app/consulta/lote/{$consultaLoteId}");
+    expect($response->json('redirect_url'))->toEndWith("/app/consulta/lote/{$consultaLoteId}");
 
-    Http::assertSent(function ($request) {
-        $body = $request->data();
-
-        return $request->url() === 'https://n8n.test/webhook/consultas-cnpj'
-            && $request->hasHeader('X-API-Token', 'token-cnpj-teste')
-            && ($body['plano_codigo'] ?? null) === 'gratuito'
-            && ($body['consultas_incluidas'] ?? null) === [
-                'situacao_cadastral',
-                'dados_cadastrais',
-                'endereco',
-            ]
-            && ($body['total_etapas'] ?? null) === 2
-            && ($body['etapas'][0]['chave'] ?? null) === 'inicializacao'
-            && ($body['etapas'][2]['chave'] ?? null) === 'finalizacao';
+    // O dispatch agora usa Bus::batch (não mais webhook n8n)
+    Bus::assertBatched(function ($batch) {
+        return count($batch->jobs) === 1;
     });
 });

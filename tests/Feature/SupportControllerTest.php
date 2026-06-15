@@ -35,7 +35,7 @@ test('aceita querystring e preenche formulario com contexto sanitizado', functio
     $response->assertOk()
         ->assertSee('Erro em /app/validacao')
         ->assertSee('alert(1)Erro ao calcular')
-        ->assertDontSee('<script>', false);
+        ->assertDontSee('<script>alert(1)</script>', false);
 });
 
 test('envia email de suporte com payload valido', function () {

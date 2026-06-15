@@ -1,5 +1,7 @@
 <?php
 
+uses(Tests\TestCase::class);
+
 use App\Support\SystemCriticalError;
 
 it('gera erro publico com whatsapp sem expor detalhes internos', function () {

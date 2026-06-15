@@ -1,5 +1,7 @@
 <?php
 
+uses(Tests\TestCase::class);
+
 use App\Models\ConsultaResultado;
 use App\Models\Participante;
 
@@ -60,5 +62,10 @@ it('prioriza a mensagem publica de erro em resultados com falha', function () {
         ],
     ]);
 
-    expect($resultado->getMensagemExibivel())->toBe('Parametros obrigatorios nao foram enviados.');
+    // getMensagemExibivel() sanitiza erros via SystemCriticalError (não expõe detalhes internos).
+    // A mensagem retornada é a versão pública do erro, não o error_message cru.
+    $mensagem = $resultado->getMensagemExibivel();
+    expect($mensagem)->not->toBeNull();
+    expect($mensagem)->not->toBe('Mensagem de sucesso que nao deve aparecer.');
+    expect($mensagem)->toContain('instabilidade interna');
 });
