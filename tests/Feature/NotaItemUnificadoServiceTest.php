@@ -118,3 +118,35 @@ it('usa o NCM do próprio item XML e marca sem catálogo quando o código não e
     expect($itens['FORN-X']['catalogo'])->toBeNull();
     expect($itens['FORN-X']['ncm'])->toBe('76543210'); // NCM do item XML
 });
+
+it('filtra por fonte (só EFD, só XML)', function () {
+    [$user, $clienteId] = seedCatalogoUser();
+    efdNotaComItem($user->id, $clienteId, str_pad('A', 44, '0', STR_PAD_LEFT), 'E1', 100.0);
+    xmlNotaComItem($user->id, $clienteId, str_pad('B', 44, '0', STR_PAD_LEFT), 'X1', 50.0);
+
+    $svc = app(NotaItemUnificadoService::class);
+    expect($svc->itensAgregados($user->id, ['fonte' => 'efd'])->pluck('codigo_item')->all())->toBe(['E1']);
+    expect($svc->itensAgregados($user->id, ['fonte' => 'xml'])->pluck('codigo_item')->all())->toBe(['X1']);
+});
+
+it('filtra por período (data_emissao)', function () {
+    [$user, $clienteId] = seedCatalogoUser();
+    efdNotaComItem($user->id, $clienteId, str_pad('A', 44, '0', STR_PAD_LEFT), 'JAN', 100.0, 18, 'fiscal', 5102, '2024-01-10');
+    efdNotaComItem($user->id, $clienteId, str_pad('C', 44, '0', STR_PAD_LEFT), 'MAR', 100.0, 18, 'fiscal', 5102, '2024-03-10');
+
+    $itens = app(NotaItemUnificadoService::class)->itensAgregados($user->id, ['periodo_de' => '2024-03-01', 'periodo_ate' => '2024-03-31'])->pluck('codigo_item')->all();
+    expect($itens)->toBe(['MAR']);
+});
+
+it('filtra por cliente_id', function () {
+    [$user, $clienteId] = seedCatalogoUser();
+    $outroCliente = DB::table('clientes')->insertGetId([
+        'user_id' => $user->id, 'razao_social' => 'OUTRA', 'documento' => '00000000000200',
+        'is_empresa_propria' => false, 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    efdNotaComItem($user->id, $clienteId, str_pad('A', 44, '0', STR_PAD_LEFT), 'DOMECLI', 100.0);
+    efdNotaComItem($user->id, (int) $outroCliente, str_pad('C', 44, '0', STR_PAD_LEFT), 'OUTROCLI', 100.0);
+
+    $itens = app(NotaItemUnificadoService::class)->itensAgregados($user->id, ['cliente_id' => $clienteId])->pluck('codigo_item')->all();
+    expect($itens)->toBe(['DOMECLI']);
+});
