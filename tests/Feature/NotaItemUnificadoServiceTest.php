@@ -52,9 +52,16 @@ function xmlNotaComItem(int $userId, int $clienteId, string $chave, string $codI
 
 function catalogoItem(int $userId, int $clienteId, string $codItem, string $ncm = '99887766', float $aliq = 18): void
 {
+    $impId = DB::table('efd_importacoes')->insertGetId([
+        'user_id' => $userId, 'cliente_id' => $clienteId, 'tipo_efd' => 'EFD ICMS/IPI',
+        'filename' => 'cat.txt', 'status' => 'concluido', 'iniciado_em' => now(),
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
     DB::table('efd_catalogo_itens')->insert([
-        'user_id' => $userId, 'cliente_id' => $clienteId, 'cod_item' => $codItem, 'descr_item' => 'PRODUTO CATALOGO',
-        'tipo_item' => '00', 'cod_ncm' => $ncm, 'aliq_icms' => $aliq, 'unid_inv' => 'UN', 'created_at' => now(), 'updated_at' => now(),
+        'user_id' => $userId, 'cliente_id' => $clienteId, 'importacao_id' => $impId,
+        'cod_item' => $codItem, 'descr_item' => 'PRODUTO CATALOGO',
+        'tipo_item' => '00', 'cod_ncm' => $ncm, 'aliq_icms' => $aliq, 'unid_inv' => 'UN',
+        'created_at' => now(), 'updated_at' => now(),
     ]);
 }
 
@@ -87,4 +94,27 @@ it('marca procedência ambas quando o item aparece nas duas fontes em notas dife
     expect($itens['SKU9']['fontes'])->toBe('ambas');
     expect((float) $itens['SKU9']['valor_total'])->toBe(170.0);
     expect($itens['SKU9']['ocorrencias'])->toBe(2);
+});
+
+it('liga o item ao catálogo e marca tem_catalogo + NCM do catálogo para item EFD', function () {
+    [$user, $clienteId] = seedCatalogoUser();
+    catalogoItem($user->id, $clienteId, 'SKU1', '99887766', 18);
+    efdNotaComItem($user->id, $clienteId, str_pad('A', 44, '0', STR_PAD_LEFT), 'SKU1', 100.0);
+
+    $itens = app(NotaItemUnificadoService::class)->itensAgregados($user->id)->keyBy('codigo_item');
+
+    expect($itens['SKU1']['tem_catalogo'])->toBeTrue();
+    expect($itens['SKU1']['catalogo']['cod_ncm'])->toBe('99887766');
+    expect($itens['SKU1']['ncm'])->toBe('99887766'); // EFD não tem NCM próprio → vem do catálogo
+});
+
+it('usa o NCM do próprio item XML e marca sem catálogo quando o código não está no cadastro', function () {
+    [$user, $clienteId] = seedCatalogoUser();
+    xmlNotaComItem($user->id, $clienteId, str_pad('B', 44, '0', STR_PAD_LEFT), 'FORN-X', 80.0, '76543210');
+
+    $itens = app(NotaItemUnificadoService::class)->itensAgregados($user->id)->keyBy('codigo_item');
+
+    expect($itens['FORN-X']['tem_catalogo'])->toBeFalse();
+    expect($itens['FORN-X']['catalogo'])->toBeNull();
+    expect($itens['FORN-X']['ncm'])->toBe('76543210'); // NCM do item XML
 });

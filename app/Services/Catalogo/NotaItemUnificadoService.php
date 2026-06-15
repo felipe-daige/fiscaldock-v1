@@ -74,9 +74,16 @@ class NotaItemUnificadoService
                    string_agg(DISTINCT m.cst_icms, ',') AS csts,
                    AVG(m.aliquota_icms) FILTER (WHERE m.aliquota_icms > 0) AS aliquota_media,
                    MAX(m.ncm_item) AS ncm_item,
-                   string_agg(DISTINCT m.fonte, ',') AS fontes_raw
+                   string_agg(DISTINCT m.fonte, ',') AS fontes_raw,
+                   cat.cod_item AS cat_cod_item, cat.descr_item AS cat_descr, cat.cod_ncm AS cat_ncm, cat.aliq_icms AS cat_aliq
             FROM movimento m
-            GROUP BY m.codigo_item
+            LEFT JOIN (
+                SELECT DISTINCT ON (cod_item) cod_item, descr_item, cod_ncm, aliq_icms
+                FROM efd_catalogo_itens
+                WHERE user_id = :uid
+                ORDER BY cod_item, id DESC
+            ) cat ON cat.cod_item = m.codigo_item
+            GROUP BY m.codigo_item, cat.cod_item, cat.descr_item, cat.cod_ncm, cat.aliq_icms
             ORDER BY valor_total DESC";
 
         return collect(DB::select($sql, $bind))->map(fn ($r) => [
@@ -88,8 +95,14 @@ class NotaItemUnificadoService
             'cfops' => $r->cfops,
             'csts' => $r->csts,
             'aliquota_media' => $r->aliquota_media !== null ? (float) $r->aliquota_media : null,
-            'ncm' => $r->ncm_item,
+            'ncm' => $r->ncm_item ?: $r->cat_ncm,
             'fontes' => $this->normalizarFontes($r->fontes_raw),
+            'tem_catalogo' => $r->cat_cod_item !== null,
+            'catalogo' => $r->cat_cod_item !== null ? [
+                'descr_item' => $r->cat_descr,
+                'cod_ncm' => $r->cat_ncm,
+                'aliq_icms' => $r->cat_aliq !== null ? (float) $r->cat_aliq : null,
+            ] : null,
         ]);
     }
 
