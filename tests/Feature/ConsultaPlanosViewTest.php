@@ -17,8 +17,8 @@ it('lista os planos de consulta com a nota do periodo de teste e cobertura atual
     $resp->assertSee('Compliance')->assertSee('Due Diligence')->assertSee('Usar plano');
     // nota do teto de teste (usuário sem 1ª compra)
     $resp->assertSee('Período de teste');
-    // cobertura alinhada
-    $resp->assertSee('Sanções (CGU)')->assertSee('Improbidade (CNJ)');
+    // cobertura alinhada (rótulos derivados do catálogo via PlanoConsultaLabels)
+    $resp->assertSee('Sanções e idoneidade (CGU)')->assertSee('Improbidade administrativa (CNJ)');
 });
 
 it('nao mostra a nota de teste apos a primeira compra', function () {

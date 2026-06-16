@@ -104,7 +104,6 @@ document.addEventListener('DOMContentLoaded', () => {
         '/agendar': 'initAgendar',
         '/solucoes': 'initSolucoes',
         '/app/importacao/efd': 'initImportacaoEfd',
-        '/app/monitoramento/avulso': 'initMonitoramentoAvulso',
         '/app/consultas/avulso': 'initMonitoramentoAvulso',
         '/app/consulta/avulso': 'initMonitoramentoAvulso',
         '/app/novo-participante': 'initNovoParticipante',

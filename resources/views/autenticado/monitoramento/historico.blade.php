@@ -162,7 +162,7 @@
                                     </svg>
                                     <h3 class="mt-4 text-sm font-semibold text-gray-900 uppercase tracking-wide">Nenhuma consulta realizada</h3>
                                     <p class="mt-2 text-xs text-gray-500">Suas consultas aparecerão aqui após serem realizadas.</p>
-                                    <a href="/app/monitoramento/avulso" data-link
+                                    <a href="/app/consulta/nova" data-link
                                        class="mt-4 inline-flex items-center gap-2 px-3 py-2 rounded bg-gray-800 hover:bg-gray-700 text-white text-xs font-semibold transition">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>

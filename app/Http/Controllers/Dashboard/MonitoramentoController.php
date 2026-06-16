@@ -657,7 +657,7 @@ class MonitoramentoController extends Controller
                             if ($consulta->status === 'erro') {
                                 $data['error_message'] = $consulta->publicErrorMessage();
                                 $data['ui_error'] = $consulta->publicErrorUi([
-                                    'url' => '/app/monitoramento/avulso',
+                                    'url' => '/app/consulta/nova',
                                 ]);
                             }
 
