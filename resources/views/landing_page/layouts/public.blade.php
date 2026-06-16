@@ -145,6 +145,8 @@
         </div>
     </footer>
 
+    @include('landing_page.partials.cookie-consent')
+
     @stack('structured-data')
 </body>
 </html>
