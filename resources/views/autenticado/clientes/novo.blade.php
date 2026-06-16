@@ -494,6 +494,75 @@
                 </div>
             </div>
         </div>
+
+        @if($isEditing)
+        {{-- Monitoramento contínuo deste cliente --}}
+        <div class="bg-white border border-gray-300 rounded p-4 mb-6">
+            <div class="flex items-center gap-2 mb-1">
+                <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">Monitoramento contínuo</h2>
+            </div>
+            @if(! empty($assinaturaMonitoramento))
+                <p class="text-sm text-gray-700 mt-2">
+                    Este cliente já tem assinatura de monitoramento
+                    (<span class="font-semibold">{{ $assinaturaMonitoramento->plano->nome ?? '-' }}</span>,
+                    <span class="font-semibold">{{ $assinaturaMonitoramento->status }}</span>).
+                    O sistema re-consulta o CNPJ automaticamente e avisa mudanças de situação.
+                </p>
+            @else
+                <p class="text-xs text-gray-500 mt-1 mb-3">Re-consulta o CNPJ deste cliente automaticamente, debita por ciclo e avisa quando a situação muda.</p>
+                <div class="flex flex-col sm:flex-row gap-2 sm:items-center">
+                    <select id="select-plano-monitoramento-cliente" class="text-[13px] py-2.5 px-3 border border-gray-300 rounded focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                        <option value="">Selecione o plano</option>
+                        @foreach(($planosMonitoramento ?? collect()) as $planoMon)
+                            @if(! $planoMon->is_gratuito)
+                                <option value="{{ $planoMon->id }}">{{ $planoMon->nome }} — {{ $planoMon->custo_creditos }} créditos/ciclo</option>
+                            @endif
+                        @endforeach
+                    </select>
+                    <button type="button" id="btn-criar-assinatura-cliente"
+                        class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded bg-gray-800 text-white text-sm font-semibold hover:bg-gray-700 transition">
+                        Criar assinatura
+                    </button>
+                </div>
+                <p id="status-assinatura-cliente" class="text-xs mt-2 text-gray-400"></p>
+            @endif
+        </div>
+        <script>
+        (function () {
+            var btn = document.getElementById('btn-criar-assinatura-cliente');
+            if (!btn) return;
+            btn.addEventListener('click', function () {
+                var sel = document.getElementById('select-plano-monitoramento-cliente');
+                var status = document.getElementById('status-assinatura-cliente');
+                var planoId = sel ? sel.value : '';
+                if (!planoId) { status.textContent = 'Selecione um plano.'; status.className = 'text-xs mt-2 text-red-600'; return; }
+                btn.disabled = true;
+                status.textContent = 'Criando...'; status.className = 'text-xs mt-2 text-gray-400';
+                var token = document.querySelector('meta[name="csrf-token"]');
+                fetch('/app/monitoramento/assinatura', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': token ? token.getAttribute('content') : '' },
+                    body: JSON.stringify({ cliente_id: {{ $cliente->id }}, plano_id: planoId })
+                })
+                .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+                .then(function (res) {
+                    if (res.ok && res.j.success) {
+                        status.textContent = res.j.message || 'Assinatura criada com sucesso.';
+                        status.className = 'text-xs mt-2 text-green-600';
+                    } else {
+                        status.textContent = (res.j && res.j.error) || 'Erro ao criar assinatura.';
+                        status.className = 'text-xs mt-2 text-red-600';
+                        btn.disabled = false;
+                    }
+                })
+                .catch(function () { status.textContent = 'Falha de rede.'; status.className = 'text-xs mt-2 text-red-600'; btn.disabled = false; });
+            });
+        })();
+        </script>
+        @endif
     </div>
 </div>
 

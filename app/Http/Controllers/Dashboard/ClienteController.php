@@ -242,7 +242,13 @@ class ClienteController extends Controller
         $cliente = Cliente::where('user_id', $user->id)->findOrFail($id);
 
         $viewName = 'autenticado.clientes.novo';
-        $data = ['cliente' => $cliente];
+        $data = [
+            'cliente' => $cliente,
+            'planosMonitoramento' => \App\Models\MonitoramentoPlano::ativos(),
+            'assinaturaMonitoramento' => \App\Models\MonitoramentoAssinatura::where('cliente_id', $cliente->id)
+                ->whereIn('status', ['ativo', 'pausado'])
+                ->first(),
+        ];
 
         if ($this->isAjaxRequest($request)) {
             $renderedView = view($viewName, $data)->render();
