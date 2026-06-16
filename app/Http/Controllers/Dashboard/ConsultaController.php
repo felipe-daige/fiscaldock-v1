@@ -1423,6 +1423,7 @@ class ConsultaController extends Controller
         ];
 
         $lotes = (clone $baseQuery)
+            ->withCount(['monitoramentoConsulta as eh_monitoramento'])
             ->orderBy('created_at', 'desc')
             ->paginate(20)
             ->withQueryString();

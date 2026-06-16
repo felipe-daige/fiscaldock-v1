@@ -167,6 +167,9 @@
                                     </td>
                                     <td class="px-3 py-3 text-sm text-gray-700">
                                         <div class="text-gray-900">{{ $lote->plano?->nome ?? 'Sem plano' }}</div>
+                                        @if($lote->eh_monitoramento ?? false)
+                                            <span class="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: #7c3aed">Monitoramento</span>
+                                        @endif
                                         @if($lote->processado_em)
                                             <div class="text-[11px] text-gray-500 mt-1">Processado em {{ $lote->processado_em->format('d/m/Y H:i') }}</div>
                                         @endif

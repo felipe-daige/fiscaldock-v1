@@ -88,6 +88,15 @@ class ConsultaLote extends Model
     }
 
     /**
+     * Ciclo de monitoramento contínuo que gerou este lote (se houver).
+     * Usado pra marcar a origem "monitoramento" no histórico.
+     */
+    public function monitoramentoConsulta(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(MonitoramentoConsulta::class, 'consulta_lote_id');
+    }
+
+    /**
      * Verifica se há resultados disponíveis para gerar relatório.
      */
     public function hasResultados(): bool
