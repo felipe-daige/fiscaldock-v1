@@ -60,6 +60,30 @@ class MonitoramentoAssinatura extends Model
     }
 
     /**
+     * Cliente monitorado (alternativa ao participante).
+     */
+    public function cliente(): BelongsTo
+    {
+        return $this->belongsTo(Cliente::class);
+    }
+
+    /**
+     * Tipo do alvo monitorado: 'cliente' ou 'participante'.
+     */
+    public function alvoTipo(): string
+    {
+        return $this->cliente_id ? 'cliente' : 'participante';
+    }
+
+    /**
+     * Modelo monitorado (Cliente ou Participante), de forma genérica.
+     */
+    public function alvo(): ?\Illuminate\Database\Eloquent\Model
+    {
+        return $this->cliente_id ? $this->cliente : $this->participante;
+    }
+
+    /**
      * Plano de monitoramento.
      */
     public function plano(): BelongsTo
