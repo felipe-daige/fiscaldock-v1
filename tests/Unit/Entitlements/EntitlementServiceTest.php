@@ -79,3 +79,46 @@ it('consumptionCap respeita o limite explícito do cliente', function () {
     assinar($user, 'essencial', ['limite_consumo_automatico' => 120]);
     expect($this->svc->consumptionCap($user))->toBe(120);
 });
+
+function ativarTrial(User $user, int $creditos = 50): void
+{
+    $user->forceFill([
+        'trial_used' => true,
+        'trial_started_at' => now(),
+        'trial_expires_at' => now()->addDays(30),
+        'trial_credits_remaining' => $creditos,
+    ])->save();
+}
+
+it('permits(): Free sem trial é bloqueado nas capabilities pagas', function () {
+    $user = User::factory()->create();
+    expect($this->svc->permits($user, 'clearance_lote'))->toBeFalse();
+    expect($this->svc->permits($user, 'score_historico'))->toBeFalse();
+    expect($this->svc->permits($user, 'export'))->toBeFalse();
+});
+
+it('permits(): trial ativo libera tudo (mesmo no plano Free)', function () {
+    $user = User::factory()->create();
+    ativarTrial($user);
+    expect($this->svc->permits($user, 'clearance_lote'))->toBeTrue();
+    expect($this->svc->permits($user, 'score_historico'))->toBeTrue();
+    expect($this->svc->permits($user, 'export'))->toBeTrue();
+});
+
+it('permits(): trial expirado NÃO libera (volta a valer o plano Free)', function () {
+    $user = User::factory()->create();
+    $user->forceFill([
+        'trial_used' => true,
+        'trial_expires_at' => now()->subDay(),
+        'trial_credits_remaining' => 50,
+    ])->save();
+    expect($this->svc->permits($user, 'clearance_lote'))->toBeFalse();
+});
+
+it('permits(): plano pago libera conforme a capability', function () {
+    $user = User::factory()->create();
+    assinar($user, 'essencial'); // clearance_lote=true, export=[csv], score_historico=false
+    expect($this->svc->permits($user, 'clearance_lote'))->toBeTrue();
+    expect($this->svc->permits($user, 'export'))->toBeTrue();
+    expect($this->svc->permits($user, 'score_historico'))->toBeFalse();
+});

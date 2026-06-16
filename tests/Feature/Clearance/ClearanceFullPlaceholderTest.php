@@ -18,7 +18,7 @@ uses(RefreshDatabase::class);
 
 function fullPhUser(): User
 {
-    return User::factory()->create(['credits' => 1000]);
+    return User::factory()->trialAtivo()->create(['credits' => 1000]);
 }
 
 function fullPhCliente(User $u): Cliente

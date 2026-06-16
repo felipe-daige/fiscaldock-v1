@@ -61,7 +61,7 @@ function validarImpMakeImportacaoComNotas(User $u, int $qtd): XmlImportacao
 it('valida uma importacao XML: persiste validacao local e despacha clearance no Laravel', function () {
     Bus::fake();
     Http::fake();
-    $u = User::factory()->create(['credits' => 1000]);
+    $u = User::factory()->trialAtivo()->create(['credits' => 1000]);
     $imp = validarImpMakeImportacaoComNotas($u, 2);
 
     $response = actingAs($u)
@@ -88,7 +88,7 @@ it('valida uma importacao XML: persiste validacao local e despacha clearance no 
 
 it('retorna 404 quando a importacao nao tem notas', function () {
     Bus::fake();
-    $u = User::factory()->create(['credits' => 1000]);
+    $u = User::factory()->trialAtivo()->create(['credits' => 1000]);
     $cliente = validarImpClientePropria($u);
 
     $imp = XmlImportacao::create([

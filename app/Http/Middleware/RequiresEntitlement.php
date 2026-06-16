@@ -15,7 +15,7 @@ class RequiresEntitlement
     {
         $user = $request->user();
 
-        if ($user === null || ! $this->entitlements->can($user, $capability)) {
+        if ($user === null || ! $this->entitlements->permits($user, $capability)) {
             abort(403, 'Seu plano não inclui este recurso.');
         }
 

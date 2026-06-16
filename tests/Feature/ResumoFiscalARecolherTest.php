@@ -83,6 +83,8 @@ it('a página do fechamento renderiza (blade compila) com a nova IA', function (
 
 it('exporta CSV do a-recolher com BOM e separador ;', function () {
     $user = \App\Models\User::find($this->userId);
+    // Export é recurso pago (gate de entitlements); trial ativo libera.
+    $user->forceFill(['trial_used' => true, 'trial_expires_at' => now()->addDays(30), 'trial_credits_remaining' => 50])->save();
     $resp = $this->actingAs($user)->get("/app/resumo-fiscal/exportar?cliente_id={$this->clienteId}&competencia=2024-01");
 
     $resp->assertOk();

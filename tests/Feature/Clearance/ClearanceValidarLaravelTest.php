@@ -20,7 +20,7 @@ uses(RefreshDatabase::class);
 
 function clrUser(int $credits = 1000): User
 {
-    return User::factory()->create(['credits' => $credits]);
+    return User::factory()->trialAtivo()->create(['credits' => $credits]);
 }
 
 function clrClientePropria(User $u): Cliente

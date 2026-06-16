@@ -26,7 +26,7 @@ beforeEach(function () {
 
 function validarEfdMakeUser(): User
 {
-    return User::factory()->create(['credits' => 1000]);
+    return User::factory()->trialAtivo()->create(['credits' => 1000]);
 }
 
 function validarEfdClientePropria(User $u): Cliente

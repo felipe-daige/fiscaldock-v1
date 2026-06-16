@@ -24,6 +24,27 @@ class EntitlementService
         return $this->planFor($user)->capability($cap, false) === true;
     }
 
+    /**
+     * Gate efetivo de acesso a um recurso pago.
+     *
+     * Política (definida 2026-06-16): **trial ativo libera tudo** — durante o
+     * trial o usuário experimenta os recursos pagos gastando créditos do trial;
+     * quando o trial expira e ele vira Free puro, o gate volta a valer pelo plano.
+     * `export` não é booleana (é lista de formatos) → permitida se houver ≥1 formato.
+     */
+    public function permits(User $user, string $cap): bool
+    {
+        if ($user->hasActiveTrial()) {
+            return true;
+        }
+
+        if ($cap === 'export') {
+            return $this->exportFormats($user) !== [];
+        }
+
+        return $this->can($user, $cap);
+    }
+
     public function capability(User $user, string $key, mixed $default = null): mixed
     {
         return $this->planFor($user)->capability($key, $default);

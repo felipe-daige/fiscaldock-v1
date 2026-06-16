@@ -20,6 +20,7 @@ use App\Http\Controllers\Dashboard\SupportController;
 use App\Http\Controllers\Landing\BlogController;
 use App\Http\Controllers\Landing\LandingPageController;
 use App\Http\Controllers\Landing\SitemapController;
+use App\Http\Middleware\RequiresEntitlement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -232,7 +233,8 @@ Route::middleware('auth')->group(function () {
     Route::get('app/resumo-fiscal/competencias', [ResumoFiscalController::class, 'competencias'])->name('app.resumo-fiscal.competencias');
     Route::get('app/resumo-fiscal/resumo-executivo', [ResumoFiscalController::class, 'resumoExecutivo'])->name('app.resumo-fiscal.resumo-executivo');
     Route::get('app/resumo-fiscal/a-recolher', [ResumoFiscalController::class, 'aRecolher'])->name('app.resumo-fiscal.a-recolher');
-    Route::get('app/resumo-fiscal/exportar', [ResumoFiscalController::class, 'exportar'])->name('app.resumo-fiscal.exportar');
+    Route::get('app/resumo-fiscal/exportar', [ResumoFiscalController::class, 'exportar'])
+        ->middleware(RequiresEntitlement::class.':export')->name('app.resumo-fiscal.exportar');
     Route::get('app/resumo-fiscal/apuracao-icms', [ResumoFiscalController::class, 'apuracaoIcms'])->name('app.resumo-fiscal.apuracao-icms');
     Route::get('app/resumo-fiscal/apuracao-pis-cofins', [ResumoFiscalController::class, 'apuracaoPisCofins'])->name('app.resumo-fiscal.apuracao-pis-cofins');
     Route::get('app/resumo-fiscal/retencoes', [ResumoFiscalController::class, 'retencoesFonte'])->name('app.resumo-fiscal.retencoes');
@@ -253,7 +255,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/tributario-efd', [BiController::class, 'tributarioEfd'])->name('tributario-efd');
         Route::get('/apuracao-notas', [BiController::class, 'apuracaoNotas'])->name('apuracao-notas');
         Route::get('/cfop', [BiController::class, 'cfop'])->name('cfop');
-        Route::get('/exportar', [BiController::class, 'exportar'])->name('exportar');
+        Route::get('/exportar', [BiController::class, 'exportar'])
+            ->middleware(RequiresEntitlement::class.':export')->name('exportar');
         Route::get('/catalogo-itens', [\App\Http\Controllers\Dashboard\BiCatalogoItensController::class, 'index'])->name('catalogo-itens');
     });
 
@@ -270,13 +273,15 @@ Route::middleware('auth')->group(function () {
         Route::get('/dashboard', [ClearanceController::class, 'index'])->name('dashboard');
         Route::get('/notas', [ClearanceController::class, 'notas'])->name('notas');
         Route::get('/notas/todos-ids', [ClearanceController::class, 'todosIds'])->name('todos-ids');
-        Route::post('/notas/validar', [ClearanceController::class, 'validarNotas'])->name('validar');
+        Route::post('/notas/validar', [ClearanceController::class, 'validarNotas'])
+            ->middleware(RequiresEntitlement::class.':clearance_lote')->name('validar');
         Route::get('/notas/resultado/{consultaLoteId}', [ClearanceController::class, 'resultadoNotas'])->name('notas.resultado');
         Route::get('/buscar', [ClearanceController::class, 'buscarNfe'])->name('buscar');
         Route::post('/buscar/consultar', [ClearanceController::class, 'consultarNfe'])->name('buscar.consultar');
         Route::get('/buscar/resultado/{consultaLoteId}', [ClearanceController::class, 'resultadoUltimaConsulta'])->name('buscar.resultado');
         Route::get('/buscar/resultado-local/{token}', [ClearanceController::class, 'resultadoBuscaLocal'])->name('buscar.resultado-local');
-        Route::post('/importacao/{id}/validar', [ClearanceController::class, 'validarImportacao'])->name('validar-importacao');
+        Route::post('/importacao/{id}/validar', [ClearanceController::class, 'validarImportacao'])
+            ->middleware(RequiresEntitlement::class.':clearance_lote')->name('validar-importacao');
         Route::post('/calcular-custo', [ClearanceController::class, 'calcularCusto'])->name('calcular-custo');
         Route::get('/nota/{id}', [ClearanceController::class, 'notaDetalhes'])->name('nota');
         Route::get('/alertas', [ClearanceController::class, 'alertas'])->name('alertas');
