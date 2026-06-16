@@ -74,6 +74,53 @@ class MonitoramentoConsulta extends Model
     }
 
     /**
+     * Cliente monitorado (alternativa ao participante).
+     */
+    public function cliente(): BelongsTo
+    {
+        return $this->belongsTo(Cliente::class);
+    }
+
+    /**
+     * Consulta anterior na cadeia de retry.
+     */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_consulta_id');
+    }
+
+    /**
+     * Retentativas que apontam para esta consulta.
+     */
+    public function retries(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(self::class, 'parent_consulta_id');
+    }
+
+    /**
+     * Lote da pipeline de consulta gerado por este ciclo.
+     */
+    public function lote(): BelongsTo
+    {
+        return $this->belongsTo(ConsultaLote::class, 'consulta_lote_id');
+    }
+
+    /**
+     * Quantos ancestrais (tentativas anteriores) esta consulta tem na cadeia de retry.
+     */
+    public function retryCount(): int
+    {
+        $count = 0;
+        $cur = $this->parent;
+        while ($cur) {
+            $count++;
+            $cur = $cur->parent;
+        }
+
+        return $count;
+    }
+
+    /**
      * Verifica se a consulta está pendente.
      */
     public function isPendente(): bool
