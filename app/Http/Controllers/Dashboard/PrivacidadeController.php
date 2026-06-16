@@ -5,12 +5,14 @@ namespace App\Http\Controllers\Dashboard;
 use App\Http\Controllers\Concerns\RespondeAjax;
 use App\Http\Controllers\Controller;
 use App\Models\Cliente;
+use App\Models\ConsentLog;
 use App\Models\ConsultaLote;
 use App\Models\CreditTransaction;
 use App\Models\EfdImportacao;
 use App\Models\Participante;
 use App\Models\User;
 use App\Models\XmlImportacao;
+use App\Services\Lgpd\ConsentLogService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -49,6 +51,10 @@ class PrivacidadeController extends Controller
         $data = [
             'user' => $user,
             'titularidade' => $this->titularidade($user->id),
+            'historico' => ConsentLog::where('user_id', $user->id)
+                ->orderByDesc('created_at')
+                ->limit(50)
+                ->get(),
         ];
 
         if ($this->isAjaxRequest($request)) {
@@ -67,6 +73,9 @@ class PrivacidadeController extends Controller
             'marketing_opt_in' => false,
             'marketing_opt_in_at' => now(),
         ])->save();
+
+        (new ConsentLogService)->registrar($user->id, ConsentLog::TIPO_MARKETING, ConsentLog::ACAO_REVOGACAO,
+            valor: false, ip: $request->ip(), userAgent: $request->userAgent());
 
         return back()->with('status', 'Consentimento de marketing revogado.');
     }
@@ -95,6 +104,17 @@ class PrivacidadeController extends Controller
             'exclusao' => [
                 'solicitada_em' => optional($user->deletion_requested_at)->toIso8601String(),
             ],
+            'trilha_consentimento' => ConsentLog::where('user_id', $user->id)
+                ->orderBy('created_at')
+                ->get(['tipo', 'acao', 'valor', 'versao', 'ip', 'created_at'])
+                ->map(fn ($l) => [
+                    'tipo' => $l->tipo,
+                    'acao' => $l->acao,
+                    'valor' => $l->valor,
+                    'versao' => $l->versao,
+                    'ip' => $l->ip,
+                    'em' => optional($l->created_at)->toIso8601String(),
+                ]),
             'titularidade' => $this->titularidade($user->id),
             'creditos' => [
                 'saldo' => (float) $user->credits,
@@ -126,6 +146,9 @@ class PrivacidadeController extends Controller
         if ($user->deletion_requested_at === null) {
             $user->forceFill(['deletion_requested_at' => now()])->save();
 
+            (new ConsentLogService)->registrar($user->id, ConsentLog::TIPO_EXCLUSAO, ConsentLog::ACAO_SOLICITACAO,
+                ip: $request->ip(), userAgent: $request->userAgent());
+
             Log::info('lgpd.exclusao.solicitada', [
                 'user_id' => $user->id,
                 'ip' => $request->ip(),
@@ -141,6 +164,9 @@ class PrivacidadeController extends Controller
         $user = Auth::user();
 
         $user->forceFill(['deletion_requested_at' => null])->save();
+
+        (new ConsentLogService)->registrar($user->id, ConsentLog::TIPO_EXCLUSAO, ConsentLog::ACAO_CANCELAMENTO,
+            ip: $request->ip(), userAgent: $request->userAgent());
 
         return back()->with('status', 'Pedido de exclusão cancelado.');
     }

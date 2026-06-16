@@ -51,6 +51,23 @@ return new class extends Migration
             });
         }
 
+        // LGPD fase 2.1 — trilha auditável de consentimento (append-only). 1 linha por evento
+        // (aceite no signup, revogação de marketing, pedido/cancelamento de exclusão). Carimba a
+        // versão do documento (config/legal.php) e IP/UA no momento do ato — prova de consentimento.
+        if (! Schema::hasTable('consent_logs')) {
+            Schema::create('consent_logs', function (Blueprint $table) {
+                $table->id();
+                $table->unsignedBigInteger('user_id')->index();
+                $table->string('tipo');   // termos|privacidade|marketing|exclusao
+                $table->string('acao');   // aceite|revogacao|solicitacao|cancelamento
+                $table->boolean('valor')->nullable();  // estado do opt-in (true/false) quando aplicável
+                $table->string('versao')->nullable();  // versão do documento aceito (config/legal.php)
+                $table->string('ip', 64)->nullable();
+                $table->string('user_agent', 500)->nullable();
+                $table->timestamp('created_at')->nullable();
+            });
+        }
+
         if (! Schema::hasTable('subscription_plans')) {
             Schema::create('subscription_plans', function (Blueprint $table) {
                 $table->id();
@@ -81,6 +98,7 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::dropIfExists('consent_logs');
         Schema::dropIfExists('comercial_parametros');
         Schema::dropIfExists('subscription_plans');
         Schema::dropIfExists('monitoramento_planos');

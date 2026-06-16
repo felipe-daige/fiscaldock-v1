@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\Cliente;
+use App\Models\ConsentLog;
 use App\Models\LandingLead;
 use App\Models\User;
 use App\Services\CreditService;
+use App\Services\Lgpd\ConsentLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -336,6 +338,18 @@ class AuthController extends Controller
                 'marketing_opt_in' => (bool) ($validated['marketing_opt_in'] ?? false),
                 'marketing_opt_in_at' => ! empty($validated['marketing_opt_in']) ? now() : null,
             ]);
+
+            // LGPD fase 2.1 — prova de consentimento do signup (versão vigente + IP/UA).
+            $consent = new ConsentLogService;
+            $optMarketing = (bool) ($validated['marketing_opt_in'] ?? false);
+            $consent->registrar($user->id, ConsentLog::TIPO_TERMOS, ConsentLog::ACAO_ACEITE,
+                versao: config('legal.terms_version'), ip: $request->ip(), userAgent: $request->userAgent());
+            $consent->registrar($user->id, ConsentLog::TIPO_PRIVACIDADE, ConsentLog::ACAO_ACEITE,
+                versao: config('legal.privacy_version'), ip: $request->ip(), userAgent: $request->userAgent());
+            if ($optMarketing) {
+                $consent->registrar($user->id, ConsentLog::TIPO_MARKETING, ConsentLog::ACAO_ACEITE,
+                    valor: true, ip: $request->ip(), userAgent: $request->userAgent());
+            }
 
             Cliente::create([
                 'user_id' => $user->id,

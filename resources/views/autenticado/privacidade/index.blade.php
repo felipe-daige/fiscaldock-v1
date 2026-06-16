@@ -56,6 +56,46 @@
             </div>
         </div>
 
+        {{-- Histórico de consentimentos (trilha auditável — fase 2.1) --}}
+        @php
+            $tipoLabels = [
+                'termos' => 'Termos de Uso', 'privacidade' => 'Política de Privacidade',
+                'marketing' => 'Marketing', 'exclusao' => 'Exclusão de conta',
+            ];
+            $acaoLabels = [
+                'aceite' => 'Aceite', 'revogacao' => 'Revogação',
+                'solicitacao' => 'Solicitação', 'cancelamento' => 'Cancelamento',
+            ];
+        @endphp
+        @if($historico->isNotEmpty())
+            <div class="bg-white rounded border border-gray-300 mb-5 overflow-hidden">
+                <div class="px-4 py-3 border-b border-gray-200">
+                    <h2 class="text-sm font-bold text-gray-900">Histórico de consentimentos</h2>
+                    <p class="text-[11px] text-gray-500 mt-0.5">Registro auditável de cada aceite, revogação e pedido — com data, versão do documento e IP.</p>
+                </div>
+                <div class="divide-y divide-gray-100">
+                    @foreach($historico as $log)
+                        <div class="px-4 py-2.5 flex items-center justify-between text-sm">
+                            <div>
+                                <p class="font-medium text-gray-900">
+                                    {{ $tipoLabels[$log->tipo] ?? ucfirst($log->tipo) }}
+                                    <span class="text-gray-400">·</span>
+                                    <span class="text-gray-600">{{ $acaoLabels[$log->acao] ?? ucfirst($log->acao) }}</span>
+                                    @if($log->versao)
+                                        <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-semibold text-white align-middle" style="background-color: #6b7280">v{{ $log->versao }}</span>
+                                    @endif
+                                </p>
+                                @if($log->ip)
+                                    <p class="text-[11px] text-gray-400">{{ $log->ip }}</p>
+                                @endif
+                            </div>
+                            <span class="text-[12px] text-gray-500 shrink-0">{{ $fmtData($log->created_at) ?? '—' }}</span>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
+
         {{-- Exportar dados (DSAR) --}}
         <div class="bg-white rounded border border-gray-300 mb-5 overflow-hidden">
             <div class="px-4 py-3 border-b border-gray-200">
