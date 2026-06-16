@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Http\Controllers\Concerns\RespondeAjax;
 use App\Http\Controllers\Controller;
 use App\Models\Cliente;
 use App\Models\EfdImportacao;
@@ -21,6 +22,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 class EfdImportacaoController extends Controller
 {
+    use RespondeAjax;
+
     private const AUTH_VIEW_PREFIX = 'autenticado.monitoramento.';
 
     private const AUTH_LAYOUT_VIEW = 'autenticado.layouts.app';
@@ -710,21 +713,6 @@ class EfdImportacaoController extends Controller
     /**
      * Verifica se a requisição é AJAX.
      */
-    private function isAjaxRequest(Request $request): bool
-    {
-        if (method_exists($request, 'ajax')) {
-            return $request->ajax();
-        }
-
-        $xRequestedWith = $request->header('X-Requested-With');
-        $wantsJson = $request->wantsJson();
-        $expectsJson = $request->expectsJson();
-
-        return $wantsJson
-            || $expectsJson
-            || $xRequestedWith === 'XMLHttpRequest';
-    }
-
     public function previewExclusao(Request $request, $id): JsonResponse
     {
         $imp = $this->importacaoDoDono($id);

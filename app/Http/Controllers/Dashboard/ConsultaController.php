@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Http\Controllers\Concerns\RespondeAjax;
 use App\Http\Controllers\Controller;
 use App\Models\Cliente;
 use App\Models\ConsultaLote;
@@ -28,6 +29,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 class ConsultaController extends Controller
 {
+    use RespondeAjax;
+
     private const AUTH_LAYOUT_VIEW = 'autenticado.layouts.app';
 
     public function __construct(
@@ -1715,11 +1718,6 @@ class ConsultaController extends Controller
     /**
      * Verifica se a requisição é AJAX (navegação SPA).
      */
-    private function isAjaxRequest(Request $request): bool
-    {
-        return $request->ajax() || $request->header('X-Requested-With') === 'XMLHttpRequest';
-    }
-
     private function getConsultaLoteStatusMeta(?string $status): array
     {
         return match (ConsultaLote::normalizeStatus($status)) {

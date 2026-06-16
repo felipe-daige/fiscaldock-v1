@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Http\Controllers\Concerns\RespondeAjax;
 use App\Http\Controllers\Controller;
 use App\Models\Cliente;
 use App\Services\Catalogo\NotaItemUnificadoService;
@@ -10,6 +11,8 @@ use Illuminate\Support\Facades\Auth;
 
 class BiCatalogoItensController extends Controller
 {
+    use RespondeAjax;
+
     private const AUTH_LAYOUT_VIEW = 'autenticado.layouts.app';
 
     public function __construct(private NotaItemUnificadoService $service) {}
@@ -54,10 +57,5 @@ class BiCatalogoItensController extends Controller
         }
 
         return view(self::AUTH_LAYOUT_VIEW, array_merge(['initialView' => $view], $data));
-    }
-
-    private function isAjaxRequest(Request $request): bool
-    {
-        return $request->ajax() || $request->header('X-Requested-With') === 'XMLHttpRequest';
     }
 }

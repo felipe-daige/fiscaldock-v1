@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Http\Controllers\Concerns\RespondeAjax;
 use App\Http\Controllers\Controller;
 use App\Models\Cliente;
 use App\Models\MonitoramentoPlano;
@@ -23,6 +24,8 @@ use ZipArchive;
 
 class XmlImportacaoController extends Controller
 {
+    use RespondeAjax;
+
     private const AUTH_VIEW_PREFIX = 'autenticado.importacao.';
 
     private const AUTH_LAYOUT_VIEW = 'autenticado.layouts.app';
@@ -568,6 +571,12 @@ class XmlImportacaoController extends Controller
                     for ($i = 0; $i < $zip->numFiles; $i++) {
                         $name = $zip->getNameIndex($i);
                         if (! str_ends_with(strtolower($name), '.xml')) {
+                            continue;
+                        }
+                        // Pula resource-forks AppleDouble do macOS (__MACOSX/._nota.xml):
+                        // terminam em .xml mas não são documentos — inflavam total_xmls e
+                        // geravam falsos "xmls_com_erro" no Job. Espelha contarXmlsNoZip().
+                        if (str_starts_with($name, '__MACOSX/') || str_starts_with(basename($name), '._')) {
                             continue;
                         }
                         $conteudo = $zip->getFromIndex($i);
@@ -1194,11 +1203,6 @@ class XmlImportacaoController extends Controller
     /**
      * Verifica se a requisição é AJAX (navegação SPA).
      */
-    private function isAjaxRequest(Request $request): bool
-    {
-        return $request->ajax() || $request->header('X-Requested-With') === 'XMLHttpRequest';
-    }
-
     /**
      * Redireciona para login preservando URL.
      */

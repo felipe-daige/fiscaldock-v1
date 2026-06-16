@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Http\Controllers\Concerns\RespondeAjax;
 use App\Http\Controllers\Controller;
 use App\Models\Cliente;
 use Illuminate\Http\JsonResponse;
@@ -12,6 +13,8 @@ use Illuminate\Validation\ValidationException;
 
 class ClienteController extends Controller
 {
+    use RespondeAjax;
+
     public function todosIds(Request $request): JsonResponse
     {
         $user = Auth::user();
@@ -176,7 +179,7 @@ class ClienteController extends Controller
                 'ativo' => true,
             ]);
 
-            if ($request->expectsJson() || $request->ajax()) {
+            if ($this->isAjaxRequest($request)) {
                 return response()->json([
                     'success' => true,
                     'message' => 'Cliente cadastrado com sucesso!',
@@ -194,7 +197,7 @@ class ClienteController extends Controller
                 ->with('success', 'Cliente cadastrado com sucesso!');
 
         } catch (ValidationException $e) {
-            if ($request->expectsJson() || $request->ajax()) {
+            if ($this->isAjaxRequest($request)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Erro de validacao',
@@ -208,7 +211,7 @@ class ClienteController extends Controller
                 ->withInput();
 
         } catch (\Exception $e) {
-            if ($request->expectsJson() || $request->ajax()) {
+            if ($this->isAjaxRequest($request)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Erro ao cadastrar cliente: '.$e->getMessage(),
@@ -229,7 +232,7 @@ class ClienteController extends Controller
     {
         $user = Auth::user();
         if (! $user) {
-            if ($request->ajax() || $request->wantsJson()) {
+            if ($this->isAjaxRequest($request)) {
                 return response()->json(['success' => false, 'message' => 'Nao autenticado', 'redirect' => '/login']);
             }
 
@@ -241,7 +244,7 @@ class ClienteController extends Controller
         $viewName = 'autenticado.clientes.novo';
         $data = ['cliente' => $cliente];
 
-        if ($request->ajax() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
+        if ($this->isAjaxRequest($request)) {
             $renderedView = view($viewName, $data)->render();
 
             return response($renderedView)->header('Content-Type', 'text/html');
@@ -345,7 +348,7 @@ class ClienteController extends Controller
                 'is_empresa_propria' => $validated['is_empresa_propria'] ?? $cliente->is_empresa_propria,
             ]);
 
-            if ($request->expectsJson() || $request->ajax()) {
+            if ($this->isAjaxRequest($request)) {
                 return response()->json([
                     'success' => true,
                     'message' => 'Cliente atualizado com sucesso!',
@@ -358,7 +361,7 @@ class ClienteController extends Controller
                 ->with('success', 'Cliente atualizado com sucesso!');
 
         } catch (\Illuminate\Validation\ValidationException $e) {
-            if ($request->expectsJson() || $request->ajax()) {
+            if ($this->isAjaxRequest($request)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Erro de validacao',
@@ -372,7 +375,7 @@ class ClienteController extends Controller
                 ->withInput();
 
         } catch (\Exception $e) {
-            if ($request->expectsJson() || $request->ajax()) {
+            if ($this->isAjaxRequest($request)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Erro ao atualizar cliente: '.$e->getMessage(),

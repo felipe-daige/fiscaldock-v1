@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Http\Controllers\Concerns\RespondeAjax;
 use App\Http\Controllers\Controller;
 use App\Models\Cliente;
 use App\Models\Participante;
@@ -12,6 +13,8 @@ use Illuminate\Support\Facades\Auth;
 
 class RiskScoreController extends Controller
 {
+    use RespondeAjax;
+
     private const AUTH_VIEW_PREFIX = 'autenticado.risk.';
 
     private const AUTH_LAYOUT_VIEW = 'autenticado.layouts.app';
@@ -251,17 +254,6 @@ class RiskScoreController extends Controller
     /**
      * Verifica se e requisicao AJAX.
      */
-    private function isAjaxRequest(Request $request): bool
-    {
-        if (method_exists($request, 'ajax') && $request->ajax()) {
-            return true;
-        }
-
-        return $request->header('X-Requested-With') === 'XMLHttpRequest' ||
-               $request->wantsJson() ||
-               $request->expectsJson();
-    }
-
     /**
      * Renderiza view com suporte a AJAX.
      */

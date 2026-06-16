@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Dashboard;
 
 use App\Helpers\CfopHelper;
 use App\Helpers\CstIcmsHelper;
+use App\Http\Controllers\Concerns\RespondeAjax;
 use App\Http\Controllers\Controller;
 use App\Models\Cliente;
 use App\Models\EfdImportacao;
@@ -17,6 +18,8 @@ use Illuminate\Support\Facades\DB;
 
 class DashboardNotasFiscaisController extends Controller
 {
+    use RespondeAjax;
+
     private const VIEW = 'autenticado.notas.dashboard';
 
     private const LAYOUT = 'autenticado.layouts.app';
@@ -663,16 +666,5 @@ class DashboardNotasFiscaisController extends Controller
             $q->where('origem_arquivo', 'fiscal')
                 ->orWhereRaw('NOT EXISTS (SELECT 1 FROM efd_notas f WHERE f.user_id = ? AND f.origem_arquivo = ? AND f.chave_acesso IS NOT NULL AND f.chave_acesso = efd_notas.chave_acesso)', [$userId, 'fiscal']);
         });
-    }
-
-    private function isAjaxRequest(Request $request): bool
-    {
-        if (method_exists($request, 'ajax') && $request->ajax()) {
-            return true;
-        }
-
-        return $request->header('X-Requested-With') === 'XMLHttpRequest'
-            || $request->wantsJson()
-            || $request->expectsJson();
     }
 }

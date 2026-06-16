@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Http\Controllers\Concerns\RespondeAjax;
 use App\Http\Controllers\Controller;
 use App\Models\Cliente;
 use App\Models\EfdNota;
@@ -11,6 +12,8 @@ use Illuminate\Support\Facades\Auth;
 
 class ResumoFiscalController extends Controller
 {
+    use RespondeAjax;
+
     private const VIEW = 'autenticado.resumo-fiscal.index';
 
     private const LAYOUT = 'autenticado.layouts.app';
@@ -195,16 +198,5 @@ class ResumoFiscalController extends Controller
             ->selectRaw("DISTINCT TO_CHAR(data_emissao, 'YYYY-MM') as competencia")
             ->orderByRaw('competencia DESC')
             ->pluck('competencia');
-    }
-
-    private function isAjaxRequest(Request $request): bool
-    {
-        if (method_exists($request, 'ajax') && $request->ajax()) {
-            return true;
-        }
-
-        return $request->header('X-Requested-With') === 'XMLHttpRequest'
-            || $request->wantsJson()
-            || $request->expectsJson();
     }
 }

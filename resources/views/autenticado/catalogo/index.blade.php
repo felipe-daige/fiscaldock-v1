@@ -100,59 +100,6 @@
     </div>
     @endif
 
-    {{-- ═══ Filtros ═══ --}}
-    <div class="border border-gray-300 rounded overflow-hidden mb-4">
-        <div class="bg-gray-50 px-4 py-2 border-b border-gray-200">
-            <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Filtros</span>
-        </div>
-        <div class="bg-white p-3 sm:p-4">
-            <form method="GET" action="/app/catalogo" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 items-end">
-                <div>
-                    <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Cliente</label>
-                    <select name="cliente_id" class="w-full text-[13px] border border-gray-300 rounded py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                        <option value="">Todos</option>
-                        @foreach($clientes as $c)
-                        <option value="{{ $c->id }}" {{ ($filtros['cliente_id'] ?? '') == $c->id ? 'selected' : '' }}>{{ $c->razao_social }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Importação</label>
-                    <select name="importacao_id" class="w-full text-[13px] border border-gray-300 rounded py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                        <option value="">Todas</option>
-                        @foreach($importacoes as $imp)
-                        <option value="{{ $imp->id }}" {{ ($filtros['importacao_id'] ?? '') == $imp->id ? 'selected' : '' }}>{{ $imp->filename }} · {{ $imp->tipo_efd }} · {{ $imp->created_at?->format('d/m/Y') }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Tipo</label>
-                    <select name="tipo_item" class="w-full text-[13px] border border-gray-300 rounded py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                        <option value="">Todos</option>
-                        @foreach($tipoLabels as $cod => $label)
-                        <option value="{{ $cod }}" {{ ($filtros['tipo_item'] ?? '') == $cod ? 'selected' : '' }}>{{ $cod }} - {{ $label }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">NCM</label>
-                    <input type="text" name="ncm" value="{{ $filtros['ncm'] ?? '' }}" placeholder="Ex: 39269090"
-                        class="w-full text-[13px] border border-gray-300 rounded py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                </div>
-                <div>
-                    <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Busca</label>
-                    <input type="text" name="busca" value="{{ $filtros['busca'] ?? '' }}" placeholder="Código, descrição..."
-                        class="w-full text-[13px] border border-gray-300 rounded py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                </div>
-                <div>
-                    <button type="submit" class="w-full px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 font-medium transition-colors">
-                        Filtrar
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
     {{-- ═══ BLOCO 2: Análise Fiscal (gráficos) ═══ --}}
     @php $temCfops = !empty($cfops); $temCsts = !empty($csts_icms); @endphp
     @if($temCfops || $temCsts)
@@ -402,6 +349,59 @@
         </div>
     </div>
     @endif
+
+    {{-- ═══ Filtros ═══ --}}
+    <div class="border border-gray-300 rounded overflow-hidden mb-4">
+        <div class="bg-gray-50 px-4 py-2 border-b border-gray-200">
+            <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Filtros</span>
+        </div>
+        <div class="bg-white p-3 sm:p-4">
+            <form method="GET" action="/app/catalogo" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 items-end">
+                <div>
+                    <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Cliente</label>
+                    <select name="cliente_id" class="w-full text-[13px] border border-gray-300 rounded py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                        <option value="">Todos</option>
+                        @foreach($clientes as $c)
+                        <option value="{{ $c->id }}" {{ ($filtros['cliente_id'] ?? '') == $c->id ? 'selected' : '' }}>{{ $c->razao_social }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Importação</label>
+                    <select name="importacao_id" class="w-full text-[13px] border border-gray-300 rounded py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                        <option value="">Todas</option>
+                        @foreach($importacoes as $imp)
+                        <option value="{{ $imp->id }}" {{ ($filtros['importacao_id'] ?? '') == $imp->id ? 'selected' : '' }}>{{ $imp->filename }} · {{ $imp->tipo_efd }} · {{ $imp->created_at?->format('d/m/Y') }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Tipo</label>
+                    <select name="tipo_item" class="w-full text-[13px] border border-gray-300 rounded py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                        <option value="">Todos</option>
+                        @foreach($tipoLabels as $cod => $label)
+                        <option value="{{ $cod }}" {{ ($filtros['tipo_item'] ?? '') == $cod ? 'selected' : '' }}>{{ $cod }} - {{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">NCM</label>
+                    <input type="text" name="ncm" value="{{ $filtros['ncm'] ?? '' }}" placeholder="Ex: 39269090"
+                        class="w-full text-[13px] border border-gray-300 rounded py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Busca</label>
+                    <input type="text" name="busca" value="{{ $filtros['busca'] ?? '' }}" placeholder="Código, descrição..."
+                        class="w-full text-[13px] border border-gray-300 rounded py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                </div>
+                <div>
+                    <button type="submit" class="w-full px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700 font-medium transition-colors">
+                        Filtrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     {{-- ═══ BLOCO 3: Catálogo de Itens ═══ --}}
     @if($itens->isEmpty())

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Http\Controllers\Concerns\RespondeAjax;
 use App\Http\Controllers\Controller;
 use App\Models\Cliente;
 use App\Models\EfdCatalogoItem;
@@ -13,6 +14,8 @@ use Illuminate\Support\Facades\DB;
 
 class CatalogoController extends Controller
 {
+    use RespondeAjax;
+
     private const AUTH_LAYOUT_VIEW = 'autenticado.layouts.app';
 
     public function __construct(private CatalogoHistoricoService $historicoService) {}
@@ -412,16 +415,5 @@ class CatalogoController extends Controller
         $html .= '</div>';
 
         return response($html)->header('Content-Type', 'text/html');
-    }
-
-    private function isAjaxRequest(Request $request): bool
-    {
-        if (method_exists($request, 'ajax')) {
-            return $request->ajax();
-        }
-
-        return $request->wantsJson()
-            || $request->expectsJson()
-            || $request->header('X-Requested-With') === 'XMLHttpRequest';
     }
 }

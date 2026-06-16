@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Http\Controllers\Concerns\RespondeAjax;
 use App\Http\Controllers\Controller;
 use App\Models\Cliente;
 use App\Models\ConsultaResultado;
@@ -15,6 +16,8 @@ use Illuminate\Validation\ValidationException;
 
 class MinhaEmpresaController extends Controller
 {
+    use RespondeAjax;
+
     private const AUTH_VIEW_PREFIX = 'autenticado.minha-empresa.';
 
     private const AUTH_LAYOUT_VIEW = 'autenticado.layouts.app';
@@ -319,17 +322,6 @@ class MinhaEmpresaController extends Controller
     /**
      * Verifica se e requisicao AJAX.
      */
-    private function isAjaxRequest(Request $request): bool
-    {
-        if (method_exists($request, 'ajax') && $request->ajax()) {
-            return true;
-        }
-
-        return $request->header('X-Requested-With') === 'XMLHttpRequest' ||
-               $request->wantsJson() ||
-               $request->expectsJson();
-    }
-
     /**
      * Cadastra/substitui o certificado digital A1 da empresa própria.
      */

@@ -142,6 +142,40 @@ it('definir-cliente (whole-lote) é bloqueado num lote multi-cliente', function 
     expect(XmlNota::where('importacao_xml_id', $imp->id)->whereNotNull('cliente_id')->count())->toBe(0);
 });
 
+it('zip do macOS: ignora arquivos __MACOSX/._* (AppleDouble) na contagem e no storage', function () {
+    Bus::fake();
+    Storage::fake('local');
+    $user = User::factory()->create();
+    $cliente = Cliente::create(['user_id' => $user->id, 'documento' => '97551165000193', 'razao_social' => 'HIDRATOP', 'is_empresa_propria' => true]);
+
+    $xml = file_get_contents(base_path('tests/Fixtures/nfe/50240197551165000193550010000248021000214750-nfe.xml'));
+
+    // ZIP como o Finder do macOS gera: 1 XML real + 1 resource-fork AppleDouble em __MACOSX/
+    $tmpZip = tempnam(sys_get_temp_dir(), 'macimp_').'.zip';
+    $zip = new ZipArchive;
+    $zip->open($tmpZip, ZipArchive::CREATE);
+    $zip->addFromString('nota.xml', $xml);
+    $zip->addFromString('__MACOSX/._nota.xml', "\x00\x05\x16\x07lixo-appledouble");
+    $zip->close();
+
+    $payload = [
+        'tipo_documento' => 'NFE', 'modo_envio' => 'zip', 'cliente_id' => $cliente->id,
+        'tab_id' => 'tab-mac',
+        'arquivos' => [[
+            'nome' => 'arquivos.zip', 'tipo' => 'application/zip',
+            'conteudo_base64' => base64_encode(file_get_contents($tmpZip)),
+        ]],
+    ];
+    @unlink($tmpZip);
+
+    $this->actingAs($user)->postJson('/app/importacao/xml/importar', $payload)
+        ->assertOk()->assertJson(['success' => true]);
+
+    $imp = XmlImportacao::where('user_id', $user->id)->firstOrFail();
+    expect($imp->total_xmls)->toBe(1);
+    expect(Storage::disk('local')->files("xml-imports/{$imp->id}"))->toHaveCount(1);
+});
+
 it('forçado: cria importação sem header e despacha o Job com a âncora', function () {
     Bus::fake();
     Storage::fake('local');

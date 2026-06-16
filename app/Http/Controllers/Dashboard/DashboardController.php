@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Http\Controllers\Concerns\RespondeAjax;
 use App\Http\Controllers\Controller;
 use App\Models\Alerta;
 use App\Models\Cliente;
@@ -21,6 +22,8 @@ use Illuminate\Validation\Rule;
 
 class DashboardController extends Controller
 {
+    use RespondeAjax;
+
     public function __construct(
         protected DashboardDataService $dashboardDataService,
         protected NotaFiscalService $notaFiscalService,
@@ -80,19 +83,6 @@ class DashboardController extends Controller
     /**
      * Verifica se a requisição é AJAX de forma compatível com Laravel 11 e 12
      */
-    private function isAjaxRequest(Request $request): bool
-    {
-        // Verifica se o método ajax() existe (Laravel 11)
-        if (method_exists($request, 'ajax') && $request->ajax()) {
-            return true;
-        }
-
-        // Verifica o header X-Requested-With diretamente (compatível com Laravel 12)
-        return $request->header('X-Requested-With') === 'XMLHttpRequest' ||
-               $request->wantsJson() ||
-               $request->expectsJson();
-    }
-
     private function renderAutenticado(Request $request, string $viewName)
     {
         $autenticadoView = self::AUTH_VIEW_PREFIX.$viewName;

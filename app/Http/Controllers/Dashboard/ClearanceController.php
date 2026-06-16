@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Http\Controllers\Concerns\RespondeAjax;
 use App\Http\Controllers\Controller;
 use App\Models\Cliente;
 use App\Models\ConsultaLote;
@@ -25,6 +26,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 class ClearanceController extends Controller
 {
+    use RespondeAjax;
+
     public const CLEARANCE_NFE_AVULSA_CUSTO = 14;
 
     private const BUSCA_AVULSA_CACHE_TTL_MINUTES = 120;
@@ -1472,17 +1475,6 @@ class ClearanceController extends Controller
     /**
      * Verifica se e requisicao AJAX.
      */
-    private function isAjaxRequest(Request $request): bool
-    {
-        if (method_exists($request, 'ajax') && $request->ajax()) {
-            return true;
-        }
-
-        return $request->header('X-Requested-With') === 'XMLHttpRequest' ||
-               $request->wantsJson() ||
-               $request->expectsJson();
-    }
-
     private function getClearanceProgressSnapshot(ConsultaLote $lote): ?array
     {
         if (empty($lote->tab_id)) {

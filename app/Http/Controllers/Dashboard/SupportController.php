@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Http\Controllers\Concerns\RespondeAjax;
 use App\Http\Controllers\Controller;
 use App\Mail\SupportTicket;
 use Illuminate\Http\JsonResponse;
@@ -12,6 +13,8 @@ use Illuminate\Support\Str;
 
 class SupportController extends Controller
 {
+    use RespondeAjax;
+
     private const AUTH_LAYOUT_VIEW = 'autenticado.layouts.app';
 
     private const AUTH_SUPPORT_VIEW = 'autenticado.suporte.index';
@@ -118,10 +121,5 @@ class SupportController extends Controller
         $sanitized = preg_replace('/\s+/u', ' ', $sanitized) ?? '';
 
         return Str::limit(trim($sanitized), $maxLength, '');
-    }
-
-    private function isAjaxRequest(Request $request): bool
-    {
-        return $request->ajax() || $request->wantsJson() || $request->header('X-Requested-With') === 'XMLHttpRequest';
     }
 }
