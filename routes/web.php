@@ -299,6 +299,15 @@ Route::middleware('auth')->group(function () {
     Route::get('/app/suporte', [SupportController::class, 'index'])->name('app.suporte.index');
     Route::post('/app/suporte', [SupportController::class, 'store'])->name('app.suporte.store');
 
+    // Centro de Privacidade (LGPD fase 2 — direitos do titular)
+    Route::prefix('app/privacidade')->name('app.privacidade.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Dashboard\PrivacidadeController::class, 'index'])->name('index');
+        Route::get('/exportar', [\App\Http\Controllers\Dashboard\PrivacidadeController::class, 'exportarDados'])->name('exportar');
+        Route::post('/marketing/revogar', [\App\Http\Controllers\Dashboard\PrivacidadeController::class, 'revogarMarketing'])->name('marketing.revogar');
+        Route::post('/exclusao', [\App\Http\Controllers\Dashboard\PrivacidadeController::class, 'solicitarExclusao'])->name('exclusao.solicitar');
+        Route::post('/exclusao/cancelar', [\App\Http\Controllers\Dashboard\PrivacidadeController::class, 'cancelarExclusao'])->name('exclusao.cancelar');
+    });
+
     // Minha Empresa
     Route::prefix('app/minha-empresa')->name('app.minha-empresa.')->group(function () {
         Route::get('/', [MinhaEmpresaController::class, 'index'])->name('index');

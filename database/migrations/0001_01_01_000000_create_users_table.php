@@ -29,6 +29,9 @@ return new class extends Migration
             $table->timestamp('terms_accepted_at')->nullable();
             $table->boolean('marketing_opt_in')->default(false);
             $table->timestamp('marketing_opt_in_at')->nullable();
+            // LGPD fase 2: pedido de exclusão de conta (direito do titular). Flag, não hard-delete —
+            // o processamento/anonimização respeita a retenção fiscal de SPED/XML.
+            $table->timestamp('deletion_requested_at')->nullable();
             $table->boolean('trial_used')->default(false);
             $table->timestamp('trial_started_at')->nullable();
             $table->timestamp('trial_expires_at')->nullable();
