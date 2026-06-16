@@ -141,6 +141,50 @@ class ResultadoDetalhePresenter
     }
 
     /**
+     * Deriva a situação geral (regular/atencao/irregular) e se há pendências
+     * a partir do resultado_dados, reusando a mesma classificação de certidões
+     * (CertidaoBadge) do resumo. Usado pelo monitoramento contínuo.
+     *
+     * @return array{situacao_geral: string, tem_pendencias: bool}
+     */
+    public function situacaoGeral(ConsultaResultado $resultado): array
+    {
+        $dados = is_array($resultado->resultado_dados) ? $resultado->resultado_dados : [];
+
+        $temPendencia = false;      // certidão com pendência (atenção)
+        $temIndeterminada = false;  // certidão sem emissão
+        foreach (['cnd_federal', 'cnd_estadual', 'cnd_municipal', 'crf_fgts', 'cndt'] as $chave) {
+            if (! isset($dados[$chave]) || ! is_array($dados[$chave])) {
+                continue;
+            }
+            $bucket = $this->bucketHex(CertidaoBadge::classificar($dados[$chave], $chave === 'cnd_federal')['hex'] ?? null);
+            if ($bucket === 'atencao') {
+                $temPendencia = true;
+            } elseif ($bucket === 'indeterminado') {
+                $temIndeterminada = true;
+            }
+        }
+
+        $temSancao = (bool) ($dados['cgu_cnc']['possui_sancao'] ?? false)
+            || (bool) ($dados['cnj_improbidade']['possui_condenacao'] ?? false);
+
+        // Situações cadastrais irregulares da Receita Federal (null/ATIVA não contam).
+        $cadastral = strtoupper(trim((string) ($dados['situacao_cadastral'] ?? '')));
+        $cadastralIrregular = in_array($cadastral, ['BAIXADA', 'INAPTA', 'SUSPENSA', 'NULA'], true);
+
+        $situacaoGeral = match (true) {
+            $temPendencia || $temSancao || $cadastralIrregular => 'irregular',
+            $temIndeterminada => 'atencao',
+            default => 'regular',
+        };
+
+        return [
+            'situacao_geral' => $situacaoGeral,
+            'tem_pendencias' => $temPendencia || $temSancao,
+        ];
+    }
+
+    /**
      * Análise agregada do lote: contagem por fonte (regular/atenção/indeterminado/neutro),
      * rollup por CNPJ (pior status) e uma frase-resumo. Alimenta tabela + gráfico do topo.
      *
