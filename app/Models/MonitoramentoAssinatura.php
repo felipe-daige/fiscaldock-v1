@@ -16,6 +16,7 @@ class MonitoramentoAssinatura extends Model
     protected $fillable = [
         'user_id',
         'participante_id',
+        'cliente_id',
         'plano_id',
         'status',
         'frequencia_dias',
