@@ -91,6 +91,19 @@ return new class extends Migration
                 $table->timestamps();
             });
         }
+
+        // Descartes de alertas de catálogo (NCM a revisar / sem catálogo) por usuário e item.
+        if (! Schema::hasTable('catalogo_alerta_descartes')) {
+            Schema::create('catalogo_alerta_descartes', function (Blueprint $table) {
+                $table->id();
+                $table->unsignedBigInteger('user_id');
+                $table->string('tipo'); // ncm_divergente | sem_catalogo
+                $table->string('codigo_item');
+                $table->timestamps();
+                $table->unique(['user_id', 'tipo', 'codigo_item']);
+                $table->index('user_id');
+            });
+        }
     }
 
     /**
@@ -98,6 +111,7 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::dropIfExists('catalogo_alerta_descartes');
         Schema::dropIfExists('consent_logs');
         Schema::dropIfExists('comercial_parametros');
         Schema::dropIfExists('subscription_plans');
