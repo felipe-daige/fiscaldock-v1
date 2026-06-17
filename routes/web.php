@@ -175,6 +175,9 @@ Route::middleware(['auth', \App\Http\Middleware\RequireCurrentTerms::class])->gr
 
         Route::get('/importacao/stream/{id}', [EfdImportacaoController::class, 'streamImportacao'])->name('importacao.stream');
 
+        // Freio de consumo do auto-monitor (§6.2) — o contador define o teto de gasto por ciclo
+        Route::post('/limite-consumo', [MonitoramentoController::class, 'definirLimiteConsumo'])->name('limite-consumo');
+
         // Assinaturas
         Route::post('/assinatura', [MonitoramentoController::class, 'criarAssinatura'])->name('assinatura.criar');
         Route::post('/assinatura/{id}/pausar', [MonitoramentoController::class, 'pausarAssinatura'])->name('assinatura.pausar');

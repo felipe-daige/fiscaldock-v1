@@ -82,4 +82,64 @@ class EntitlementService
 
         return (int) $this->planFor($user)->creditos_inclusos;
     }
+
+    // ---- Fase 5: freio de consumo do auto-monitor (§6.2) + gating de CNPJs monitorados ----
+
+    /** Início do ciclo de consumo do monitor: âncora do grant da assinatura, senão o mês corrente. */
+    public function cicloInicioMonitoramento(User $user): \Illuminate\Support\Carbon
+    {
+        $subscription = $user->relationLoaded('subscription')
+            ? $user->subscription
+            : $user->subscription()->first();
+
+        $anchor = $subscription?->ultimo_grant_em ?? $subscription?->iniciada_em;
+
+        return $anchor ? \Illuminate\Support\Carbon::parse($anchor) : now()->startOfMonth();
+    }
+
+    /** Créditos já consumidos pelo auto-monitor no ciclo corrente (deduções type=monitoramento_assinatura). */
+    public function consumoMonitoramentoNoCiclo(User $user): int
+    {
+        $desde = $this->cicloInicioMonitoramento($user);
+
+        return (int) abs((float) \Illuminate\Support\Facades\DB::table('credit_transactions')
+            ->where('user_id', $user->id)
+            ->where('type', 'monitoramento_assinatura')
+            ->where('amount', '<', 0)
+            ->where('created_at', '>=', $desde)
+            ->sum('amount'));
+    }
+
+    /**
+     * Disparar um ciclo de custo `$custo` estouraria o cap de consumo automático do usuário?
+     * Cap <= 0 (ex.: Free sem inclusos) = sem freio — o saldo é o limite real (monitor grátis é custo 0).
+     */
+    public function monitoramentoCapEstourado(User $user, int $custo): bool
+    {
+        $cap = $this->consumptionCap($user);
+
+        if ($cap <= 0) {
+            return false;
+        }
+
+        return ($this->consumoMonitoramentoNoCiclo($user) + max(0, $custo)) > $cap;
+    }
+
+    /** Teto de CNPJs monitorados ativos do tier. null = ilimitado (inclui trial ativo). */
+    public function limiteCnpjsMonitorados(User $user): ?int
+    {
+        if ($user->hasActiveTrial()) {
+            return null;
+        }
+
+        return $this->limit($user, 'limite_cnpjs_monitorados');
+    }
+
+    /** Pode ativar mais um monitoramento? `$ativos` = nº de assinaturas ativas/pausadas hoje. */
+    public function podeMonitorarMaisCnpj(User $user, int $ativos): bool
+    {
+        $limite = $this->limiteCnpjsMonitorados($user);
+
+        return $limite === null || $ativos < $limite;
+    }
 }

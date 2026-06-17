@@ -15,6 +15,8 @@ interface MonitoramentoNotifier
 
     public function assinaturaPausadaPorFalhas(MonitoramentoAssinatura $assinatura): void;
 
+    public function assinaturaPausadaPorLimiteConsumo(MonitoramentoAssinatura $assinatura): void;
+
     public function situacaoPiorou(MonitoramentoConsulta $consulta, ?MonitoramentoConsulta $anterior): void;
 
     public function situacaoMelhorou(MonitoramentoConsulta $consulta, ?MonitoramentoConsulta $anterior): void;

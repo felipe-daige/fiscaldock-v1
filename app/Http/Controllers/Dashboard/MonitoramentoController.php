@@ -10,6 +10,7 @@ use App\Models\MonitoramentoConsulta;
 use App\Models\MonitoramentoPlano;
 use App\Models\Participante;
 use App\Services\CreditService;
+use App\Services\Entitlements\EntitlementService;
 use App\Services\PricingCatalogService;
 use App\Support\CndFederal;
 use Carbon\Carbon;
@@ -30,6 +31,7 @@ class MonitoramentoController extends Controller
     public function __construct(
         protected CreditService $creditService,
         protected PricingCatalogService $pricingCatalogService,
+        protected EntitlementService $entitlements,
     ) {}
 
     /**
@@ -372,11 +374,26 @@ class MonitoramentoController extends Controller
             }
         }
 
+        // Gating de tier (Fase 5): nº de CNPJs monitorados ativos não pode passar do teto do plano.
+        // Trial libera (limite null). Nunca bloqueia cadastrar cliente — só o monitorar.
+        $limiteCnpjs = $this->entitlements->limiteCnpjsMonitorados($user);
+        $ativos = MonitoramentoAssinatura::where('user_id', $user->id)
+            ->whereIn('status', ['ativo', 'pausado'])
+            ->count();
+
+        if ($limiteCnpjs !== null && $ativos >= $limiteCnpjs) {
+            return response()->json([
+                'success' => false,
+                'error' => "Seu plano permite monitorar até {$limiteCnpjs} CNPJ(s) ao mesmo tempo. Pause/cancele um monitoramento ou faça upgrade do plano.",
+            ], Response::HTTP_FORBIDDEN);
+        }
+
         try {
             DB::beginTransaction();
 
             $assinaturasCriadas = 0;
             $jaExistentes = 0;
+            $bloqueadosPorLimite = 0;
 
             foreach ($participanteIds as $pId) {
                 // Verificar se participante pertence ao usuário
@@ -400,6 +417,12 @@ class MonitoramentoController extends Controller
                     continue;
                 }
 
+                if ($limiteCnpjs !== null && $ativos >= $limiteCnpjs) {
+                    $bloqueadosPorLimite++;
+
+                    continue;
+                }
+
                 // Converter frequência para dias
                 $frequenciaDias = $this->frequenciaParaDias($frequencia);
                 $proximaExecucao = Carbon::now()->addDays($frequenciaDias)->setTime(8, 0, 0);
@@ -415,6 +438,7 @@ class MonitoramentoController extends Controller
                 ]);
 
                 $assinaturasCriadas++;
+                $ativos++;
             }
 
             foreach ($clientes as $cliente) {
@@ -425,6 +449,12 @@ class MonitoramentoController extends Controller
 
                 if ($assinaturaExistente) {
                     $jaExistentes++;
+
+                    continue;
+                }
+
+                if ($limiteCnpjs !== null && $ativos >= $limiteCnpjs) {
+                    $bloqueadosPorLimite++;
 
                     continue;
                 }
@@ -441,6 +471,7 @@ class MonitoramentoController extends Controller
                 ]);
 
                 $assinaturasCriadas++;
+                $ativos++;
             }
 
             DB::commit();
@@ -453,6 +484,13 @@ class MonitoramentoController extends Controller
                 'frequencia' => $frequencia,
             ]);
 
+            if ($assinaturasCriadas === 0 && $bloqueadosPorLimite > 0) {
+                return response()->json([
+                    'success' => false,
+                    'error' => "Seu plano permite monitorar até {$limiteCnpjs} CNPJ(s) ao mesmo tempo. Pause/cancele um monitoramento ou faça upgrade do plano.",
+                ], Response::HTTP_FORBIDDEN);
+            }
+
             if ($assinaturasCriadas === 0 && $jaExistentes > 0) {
                 return response()->json([
                     'success' => false,
@@ -460,11 +498,17 @@ class MonitoramentoController extends Controller
                 ], Response::HTTP_CONFLICT);
             }
 
+            $msg = $assinaturasCriadas.' assinatura(s) criada(s) com sucesso.';
+            if ($bloqueadosPorLimite > 0) {
+                $msg .= " {$bloqueadosPorLimite} não cabe(m) no limite do plano ({$limiteCnpjs} CNPJ(s)).";
+            }
+
             return response()->json([
                 'success' => true,
-                'message' => $assinaturasCriadas.' assinatura(s) criada(s) com sucesso.',
+                'message' => $msg,
                 'criadas' => $assinaturasCriadas,
                 'ja_existentes' => $jaExistentes,
+                'bloqueados_limite' => $bloqueadosPorLimite,
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -478,6 +522,41 @@ class MonitoramentoController extends Controller
                 'error' => 'Erro ao criar assinatura. Tente novamente.',
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
+    }
+
+    /**
+     * Freio de consumo do auto-monitor (§6.2): o contador define o teto de créditos que o
+     * monitoramento automático pode gastar por ciclo. Armazenado em
+     * account_subscriptions.limite_consumo_automatico (null = volta ao default do plano).
+     */
+    public function definirLimiteConsumo(Request $request)
+    {
+        if (! Auth::check()) {
+            return response()->json(['success' => false, 'message' => 'Usuário não autenticado.'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $validated = $request->validate([
+            'limite' => ['nullable', 'integer', 'min:0', 'max:1000000'],
+        ]);
+
+        $user = Auth::user();
+        $subscription = $user->subscription()->first();
+
+        if ($subscription === null) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Sem assinatura ativa. O limite de consumo automático segue o padrão do plano.',
+            ], Response::HTTP_CONFLICT);
+        }
+
+        $subscription->update(['limite_consumo_automatico' => $validated['limite'] ?? null]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Limite de consumo automático atualizado.',
+            'limite_consumo_automatico' => $subscription->limite_consumo_automatico,
+            'cap_efetivo' => $this->entitlements->consumptionCap($user),
+        ]);
     }
 
     /**

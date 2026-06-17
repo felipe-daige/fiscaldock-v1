@@ -40,6 +40,21 @@ class AlertaCentralNotifier implements MonitoramentoNotifier
         ]);
     }
 
+    public function assinaturaPausadaPorLimiteConsumo(MonitoramentoAssinatura $assinatura): void
+    {
+        $nome = $this->nomeAlvo($assinatura);
+
+        $this->alertas->registrarAlertaMonitoramento([
+            'user_id' => $assinatura->user_id,
+            'tipo' => 'monitoramento_pausado_limite_consumo',
+            'severidade' => 'media',
+            'titulo' => 'Monitoramento pausado pelo limite de consumo',
+            'descricao' => "O monitoramento contínuo de {$nome} foi pausado porque o consumo automático atingiu o limite definido para o ciclo. Aumente o limite de consumo ou reative a assinatura para continuar.",
+            'participante_id' => $assinatura->participante_id,
+            'cliente_id' => $assinatura->cliente_id,
+        ]);
+    }
+
     public function situacaoPiorou(MonitoramentoConsulta $consulta, ?MonitoramentoConsulta $anterior): void
     {
         $de = $anterior?->situacao_geral ?? 'desconhecida';

@@ -6,6 +6,7 @@ use App\Actions\Monitoramento\DispararConsultaMonitoramento;
 use App\Models\MonitoramentoAssinatura;
 use App\Models\MonitoramentoConsulta;
 use App\Services\CreditService;
+use App\Services\Entitlements\EntitlementService;
 use App\Support\Monitoramento\MonitoramentoNotifier;
 use Illuminate\Console\Command;
 
@@ -19,9 +20,10 @@ class ExecutarMonitoramentoPendentesCommand extends Command
         DispararConsultaMonitoramento $disparar,
         CreditService $creditService,
         MonitoramentoNotifier $notifier,
+        EntitlementService $entitlements,
     ): int {
-        $this->executarVencidas($disparar, $creditService, $notifier);
-        $this->executarRetries($disparar, $creditService, $notifier);
+        $this->executarVencidas($disparar, $creditService, $notifier, $entitlements);
+        $this->executarRetries($disparar, $creditService, $notifier, $entitlements);
 
         return self::SUCCESS;
     }
@@ -30,9 +32,20 @@ class ExecutarMonitoramentoPendentesCommand extends Command
         DispararConsultaMonitoramento $disparar,
         CreditService $creditService,
         MonitoramentoNotifier $notifier,
+        EntitlementService $entitlements,
     ): void {
         foreach (MonitoramentoAssinatura::pendentesExecucao() as $assinatura) {
             $custo = (int) ($assinatura->plano->custo_creditos ?? 0);
+
+            // Freio de consumo do auto-monitor (§6.2): pausa e avisa ao atingir o cap do ciclo,
+            // nunca afeta consulta ad-hoc nem trava lote em curso.
+            if ($entitlements->monitoramentoCapEstourado($assinatura->user, $custo)) {
+                $assinatura->pausar();
+                $notifier->assinaturaPausadaPorLimiteConsumo($assinatura);
+                $this->warn("Assinatura #{$assinatura->id} pausada — limite de consumo do ciclo atingido.");
+
+                continue;
+            }
 
             if (! $creditService->hasEnough($assinatura->user, $custo)) {
                 $assinatura->pausar();
@@ -52,6 +65,7 @@ class ExecutarMonitoramentoPendentesCommand extends Command
         DispararConsultaMonitoramento $disparar,
         CreditService $creditService,
         MonitoramentoNotifier $notifier,
+        EntitlementService $entitlements,
     ): void {
         $elegiveis = MonitoramentoConsulta::query()
             ->where('tipo', 'assinatura')
@@ -82,6 +96,14 @@ class ExecutarMonitoramentoPendentesCommand extends Command
             }
 
             $custo = (int) ($assinatura->plano->custo_creditos ?? 0);
+
+            if ($entitlements->monitoramentoCapEstourado($assinatura->user, $custo)) {
+                $assinatura->pausar();
+                $notifier->assinaturaPausadaPorLimiteConsumo($assinatura);
+                $this->warn("Assinatura #{$assinatura->id} pausada no retry — limite de consumo do ciclo atingido.");
+
+                continue;
+            }
 
             if (! $creditService->hasEnough($assinatura->user, $custo)) {
                 $assinatura->pausar();
