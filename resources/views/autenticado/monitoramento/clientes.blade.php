@@ -18,7 +18,6 @@
             <p class="text-xs text-gray-500 mt-1">Acompanhe o status fiscal dos seus clientes.</p>
         </div>
 
-        @if($assinaturaConta)
         {{-- Freio de consumo do auto-monitor (Fase 5.2) --}}
         <div class="bg-white rounded border border-gray-300 overflow-hidden mb-6">
             <div class="bg-gray-50 px-4 py-2 border-b border-gray-200">
@@ -26,6 +25,16 @@
             </div>
             <div class="p-4">
                 <p class="text-xs text-gray-500 mb-4 max-w-2xl">Defina o teto de créditos que o monitoramento automático pode gastar por ciclo. Ao atingir o teto, as assinaturas de monitoramento são pausadas automaticamente até o próximo ciclo — protegendo seu saldo de consumo inesperado.</p>
+                @if(! $assinaturaConta)
+                <div class="bg-blue-50 border border-blue-200 rounded p-3 text-xs text-gray-700 flex items-start gap-2">
+                    <svg class="w-4 h-4 text-blue-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <div>
+                        <p class="font-semibold text-gray-800 mb-0.5">O freio se ativa com uma assinatura de monitoramento</p>
+                        <p>Planos pagos de monitoramento incluem uma cota mensal de créditos, e é sobre ela que o freio atua. No seu plano atual, o monitoramento automático básico (cadastral) não consome créditos — então não há teto a definir.</p>
+                        <a href="/app/planos" data-link class="inline-block mt-1 text-blue-600 hover:underline font-semibold">Ver planos de monitoramento →</a>
+                    </div>
+                </div>
+                @else
                 <div class="grid grid-cols-3 gap-3 mb-4">
                     <div class="bg-gray-50 border border-gray-200 rounded p-3">
                         <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Teto efetivo</p>
@@ -49,9 +58,9 @@
                     <span id="limite-feedback" class="text-[12px]"></span>
                 </div>
                 <p class="text-[11px] text-gray-400 mt-2">Deixe em branco para usar o padrão do plano ({{ number_format($capPadrao, 0, ',', '.') }} créditos inclusos). Use <span class="font-semibold">0</span> para não impor freio (o saldo passa a ser o único limite).</p>
+                @endif
             </div>
         </div>
-        @endif
 
         {{-- Conteúdo --}}
         <div class="bg-white rounded border border-gray-300 overflow-hidden">
