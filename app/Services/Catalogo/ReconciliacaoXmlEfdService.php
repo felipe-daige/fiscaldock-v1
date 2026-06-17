@@ -12,7 +12,10 @@ class ReconciliacaoXmlEfdService
 {
     private const TOLERANCIA = 0.01;
 
-    public function __construct(private NotaItemUnificadoService $unificado) {}
+    public function __construct(
+        private NotaItemUnificadoService $unificado,
+        private AlertaCatalogoDescarteService $descartes,
+    ) {}
 
     /**
      * @param  array{periodo_de?:string,periodo_ate?:string,cliente_id?:int}  $filtros
@@ -104,10 +107,19 @@ class ReconciliacaoXmlEfdService
     public function resumoAlertas(int $userId): array
     {
         $recon = $this->resumo($userId);
-        $div = collect($this->unificado->divergenciasNcmPorItem($userId));
 
-        $ncmRevisar = $div->filter(fn ($d) => $d['ncm_divergente'])->count();
-        $semCatalogo = $div->filter(fn ($d) => ! $d['tem_catalogo'])->count();
+        $descNcm = $this->descartes->descartados($userId, 'ncm_divergente');
+        $descSem = $this->descartes->descartados($userId, 'sem_catalogo');
+
+        $ncmRevisar = collect($this->unificado->divergenciasNcmPorItem($userId))
+            ->filter(fn ($d) => $d['ncm_divergente'])
+            ->reject(fn ($d, $cod) => in_array((string) $cod, $descNcm, true))
+            ->count();
+
+        $semCatalogo = $this->unificado->itensSemCatalogo($userId)
+            ->reject(fn ($i) => in_array($i['codigo_item'], $descSem, true))
+            ->count();
+
         $naoDeclaradas = $recon['nao_declaradas'];
 
         return [

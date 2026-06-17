@@ -157,6 +157,43 @@ it('resumoAlertas sem nada retorna tudo zero e temSinal false', function () {
     expect($r['temSinal'])->toBeFalse();
 });
 
+it('resumoAlertas exclui itens descartados das contagens', function () {
+    [$user, $cli] = reconSeedUser();
+    $impId = DB::table('efd_importacoes')->insertGetId([
+        'user_id' => $user->id, 'cliente_id' => $cli, 'tipo_efd' => 'EFD ICMS/IPI',
+        'filename' => 'c.txt', 'status' => 'concluido', 'iniciado_em' => now(), 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    DB::table('efd_catalogo_itens')->insert([
+        'user_id' => $user->id, 'cliente_id' => $cli, 'importacao_id' => $impId, 'cod_item' => 'DIV',
+        'descr_item' => 'X', 'tipo_item' => '00', 'cod_ncm' => '11112222', 'aliq_icms' => 18, 'unid_inv' => 'UN',
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+    $nid = DB::table('xml_notas')->insertGetId([
+        'user_id' => $user->id, 'cliente_id' => $cli, 'chave_acesso' => str_pad('D', 44, '0', STR_PAD_LEFT),
+        'tipo_documento' => 'NFE', 'numero_documento' => '1', 'serie' => '1', 'data_emissao' => '2024-01-10',
+        'tipo_nota' => 1, 'modelo' => '55', 'emit_documento' => '00000000000100', 'dest_documento' => '99999999000191',
+        'valor_total' => 20.0, 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    DB::table('xml_notas_itens')->insert([
+        ['xml_nota_id' => $nid, 'user_id' => $user->id, 'numero_item' => 1, 'codigo_item' => 'DIV', 'descricao' => 'i', 'quantidade' => 1, 'valor_total' => 10.0, 'cfop' => 5102, 'aliquota_icms' => 18, 'ncm' => '99998888', 'created_at' => now(), 'updated_at' => now()],
+        ['xml_nota_id' => $nid, 'user_id' => $user->id, 'numero_item' => 2, 'codigo_item' => 'FORA', 'descricao' => 'i', 'quantidade' => 1, 'valor_total' => 10.0, 'cfop' => 5102, 'aliquota_icms' => 18, 'ncm' => '12345678', 'created_at' => now(), 'updated_at' => now()],
+    ]);
+
+    $svc = app(ReconciliacaoXmlEfdService::class);
+    $desc = app(\App\Services\Catalogo\AlertaCatalogoDescarteService::class);
+
+    $antes = $svc->resumoAlertas($user->id);
+    expect($antes['ncm_revisar_qtd'])->toBe(1);
+    expect($antes['sem_catalogo_qtd'])->toBe(1);
+
+    $desc->descartar($user->id, 'ncm_divergente', 'DIV');
+    $desc->descartar($user->id, 'sem_catalogo', 'FORA');
+
+    $depois = $svc->resumoAlertas($user->id);
+    expect($depois['ncm_revisar_qtd'])->toBe(0);
+    expect($depois['sem_catalogo_qtd'])->toBe(0);
+});
+
 it('resumoAlertas conta item XML cujo código não está no catálogo (sem_catalogo_qtd)', function () {
     [$user, $cli] = reconSeedUser();
 
