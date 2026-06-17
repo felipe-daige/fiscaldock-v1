@@ -46,9 +46,9 @@
 
         {{-- Toggle dispensados --}}
         @if($mostrarDispensados)
-            <div class="mb-4 text-[12px]"><a href="/app/bi/catalogo-itens" data-link class="text-blue-600">← Voltar (ocultar dispensados)</a> <span class="text-gray-400">— alertas dispensados aparecem com opacidade; use “Restaurar” para reativar.</span></div>
+            <div class="mb-4 text-[12px]"><a href="/app/bi/catalogo-itens" data-link class="text-blue-600">← Voltar (ocultar ignorados)</a> <span class="text-gray-400">— alertas ignorados aparecem com opacidade; use “Restaurar” para reativar.</span></div>
         @elseif($totalDispensados > 0)
-            <div class="mb-4 text-[12px]"><a href="/app/bi/catalogo-itens?dispensados=1" data-link class="text-blue-600">Mostrar {{ $totalDispensados }} alerta(s) dispensado(s)</a></div>
+            <div class="mb-4 text-[12px]"><a href="/app/bi/catalogo-itens?dispensados=1" data-link class="text-blue-600">Mostrar {{ $totalDispensados }} alerta(s) ignorado(s)</a></div>
         @endif
 
         {{-- NCM a revisar (documento × cadastro) --}}
@@ -82,7 +82,7 @@
                                         @if($d['dispensado'])
                                             <button type="button" onclick="catalogoAlerta.restaurar('ncm_divergente', @js($d['codigo_item']))" class="text-[11px] text-blue-600 underline cursor-pointer">Restaurar</button>
                                         @else
-                                            <button type="button" onclick="catalogoAlerta.pedir('ncm_divergente', @js($d['codigo_item']))" class="text-[11px] text-blue-600 underline cursor-pointer">Dispensar</button>
+                                            <button type="button" onclick="catalogoAlerta.pedir('ncm_divergente', @js($d['codigo_item']))" class="text-[11px] text-red-600 cursor-pointer">Ignorar</button>
                                         @endif
                                     </td>
                                 </tr>
@@ -98,7 +98,7 @@
             <div class="bg-white rounded border border-gray-300 border-l-4 mb-4" style="border-left-color:#b45309">
                 <div class="px-4 py-2.5 border-b border-gray-200">
                     <p class="text-sm font-semibold text-gray-800">Itens sem catálogo (0200) — {{ $semCatalogo->where('dispensado', false)->count() }}</p>
-                    <p class="text-[11px] text-gray-500 mt-1">Código movimentado em nota mas fora do seu registro 0200. <strong>Serviços</strong> (ex.: montagem) não exigem 0200 — pode dispensar. <strong>Produtos</strong> devem ser cadastrados no 0200 para consistência fiscal e para casar NCM/alíquota.</p>
+                    <p class="text-[11px] text-gray-500 mt-1">Código movimentado em nota mas fora do seu registro 0200. <strong>Serviços</strong> (ex.: montagem) não exigem 0200 — pode ignorar. <strong>Produtos</strong> devem ser cadastrados no 0200 para consistência fiscal e para casar NCM/alíquota.</p>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
@@ -122,7 +122,7 @@
                                         @if($i['dispensado'])
                                             <button type="button" onclick="catalogoAlerta.restaurar('sem_catalogo', @js($i['codigo_item']))" class="text-[11px] text-blue-600 underline cursor-pointer">Restaurar</button>
                                         @else
-                                            <button type="button" onclick="catalogoAlerta.pedir('sem_catalogo', @js($i['codigo_item']))" class="text-[11px] text-blue-600 underline cursor-pointer">Dispensar</button>
+                                            <button type="button" onclick="catalogoAlerta.pedir('sem_catalogo', @js($i['codigo_item']))" class="text-[11px] text-red-600 cursor-pointer">Ignorar</button>
                                         @endif
                                     </td>
                                 </tr>
@@ -218,11 +218,11 @@
     <div id="catalogoAlertaModal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
         <div class="absolute inset-0 bg-black/40" onclick="catalogoAlerta.cancelar()"></div>
         <div class="relative bg-white rounded-lg shadow-xl max-w-sm w-full mx-4 p-5">
-            <p class="text-sm font-semibold text-gray-900 mb-1">Dispensar alerta?</p>
-            <p class="text-[12px] text-gray-500 mb-4">O alerta sai da lista e das contagens. Você pode revê-lo depois em “Mostrar dispensados”.</p>
+            <p class="text-sm font-semibold text-gray-900 mb-1">Ignorar alerta?</p>
+            <p class="text-[12px] text-gray-500 mb-4">O alerta sai da lista e das contagens. Você pode revê-lo depois em “Mostrar ignorados”.</p>
             <div class="flex justify-end gap-2">
                 <button type="button" onclick="catalogoAlerta.cancelar()" class="px-3 py-1.5 text-[12px] rounded border border-gray-300 text-gray-600">Cancelar</button>
-                <button type="button" onclick="catalogoAlerta.confirmar()" class="px-3 py-1.5 text-[12px] rounded text-white font-semibold" style="background-color:#b45309">Dispensar</button>
+                <button type="button" onclick="catalogoAlerta.confirmar()" class="px-3 py-1.5 text-[12px] rounded text-white font-semibold" style="background-color:#dc2626">Ignorar</button>
             </div>
         </div>
     </div>
@@ -253,7 +253,7 @@ window.catalogoAlerta = window.catalogoAlerta || (function () {
             const ok = await post('/app/bi/catalogo-itens/alerta/descartar', { tipo: pendente.tipo, codigo_item: pendente.codigo });
             modal()?.classList.add('hidden');
             pendente = null;
-            ok ? window.location.reload() : alert('Não foi possível dispensar o alerta.');
+            ok ? window.location.reload() : alert('Não foi possível ignorar o alerta.');
         },
         async restaurar(tipo, codigo) {
             const ok = await post('/app/bi/catalogo-itens/alerta/restaurar', { tipo, codigo_item: codigo });
