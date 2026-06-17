@@ -85,11 +85,6 @@ class User extends Authenticatable
         return $this->hasMany(Cliente::class);
     }
 
-    public function privateDocuments()
-    {
-        return $this->hasMany(PrivateDocument::class);
-    }
-
     public function subscription()
     {
         return $this->hasOne(\App\Models\AccountSubscription::class);
