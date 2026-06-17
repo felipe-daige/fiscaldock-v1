@@ -11,10 +11,10 @@
 
         {{-- Diagnóstico de cobertura: explica quando o cruzamento aparece (e por que pode estar vazio) --}}
         <div class="bg-white rounded border border-gray-300 border-l-4 p-3 mb-5" style="border-left-color: #0b1f3a">
-            <div class="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
-                <span class="text-gray-700"><strong class="text-gray-900">{{ number_format($diagnostico['consultados_qtd'], 0, ',', '.') }}</strong> CNPJs consultados</span>
-                <span class="text-gray-700"><strong class="text-gray-900">{{ number_format($diagnostico['fornecedores_entrada_qtd'], 0, ',', '.') }}</strong> fornecedores nas notas de entrada</span>
-                <span class="text-gray-700"><strong class="text-gray-900">{{ number_format($diagnostico['fornecedores_consultados_qtd'], 0, ',', '.') }}</strong> consultados que são fornecedores</span>
+            <div class="flex flex-wrap items-center gap-x-8 gap-y-2 text-sm">
+                <span class="inline-flex items-baseline gap-1.5 text-gray-700"><strong class="text-base text-gray-900">{{ number_format($diagnostico['consultados_qtd'], 0, ',', '.') }}</strong><span>CNPJs consultados</span></span>
+                <span class="inline-flex items-baseline gap-1.5 text-gray-700"><strong class="text-base text-gray-900">{{ number_format($diagnostico['fornecedores_entrada_qtd'], 0, ',', '.') }}</strong><span>fornecedores nas notas de entrada</span></span>
+                <span class="inline-flex items-baseline gap-1.5 text-gray-700"><strong class="text-base text-gray-900">{{ number_format($diagnostico['fornecedores_consultados_qtd'], 0, ',', '.') }}</strong><span>consultados que são fornecedores</span></span>
             </div>
             @if($diagnostico['fornecedores_consultados_qtd'] === 0)
                 <p class="text-[12px] text-gray-500 mt-2">
