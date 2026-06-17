@@ -163,3 +163,63 @@ it('XML não some quando o EFD tem nota com chave_acesso nula (NFS-e / bloco A)'
     expect($itens)->toHaveKey('XMLOK');  // não some por causa da chave nula no EFD
     expect($itens)->toHaveKey('EFDNULL');
 });
+
+it('detecta divergência de NCM do XML mesmo quando a chave também está no EFD (não-deduplicado)', function () {
+    [$user, $clienteId] = seedCatalogoUser();
+    $chave = str_pad('A', 44, '0', STR_PAD_LEFT);
+    catalogoItem($user->id, $clienteId, 'DIV', '11112222', 18);
+    efdNotaComItem($user->id, $clienteId, $chave, 'DIV', 100.0);          // mesma chave → XML é deduplicado em itensAgregados
+    xmlNotaComItem($user->id, $clienteId, $chave, 'DIV', 100.0, '99998888'); // mas o documento carregou outro NCM
+
+    $mapa = app(NotaItemUnificadoService::class)->divergenciasNcmPorItem($user->id);
+
+    expect($mapa)->toHaveKey('DIV');
+    expect($mapa['DIV']['ncm_divergente'])->toBeTrue();
+    expect($mapa['DIV']['ncm_xml'])->toBe('99998888');
+    expect($mapa['DIV']['cat_ncm'])->toBe('11112222');
+    expect($mapa['DIV']['tem_catalogo'])->toBeTrue();
+});
+
+it('não marca divergência quando o NCM do XML bate com o catálogo', function () {
+    [$user, $clienteId] = seedCatalogoUser();
+    catalogoItem($user->id, $clienteId, 'OK', '12345678', 18);
+    xmlNotaComItem($user->id, $clienteId, str_pad('B', 44, '0', STR_PAD_LEFT), 'OK', 50.0, '12345678');
+
+    $mapa = app(NotaItemUnificadoService::class)->divergenciasNcmPorItem($user->id);
+
+    expect($mapa['OK']['ncm_divergente'])->toBeFalse();
+});
+
+it('normaliza máscara de NCM (pontuação) antes de comparar', function () {
+    // NCM column is varchar(8) — mask must fit. '1234-567' (8 chars) strips to '1234567' (7 digits),
+    // matching catalog '1234567'. Dot-separated NCMs (e.g. '8412.21.10') would be 10 chars and
+    // overflow the column; the regexp_replace logic itself is validated here with a hyphen mask.
+    [$user, $clienteId] = seedCatalogoUser();
+    catalogoItem($user->id, $clienteId, 'MASK', '1234567', 18);
+    xmlNotaComItem($user->id, $clienteId, str_pad('B', 44, '0', STR_PAD_LEFT), 'MASK', 50.0, '1234-567');
+
+    $mapa = app(NotaItemUnificadoService::class)->divergenciasNcmPorItem($user->id);
+
+    expect($mapa['MASK']['ncm_divergente'])->toBeFalse();
+});
+
+it('marca tem_catalogo=false para item XML fora do cadastro e não acusa divergência de NCM', function () {
+    [$user, $clienteId] = seedCatalogoUser();
+    xmlNotaComItem($user->id, $clienteId, str_pad('B', 44, '0', STR_PAD_LEFT), 'NOCAT', 80.0, '55556666');
+
+    $mapa = app(NotaItemUnificadoService::class)->divergenciasNcmPorItem($user->id);
+
+    expect($mapa['NOCAT']['tem_catalogo'])->toBeFalse();
+    expect($mapa['NOCAT']['ncm_divergente'])->toBeFalse();
+});
+
+it('detecta divergência de alíquota ICMS (XML × catálogo)', function () {
+    [$user, $clienteId] = seedCatalogoUser();
+    catalogoItem($user->id, $clienteId, 'ALIQ', '12345678', 18);
+    xmlNotaComItem($user->id, $clienteId, str_pad('B', 44, '0', STR_PAD_LEFT), 'ALIQ', 50.0, '12345678', 12);
+
+    $mapa = app(NotaItemUnificadoService::class)->divergenciasNcmPorItem($user->id);
+
+    expect($mapa['ALIQ']['aliquota_divergente'])->toBeTrue();
+    expect($mapa['ALIQ']['ncm_divergente'])->toBeFalse();
+});

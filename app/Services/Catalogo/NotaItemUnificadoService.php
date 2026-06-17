@@ -109,6 +109,75 @@ class NotaItemUnificadoService
         ]);
     }
 
+    /**
+     * Divergência do que foi DOCUMENTADO (item XML) vs o CADASTRADO (catálogo 0200), por codigo_item.
+     *
+     * Scan NÃO-deduplicado de xml_notas_itens — ao contrário de itensAgregados (que dedup EFD×XML por
+     * chave e descartaria os itens XML cuja chave também está no EFD, justamente o caso do acervo real).
+     * Base = versão atual do catálogo. Comparação tolerante a máscara (regexp_replace [^0-9]).
+     *
+     * @param  array{periodo_de?:string,periodo_ate?:string,cliente_id?:int}  $filtros
+     * @return array<string, array{descricao:?string,ncm_xml:?string,ncm_divergente:bool,aliquota_divergente:bool,tem_catalogo:bool,cat_ncm:?string}>
+     */
+    public function divergenciasNcmPorItem(int $userId, array $filtros = []): array
+    {
+        $bind = ['uid' => $userId];
+        $xmlWhere = '';
+        if (! empty($filtros['cliente_id'])) {
+            $bind['cli'] = (int) $filtros['cliente_id'];
+            $xmlWhere .= ' AND xn.cliente_id = :cli';
+        }
+        if (! empty($filtros['periodo_de'])) {
+            $bind['de'] = $filtros['periodo_de'];
+            $xmlWhere .= ' AND xn.data_emissao >= :de';
+        }
+        if (! empty($filtros['periodo_ate'])) {
+            $bind['ate'] = $filtros['periodo_ate'];
+            $xmlWhere .= ' AND xn.data_emissao <= :ate';
+        }
+
+        $sql = "
+            SELECT xi.codigo_item,
+                   MAX(xi.descricao) AS descricao,
+                   string_agg(DISTINCT regexp_replace(xi.ncm, '[^0-9]', '', 'g'), ',')
+                       FILTER (WHERE xi.ncm IS NOT NULL AND xi.ncm <> '') AS ncm_xml,
+                   BOOL_OR(
+                       xi.ncm IS NOT NULL AND cat.cod_ncm IS NOT NULL
+                       AND regexp_replace(xi.ncm, '[^0-9]', '', 'g') <> regexp_replace(cat.cod_ncm, '[^0-9]', '', 'g')
+                   )::int AS ncm_divergente,
+                   BOOL_OR(
+                       xi.aliquota_icms IS NOT NULL AND cat.aliq_icms IS NOT NULL
+                       AND ABS(xi.aliquota_icms - cat.aliq_icms) > 0.01
+                   )::int AS aliquota_divergente,
+                   BOOL_OR(cat.cod_item IS NOT NULL)::int AS tem_catalogo,
+                   MAX(cat.cod_ncm) AS cat_ncm
+            FROM xml_notas_itens xi
+            JOIN xml_notas xn ON xn.id = xi.xml_nota_id AND xn.user_id = :uid{$xmlWhere}
+            LEFT JOIN (
+                SELECT DISTINCT ON (cod_item) cod_item, cod_ncm, aliq_icms
+                FROM efd_catalogo_itens
+                WHERE user_id = :uid
+                ORDER BY cod_item, id DESC
+            ) cat ON cat.cod_item = xi.codigo_item
+            WHERE xi.user_id = :uid
+            GROUP BY xi.codigo_item
+            ORDER BY xi.codigo_item";
+
+        $mapa = [];
+        foreach (DB::select($sql, $bind) as $r) {
+            $mapa[$r->codigo_item] = [
+                'descricao' => $r->descricao,
+                'ncm_xml' => $r->ncm_xml,
+                'ncm_divergente' => (bool) (int) $r->ncm_divergente,
+                'aliquota_divergente' => (bool) (int) $r->aliquota_divergente,
+                'tem_catalogo' => (bool) (int) $r->tem_catalogo,
+                'cat_ncm' => $r->cat_ncm,
+            ];
+        }
+
+        return $mapa;
+    }
+
     /** 'efd,xml' / 'xml,efd' → 'ambas'; senão a fonte única. */
     private function normalizarFontes(?string $raw): string
     {
