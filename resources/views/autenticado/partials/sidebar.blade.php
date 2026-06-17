@@ -44,7 +44,7 @@
             </x-slot:icon>
 
             <x-sidebar.group-item href="/app/importacao/efd">EFD</x-sidebar.group-item>
-            <x-sidebar.group-item href="/app/importacao/xml">XML</x-sidebar.group-item>
+            <x-sidebar.group-item href="/app/importacao/xml" pill="Novo">XML</x-sidebar.group-item>
             <x-sidebar.group-item href="/app/importacao/historico">Histórico</x-sidebar.group-item>
         </x-sidebar.group>
     </x-sidebar.section>
@@ -69,6 +69,7 @@
             Verificar Notas
         </x-sidebar.item>
 
+        @if(config('clearance.busca_avulsa.habilitada'))
         <x-sidebar.item href="/app/clearance/buscar">
             <x-slot:icon>
                 <svg class="sidebar__item-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -77,6 +78,7 @@
             </x-slot:icon>
             Buscar Notas
         </x-sidebar.item>
+        @endif
     </x-sidebar.section>
 
     {{-- INTELIGÊNCIA --}}
@@ -91,7 +93,7 @@
             BI Fiscal
         </x-sidebar.item>
 
-        <x-sidebar.item href="/app/bi/catalogo-itens">
+        <x-sidebar.item href="/app/bi/catalogo-itens" pill="Novo">
             <x-slot:icon>
                 <svg class="sidebar__item-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"></path>
@@ -100,7 +102,7 @@
             Catálogo de Itens
         </x-sidebar.item>
 
-        <x-sidebar.item href="/app/bi/cruzamentos">
+        <x-sidebar.item href="/app/bi/cruzamentos" pill="Novo">
             <x-slot:icon>
                 <svg class="sidebar__item-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
@@ -130,7 +132,20 @@
 
             <x-sidebar.group-item href="/app/consulta/nova">Nova Consulta</x-sidebar.group-item>
             <x-sidebar.group-item href="/app/consulta/historico">Histórico</x-sidebar.group-item>
-            <x-sidebar.group-item href="/app/consulta/planos">Planos</x-sidebar.group-item>
+            <x-sidebar.group-item href="/app/consulta/planos" pill="Novo">Planos</x-sidebar.group-item>
+        </x-sidebar.group>
+
+        <x-sidebar.group title="Monitoramento" :open="request()->is('app/monitoramento/*')">
+            <x-slot:icon>
+                <svg class="sidebar__item-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                </svg>
+            </x-slot:icon>
+
+            <x-sidebar.group-item href="/app/monitoramento/clientes" pill="Novo">Clientes</x-sidebar.group-item>
+            <x-sidebar.group-item href="/app/monitoramento/historico">Histórico</x-sidebar.group-item>
+            <x-sidebar.group-item href="/app/monitoramento/grupos">Grupos</x-sidebar.group-item>
         </x-sidebar.group>
 
         <x-sidebar.item href="/app/score-fiscal">
