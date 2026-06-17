@@ -223,3 +223,44 @@ it('detecta divergência de alíquota ICMS (XML × catálogo)', function () {
     expect($mapa['ALIQ']['aliquota_divergente'])->toBeTrue();
     expect($mapa['ALIQ']['ncm_divergente'])->toBeFalse();
 });
+
+it('divergenciasNcmPorItem filtra por cliente_id', function () {
+    [$user, $clienteId] = seedCatalogoUser();
+    $outroCliente = DB::table('clientes')->insertGetId([
+        'user_id' => $user->id, 'razao_social' => 'OUTRA', 'documento' => '00000000000200',
+        'is_empresa_propria' => false, 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    catalogoItem($user->id, $clienteId, 'DOME', '11112222', 18);
+    catalogoItem($user->id, (int) $outroCliente, 'OUTRO', '11112222', 18);
+    xmlNotaComItem($user->id, $clienteId, str_pad('A', 44, '0', STR_PAD_LEFT), 'DOME', 100.0, '99998888');
+    xmlNotaComItem($user->id, (int) $outroCliente, str_pad('C', 44, '0', STR_PAD_LEFT), 'OUTRO', 100.0, '99998888');
+
+    $mapa = app(NotaItemUnificadoService::class)->divergenciasNcmPorItem($user->id, ['cliente_id' => $clienteId]);
+
+    expect($mapa)->toHaveKey('DOME');
+    expect($mapa)->not->toHaveKey('OUTRO');
+});
+
+it('divergenciasNcmPorItem filtra por período (data_emissao)', function () {
+    [$user, $clienteId] = seedCatalogoUser();
+    catalogoItem($user->id, $clienteId, 'JAN', '11112222', 18);
+    catalogoItem($user->id, $clienteId, 'MAR', '11112222', 18);
+    xmlNotaComItem($user->id, $clienteId, str_pad('A', 44, '0', STR_PAD_LEFT), 'JAN', 100.0, '99998888', 18, '2024-01-10');
+    xmlNotaComItem($user->id, $clienteId, str_pad('C', 44, '0', STR_PAD_LEFT), 'MAR', 100.0, '99998888', 18, '2024-03-10');
+
+    $mapa = app(NotaItemUnificadoService::class)->divergenciasNcmPorItem($user->id, ['periodo_de' => '2024-03-01', 'periodo_ate' => '2024-03-31']);
+
+    expect($mapa)->toHaveKey('MAR');
+    expect($mapa)->not->toHaveKey('JAN');
+});
+
+it('não acusa divergência de NCM quando o item XML não tem NCM mas o catálogo tem', function () {
+    [$user, $clienteId] = seedCatalogoUser();
+    catalogoItem($user->id, $clienteId, 'SEMNCMXML', '11112222', 18);
+    xmlNotaComItem($user->id, $clienteId, str_pad('B', 44, '0', STR_PAD_LEFT), 'SEMNCMXML', 50.0, null);
+
+    $mapa = app(NotaItemUnificadoService::class)->divergenciasNcmPorItem($user->id);
+
+    expect($mapa['SEMNCMXML']['ncm_divergente'])->toBeFalse();
+    expect($mapa['SEMNCMXML']['tem_catalogo'])->toBeTrue();
+});
