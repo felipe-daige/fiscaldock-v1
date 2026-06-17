@@ -22,59 +22,54 @@
             </select>
         </form>
 
-        {{-- KPIs --}}
+        {{-- Headline (4 números-chave; o resto vira gráfico ou stat inline) --}}
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
             @foreach([
-                ['Usuários', $fmtN($m['crescimento']['total_usuarios']), '#1d4ed8'],
-                ['Novos no período', $fmtN($m['crescimento']['novos']), '#1d4ed8'],
-                ['Ativos (30d)', $fmtN($m['crescimento']['ativos']), '#047857'],
-                ['Trial convertido', $fmtN($m['trial']['convertidos']), '#047857'],
-                ['Receita aprovada (período)', $fmtR($m['receita']['aprovada_periodo']), '#047857'],
-                ['Receita total', $fmtR($m['receita']['aprovada_total']), '#334155'],
-                ['Assinaturas ativas', $fmtN($m['receita']['assinaturas_ativas']), '#1d4ed8'],
-                ['MRR estimado', $fmtR($m['receita']['mrr']), '#047857'],
-                ['Créditos vendidos', $fmtN($m['creditos']['vendidos']), '#1d4ed8'],
-                ['Créditos consumidos', $fmtN($m['creditos']['consumidos']), '#b45309'],
-                ['Saldo na base', $fmtN($m['creditos']['saldo_base']), '#334155'],
-                ['Consultas (período)', $fmtN($m['uso']['consultas']), '#1d4ed8'],
-                ['Importações (período)', $fmtN($m['uso']['importacoes']), '#1d4ed8'],
-                ['Clearance (período)', $fmtN($m['uso']['clearance']), '#1d4ed8'],
-                ['Monitoramentos ativos', $fmtN($m['uso']['monitoramentos_ativos']), '#047857'],
-                ['Recargas ativas', $fmtN($m['receita']['recargas_ativas']), '#047857'],
-            ] as [$label, $valor, $cor])
+                ['Usuários', $fmtN($m['crescimento']['total_usuarios']), $fmtN($m['crescimento']['novos']).' novos · '.$fmtN($m['crescimento']['ativos']).' ativos (30d)', '#1d4ed8'],
+                ['Receita total', $fmtR($m['receita']['aprovada_total']), $fmtR($m['receita']['aprovada_periodo']).' no período', '#047857'],
+                ['MRR estimado', $fmtR($m['receita']['mrr']), $fmtN($m['receita']['assinaturas_ativas']).' assinatura(s) · '.$fmtN($m['receita']['recargas_ativas']).' recarga(s)', '#047857'],
+                ['Saldo de créditos', $fmtN($m['creditos']['saldo_base']), $fmtN($m['creditos']['vendidos']).' vendidos · '.$fmtN($m['creditos']['consumidos']).' consumidos', '#334155'],
+            ] as [$label, $valor, $sub, $cor])
                 <div class="bg-white rounded border border-gray-300 border-l-4 p-3" style="border-left-color: {{ $cor }}">
                     <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">{{ $label }}</p>
-                    <p class="text-lg font-bold text-gray-900">{{ $valor }}</p>
+                    <p class="text-xl font-bold text-gray-900">{{ $valor }}</p>
+                    <p class="text-[11px] text-gray-500 mt-0.5">{{ $sub }}</p>
                 </div>
             @endforeach
         </div>
 
-        {{-- Gráficos --}}
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+        {{-- Tendências --}}
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
             <div class="bg-white rounded border border-gray-300 p-4">
-                <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Novos usuários</p>
+                <div class="flex items-baseline justify-between mb-2">
+                    <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Novos usuários</p>
+                    <p class="text-[11px] text-gray-500"><span class="font-bold" style="color:#047857">{{ $fmtN($m['trial']['convertidos']) }}</span> trial convertido</p>
+                </div>
                 <div id="chartSignups"></div>
             </div>
             <div class="bg-white rounded border border-gray-300 p-4">
-                <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Receita aprovada</p>
+                <div class="flex items-baseline justify-between mb-2">
+                    <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Receita aprovada</p>
+                    <p class="text-[11px] text-gray-500"><span class="font-bold text-gray-900">{{ $fmtR($m['receita']['aprovada_periodo']) }}</span> no período</p>
+                </div>
                 <div id="chartReceita"></div>
             </div>
         </div>
 
-        {{-- Consumo de créditos por tipo --}}
-        <div class="bg-white rounded border border-gray-300 overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead class="bg-gray-50 text-[10px] uppercase tracking-wide text-gray-400">
-                    <tr><th class="text-left px-3 py-2.5">Consumo de créditos por tipo</th><th class="text-right px-3 py-2.5">Total</th></tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100">
-                    @forelse($m['creditos']['consumo_por_tipo'] as $linha)
-                        <tr><td class="px-3 py-2 text-gray-700">{{ $linha['type'] }}</td><td class="px-3 py-2 text-right text-gray-900 font-semibold">{{ $fmtN($linha['total']) }}</td></tr>
-                    @empty
-                        <tr><td colspan="2" class="px-3 py-6 text-center text-gray-400 text-sm">Sem consumo no período.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
+        {{-- Uso do produto + Consumo de créditos --}}
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div class="bg-white rounded border border-gray-300 p-4">
+                <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Uso do produto (período)</p>
+                <div id="chartUso"></div>
+            </div>
+            <div class="bg-white rounded border border-gray-300 p-4">
+                <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Consumo de créditos por tipo</p>
+                @if(empty($m['creditos']['consumo_por_tipo']))
+                    <p class="text-center text-gray-400 text-sm py-10">Sem consumo no período.</p>
+                @else
+                    <div id="chartCreditos"></div>
+                @endif
+            </div>
         </div>
     </div>
 </div>
@@ -85,7 +80,10 @@
     if (typeof ApexCharts === 'undefined') return;
     const signups = @json($m['crescimento']['serie_signups']);
     const receita = @json($m['receita']['serie_receita']);
-    const line = (sel, dados, nome, cor) => {
+    const uso = @json($m['uso']);
+    const consumo = @json($m['creditos']['consumo_por_tipo']);
+
+    const area = (sel, dados, nome, cor) => {
         const el = document.querySelector(sel);
         if (!el) return;
         new ApexCharts(el, {
@@ -95,7 +93,30 @@
             colors: [cor], dataLabels: { enabled: false }, stroke: { curve: 'smooth', width: 2 },
         }).render();
     };
-    line('#chartSignups', signups, 'Novos', '#1d4ed8');
-    line('#chartReceita', receita, 'Receita', '#047857');
+    area('#chartSignups', signups, 'Novos', '#1d4ed8');
+    area('#chartReceita', receita, 'Receita', '#047857');
+
+    const usoEl = document.querySelector('#chartUso');
+    if (usoEl) {
+        new ApexCharts(usoEl, {
+            chart: { type: 'bar', height: 240, toolbar: { show: false } },
+            series: [{ name: 'Volume', data: [uso.consultas, uso.importacoes, uso.clearance, uso.monitoramentos_ativos] }],
+            xaxis: { categories: ['Consultas', 'Importações', 'Clearance', 'Monit. ativos'] },
+            plotOptions: { bar: { horizontal: true, borderRadius: 3, distributed: true } },
+            colors: ['#1d4ed8', '#7c3aed', '#0891b2', '#047857'],
+            dataLabels: { enabled: true }, legend: { show: false },
+        }).render();
+    }
+
+    const credEl = document.querySelector('#chartCreditos');
+    if (credEl && consumo.length) {
+        new ApexCharts(credEl, {
+            chart: { type: 'donut', height: 240 },
+            series: consumo.map(c => Math.abs(c.total)),
+            labels: consumo.map(c => c.type),
+            colors: ['#1d4ed8', '#b45309', '#047857', '#7c3aed', '#0891b2', '#dc2626', '#334155'],
+            dataLabels: { enabled: false }, legend: { position: 'bottom', fontSize: '11px' },
+        }).render();
+    }
 })();
 </script>
