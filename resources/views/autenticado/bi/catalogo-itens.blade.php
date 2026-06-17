@@ -77,12 +77,12 @@
                                     <td class="px-3 py-2 text-gray-700 truncate max-w-xs" title="{{ $d['descricao'] }}">{{ $d['descricao'] ?: '—' }}</td>
                                     <td class="px-3 py-2 font-mono font-semibold" style="color:#b45309">{{ $d['ncm_xml'] ?: '—' }}</td>
                                     <td class="px-3 py-2 font-mono text-gray-600">{{ $d['cat_ncm'] ?: '—' }}</td>
-                                    <td class="px-3 py-2 text-[11px] text-blue-600 underline">{{ $d['importacoes'] ?: '—' }}</td>
+                                    <td class="px-3 py-2 text-[11px] text-blue-600 underline cursor-pointer">{{ $d['importacoes'] ?: '—' }}</td>
                                     <td class="px-3 py-2 text-right whitespace-nowrap">
                                         @if($d['dispensado'])
-                                            <button type="button" onclick="catalogoAlerta.restaurar('ncm_divergente', @js($d['codigo_item']))" class="text-[11px] text-blue-600 underline">Restaurar</button>
+                                            <button type="button" onclick="catalogoAlerta.restaurar('ncm_divergente', @js($d['codigo_item']))" class="text-[11px] text-blue-600 underline cursor-pointer">Restaurar</button>
                                         @else
-                                            <button type="button" onclick="catalogoAlerta.pedir('ncm_divergente', @js($d['codigo_item']))" class="text-[11px] text-blue-600 underline">Dispensar</button>
+                                            <button type="button" onclick="catalogoAlerta.pedir('ncm_divergente', @js($d['codigo_item']))" class="text-[11px] text-blue-600 underline cursor-pointer">Dispensar</button>
                                         @endif
                                     </td>
                                 </tr>
@@ -117,12 +117,12 @@
                                     <td class="px-3 py-2 font-mono text-gray-900">{{ $i['codigo_item'] }}</td>
                                     <td class="px-3 py-2 text-gray-700 truncate max-w-xs" title="{{ $i['descricao'] }}">{{ $i['descricao'] ?: '—' }}</td>
                                     <td class="px-3 py-2"><span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase text-white" style="background-color: {{ ['efd' => '#1d4ed8', 'xml' => '#7c3aed', 'ambas' => '#047857'][$i['fontes']] ?? '#334155' }}">{{ $i['fontes'] }}</span></td>
-                                    <td class="px-3 py-2 text-[11px] text-blue-600 underline">{{ $i['importacoes'] ?: '—' }}</td>
+                                    <td class="px-3 py-2 text-[11px] text-blue-600 underline cursor-pointer">{{ $i['importacoes'] ?: '—' }}</td>
                                     <td class="px-3 py-2 text-right whitespace-nowrap">
                                         @if($i['dispensado'])
-                                            <button type="button" onclick="catalogoAlerta.restaurar('sem_catalogo', @js($i['codigo_item']))" class="text-[11px] text-blue-600 underline">Restaurar</button>
+                                            <button type="button" onclick="catalogoAlerta.restaurar('sem_catalogo', @js($i['codigo_item']))" class="text-[11px] text-blue-600 underline cursor-pointer">Restaurar</button>
                                         @else
-                                            <button type="button" onclick="catalogoAlerta.pedir('sem_catalogo', @js($i['codigo_item']))" class="text-[11px] text-blue-600 underline">Dispensar</button>
+                                            <button type="button" onclick="catalogoAlerta.pedir('sem_catalogo', @js($i['codigo_item']))" class="text-[11px] text-blue-600 underline cursor-pointer">Dispensar</button>
                                         @endif
                                     </td>
                                 </tr>
