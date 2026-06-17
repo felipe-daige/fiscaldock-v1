@@ -74,7 +74,7 @@
                 <h2 class="text-sm font-bold text-gray-900">Fornecedor com certidão/situação irregular × compras</h2>
             </div>
             @if($irregulares->isEmpty())
-                <p class="px-4 py-6 text-sm text-gray-500">Nenhum fornecedor irregular com compras no acervo. 👍</p>
+                <p class="px-4 py-6 text-sm text-gray-500">Nenhum fornecedor com certidão ou situação irregular entre os que você comprou. Nada a tratar neste cruzamento.</p>
             @else
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
@@ -115,7 +115,7 @@
                 <h2 class="text-sm font-bold text-gray-900">Fornecedor sancionado (CEIS/CGU) × compras</h2>
             </div>
             @if($sancionados->isEmpty())
-                <p class="px-4 py-6 text-sm text-gray-500">Nenhum fornecedor sancionado com compras no acervo. 👍</p>
+                <p class="px-4 py-6 text-sm text-gray-500">Nenhum fornecedor sancionado (CEIS/CGU) entre os que você comprou. Nada a tratar neste cruzamento.</p>
             @else
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
