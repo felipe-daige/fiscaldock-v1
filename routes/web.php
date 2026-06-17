@@ -307,6 +307,14 @@ Route::middleware(['auth', \App\Http\Middleware\RequireCurrentTerms::class])->gr
     Route::get('/app/suporte', [SupportController::class, 'index'])->name('app.suporte.index');
     Route::post('/app/suporte', [SupportController::class, 'store'])->name('app.suporte.store');
 
+    // Painel admin — analytics + usuários (read-only, somente operador FiscalDock)
+    Route::prefix('app/admin')->name('app.admin.')
+        ->middleware(\App\Http\Middleware\EnsureAdmin::class)->group(function () {
+            Route::get('/', [\App\Http\Controllers\Dashboard\AdminAnalyticsController::class, 'index'])->name('index');
+            Route::get('/usuarios', [\App\Http\Controllers\Dashboard\AdminUsuariosController::class, 'index'])->name('usuarios.index');
+            Route::get('/usuarios/{id}', [\App\Http\Controllers\Dashboard\AdminUsuariosController::class, 'show'])->name('usuarios.show')->where('id', '[0-9]+');
+        });
+
     // Painel admin — parâmetros comerciais (§6.1, somente operador FiscalDock)
     Route::prefix('app/admin/comercial')->name('app.admin.comercial.')
         ->middleware(\App\Http\Middleware\EnsureAdmin::class)->group(function () {

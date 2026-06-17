@@ -12,6 +12,8 @@
             <p class="text-xs text-gray-500 mt-0.5">Override dos números globais do catálogo. Sem override, vale o padrão do sistema. Cliente nunca vê esta tela.</p>
         </div>
 
+        @include('autenticado.admin.partials.nav', ['tab' => 'comercial'])
+
         @if(session('status'))
             <div class="bg-white rounded border border-gray-300 border-l-4 mb-4 p-3 text-sm text-gray-700" style="border-left-color: #047857">
                 {{ session('status') }}

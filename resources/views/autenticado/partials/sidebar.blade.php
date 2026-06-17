@@ -238,6 +238,18 @@
                         <span class="sidebar__item-label">Privacidade</span>
                     </a>
                     @if(auth()->user()?->is_admin)
+                        <a href="/app/admin" data-link data-sidebar-user-link class="sidebar__user-menu-item">
+                            <svg class="sidebar__user-menu-item-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                            </svg>
+                            <span class="sidebar__item-label">Admin — Visão Geral</span>
+                        </a>
+                        <a href="/app/admin/usuarios" data-link data-sidebar-user-link class="sidebar__user-menu-item">
+                            <svg class="sidebar__user-menu-item-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4-4 4 4 0 004 4z"></path>
+                            </svg>
+                            <span class="sidebar__item-label">Admin — Usuários</span>
+                        </a>
                         <a href="/app/admin/comercial" data-link data-sidebar-user-link class="sidebar__user-menu-item">
                             <svg class="sidebar__user-menu-item-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"></path>
