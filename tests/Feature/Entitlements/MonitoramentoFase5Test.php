@@ -153,6 +153,26 @@ it('definir cap sem assinatura retorna 409', function () {
         ->assertStatus(409);
 });
 
+// ---- Fase 5.2: UI do freio no hub de monitoramento ----
+
+it('hub de monitoramento mostra o card de freio para quem tem assinatura', function () {
+    $user = User::factory()->create();
+    fase5Assinar($user, 'essencial', ['limite_consumo_automatico' => 42]);
+
+    actingAs($user)->get(route('app.monitoramento.clientes'))
+        ->assertOk()
+        ->assertSee('Freio de consumo do auto-monitor')
+        ->assertSee('Teto personalizado (créditos)');
+});
+
+it('hub de monitoramento esconde o card de freio para usuário sem assinatura', function () {
+    $user = User::factory()->create(); // Free puro, sem assinatura da conta
+
+    actingAs($user)->get(route('app.monitoramento.clientes'))
+        ->assertOk()
+        ->assertDontSee('Freio de consumo do auto-monitor');
+});
+
 // ---- Fase 5.1: gating de frequência e profundidade ----
 
 it('frequência mínima e profundidade máxima vêm do tier (trial libera)', function () {

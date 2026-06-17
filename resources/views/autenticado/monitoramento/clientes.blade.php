@@ -1,4 +1,14 @@
 {{-- Monitoramento de Clientes - Placeholder (DANFE Modernizado) --}}
+@inject('entitlements', 'App\Services\Entitlements\EntitlementService')
+@php
+    // Fase 5.2: freio de consumo do auto-monitor. Só faz sentido com assinatura da conta (cap vive nela).
+    $u = auth()->user();
+    $assinaturaConta = $u ? $u->subscription()->first() : null;
+    $capEfetivo = $u ? $entitlements->consumptionCap($u) : 0;
+    $consumoCiclo = $u ? $entitlements->consumoMonitoramentoNoCiclo($u) : 0;
+    $capPadrao = $u ? (int) $entitlements->planFor($u)->creditos_inclusos : 0;
+    $limiteAtual = $assinaturaConta?->limite_consumo_automatico;
+@endphp
 <div class="min-h-screen bg-gray-100">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
 
@@ -7,6 +17,41 @@
             <h1 class="text-lg sm:text-xl font-bold text-gray-900 uppercase tracking-wide">Monitoramento de Clientes</h1>
             <p class="text-xs text-gray-500 mt-1">Acompanhe o status fiscal dos seus clientes.</p>
         </div>
+
+        @if($assinaturaConta)
+        {{-- Freio de consumo do auto-monitor (Fase 5.2) --}}
+        <div class="bg-white rounded border border-gray-300 overflow-hidden mb-6">
+            <div class="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Freio de consumo do auto-monitor</span>
+            </div>
+            <div class="p-4">
+                <p class="text-xs text-gray-500 mb-4 max-w-2xl">Defina o teto de créditos que o monitoramento automático pode gastar por ciclo. Ao atingir o teto, as assinaturas de monitoramento são pausadas automaticamente até o próximo ciclo — protegendo seu saldo de consumo inesperado.</p>
+                <div class="grid grid-cols-3 gap-3 mb-4">
+                    <div class="bg-gray-50 border border-gray-200 rounded p-3">
+                        <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Teto efetivo</p>
+                        <p class="text-base font-bold text-gray-900">{{ number_format($capEfetivo, 0, ',', '.') }} <span class="text-[11px] font-normal text-gray-400">cr/ciclo</span></p>
+                    </div>
+                    <div class="bg-gray-50 border border-gray-200 rounded p-3">
+                        <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Consumido no ciclo</p>
+                        <p class="text-base font-bold text-gray-900">{{ number_format($consumoCiclo, 0, ',', '.') }}</p>
+                    </div>
+                    <div class="bg-gray-50 border border-gray-200 rounded p-3">
+                        <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Padrão do plano</p>
+                        <p class="text-base font-bold text-gray-900">{{ number_format($capPadrao, 0, ',', '.') }}</p>
+                    </div>
+                </div>
+                <div class="flex flex-wrap items-end gap-3">
+                    <div>
+                        <label class="block text-[11px] text-gray-500 mb-1">Teto personalizado (créditos)</label>
+                        <input type="number" id="input-limite-consumo" min="0" max="1000000" value="{{ $limiteAtual }}" placeholder="Padrão do plano" class="text-[13px] py-2.5 px-3 border border-gray-300 rounded w-48">
+                    </div>
+                    <button id="btn-salvar-limite" type="button" class="px-3 py-2.5 rounded bg-gray-800 hover:bg-gray-700 text-white text-[13px] font-semibold transition">Salvar</button>
+                    <span id="limite-feedback" class="text-[12px]"></span>
+                </div>
+                <p class="text-[11px] text-gray-400 mt-2">Deixe em branco para usar o padrão do plano ({{ number_format($capPadrao, 0, ',', '.') }} créditos inclusos). Use <span class="font-semibold">0</span> para não impor freio (o saldo passa a ser o único limite).</p>
+            </div>
+        </div>
+        @endif
 
         {{-- Conteúdo --}}
         <div class="bg-white rounded border border-gray-300 overflow-hidden">
@@ -72,3 +117,59 @@
 
     </div>
 </div>
+
+@if($assinaturaConta)
+<script>
+(function () {
+    // Fase 5.2: salvar teto de consumo do auto-monitor. Listener no botão específico do render
+    // atual (SPA reinsere o partial → elemento antigo some, sem vazamento).
+    const btn = document.getElementById('btn-salvar-limite');
+    const input = document.getElementById('input-limite-consumo');
+    const feedback = document.getElementById('limite-feedback');
+    if (!btn || !input) return;
+
+    const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+    btn.addEventListener('click', async function () {
+        const raw = input.value.trim();
+        const limite = raw === '' ? null : parseInt(raw, 10);
+
+        if (limite !== null && (isNaN(limite) || limite < 0 || limite > 1000000)) {
+            feedback.textContent = 'Valor inválido.';
+            feedback.style.color = '#dc2626';
+            return;
+        }
+
+        btn.disabled = true;
+        feedback.textContent = 'Salvando…';
+        feedback.style.color = '#6b7280';
+
+        try {
+            const resp = await fetch('{{ route('app.monitoramento.limite-consumo') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': token,
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({ limite }),
+            });
+            const data = await resp.json();
+            if (resp.ok && data.success) {
+                feedback.textContent = '✓ Teto atualizado (' + Number(data.cap_efetivo).toLocaleString('pt-BR') + ' cr/ciclo).';
+                feedback.style.color = '#047857';
+            } else {
+                feedback.textContent = data.error || data.message || 'Não foi possível salvar.';
+                feedback.style.color = '#dc2626';
+            }
+        } catch (e) {
+            feedback.textContent = 'Erro de conexão.';
+            feedback.style.color = '#dc2626';
+        } finally {
+            btn.disabled = false;
+        }
+    });
+})();
+</script>
+@endif
