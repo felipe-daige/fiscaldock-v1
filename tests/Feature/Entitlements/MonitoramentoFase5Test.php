@@ -152,3 +152,52 @@ it('definir cap sem assinatura retorna 409', function () {
     actingAs($user)->postJson(route('app.monitoramento.limite-consumo'), ['limite' => 20])
         ->assertStatus(409);
 });
+
+// ---- Fase 5.1: gating de frequência e profundidade ----
+
+it('frequência mínima e profundidade máxima vêm do tier (trial libera)', function () {
+    $user = User::factory()->create();
+    fase5Assinar($user, 'essencial'); // freq mínima 30, profundidade licitacao
+    $svc = app(EntitlementService::class);
+
+    expect($svc->frequenciaMinimaMonitoramento($user))->toBe(30);
+    expect($svc->permiteFrequenciaMonitoramento($user, 30))->toBeTrue();
+    expect($svc->permiteFrequenciaMonitoramento($user, 15))->toBeFalse(); // quinzenal só no profissional+
+    expect($svc->profundidadeMaximaMonitoramento($user))->toBe('licitacao');
+    expect($svc->permiteProfundidadeMonitoramento($user, 'licitacao'))->toBeTrue();
+    expect($svc->permiteProfundidadeMonitoramento($user, 'compliance'))->toBeFalse();
+
+    $trial = User::factory()->create([
+        'trial_used' => true, 'trial_expires_at' => now()->addDays(10), 'trial_credits_remaining' => 50,
+    ]);
+    expect($svc->frequenciaMinimaMonitoramento($trial))->toBe(1);
+    expect($svc->permiteProfundidadeMonitoramento($trial, 'compliance'))->toBeTrue();
+});
+
+it('bloqueia frequência mais frequente que o tier permite', function () {
+    $user = User::factory()->create();
+    fase5Assinar($user, 'essencial'); // mínima 30
+    $p = fase5Participante($user);
+
+    actingAs($user)->postJson(route('app.monitoramento.assinatura.criar'), [
+        'participante_id' => $p->id,
+        'plano_id' => MonitoramentoPlano::porCodigo('licitacao')->id, // profundidade ok
+        'frequencia' => 'diario', // 1 dia < 30 → bloqueia
+    ])->assertStatus(403);
+
+    expect(MonitoramentoAssinatura::where('participante_id', $p->id)->count())->toBe(0);
+});
+
+it('bloqueia profundidade acima do teto do tier', function () {
+    $user = User::factory()->create();
+    fase5Assinar($user, 'essencial'); // máx licitacao
+    $p = fase5Participante($user);
+
+    actingAs($user)->postJson(route('app.monitoramento.assinatura.criar'), [
+        'participante_id' => $p->id,
+        'plano_id' => MonitoramentoPlano::porCodigo('compliance')->id, // mais profundo que licitacao
+        'frequencia' => 'mensal', // frequência ok
+    ])->assertStatus(403);
+
+    expect(MonitoramentoAssinatura::where('participante_id', $p->id)->count())->toBe(0);
+});

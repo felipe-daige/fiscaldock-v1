@@ -18,7 +18,8 @@ function clienteDe(User $user, string $doc = '11444777000161', string $nome = 'C
 }
 
 it('cria assinatura de cliente com ownership check', function () {
-    $user = User::factory()->create();
+    // trial libera os gates de tier (CNPJ/frequência/profundidade da Fase 5/5.1) — este teste é de ownership
+    $user = User::factory()->trialAtivo()->create();
     $cliente = clienteDe($user);
     $plano = MonitoramentoPlano::porCodigo('licitacao');
 

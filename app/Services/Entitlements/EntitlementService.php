@@ -10,6 +10,12 @@ class EntitlementService
     /** Capabilities tratadas como booleanas por can(). */
     private const BOOLEAN_CAPS = ['pdf_executivo', 'clearance_lote', 'clearance_full', 'score_historico'];
 
+    /** Rank de profundidade do auto-monitor (cadastral=gratuito é o mais raso). */
+    private const RANK_PROFUNDIDADE = [
+        'gratuito' => 0, 'cadastral' => 0, 'validacao' => 1,
+        'licitacao' => 2, 'compliance' => 3, 'due_diligence' => 4, 'enterprise' => 4,
+    ];
+
     public function planFor(User $user): SubscriptionPlan
     {
         $subscription = $user->relationLoaded('subscription')
@@ -141,5 +147,52 @@ class EntitlementService
         $limite = $this->limiteCnpjsMonitorados($user);
 
         return $limite === null || $ativos < $limite;
+    }
+
+    // ---- Fase 5.1: gating de frequência e profundidade do auto-monitor por tier ----
+
+    /**
+     * Intervalo mínimo permitido entre execuções (dias) — quanto menor, mais frequente.
+     * Trial = 1 (sem teto). Usa a capability `frequencia_minima_dias` se houver; senão cai no
+     * `frequencia_padrao_dias` do plano (fallback gracioso enquanto o seeder não foi reaplicado).
+     */
+    public function frequenciaMinimaMonitoramento(User $user): int
+    {
+        if ($user->hasActiveTrial()) {
+            return 1;
+        }
+
+        $plano = $this->planFor($user);
+        $cap = $plano->capability('frequencia_minima_dias', null);
+
+        return $cap !== null ? (int) $cap : (int) ($plano->frequencia_padrao_dias ?? 30);
+    }
+
+    public function permiteFrequenciaMonitoramento(User $user, int $dias): bool
+    {
+        return $dias >= $this->frequenciaMinimaMonitoramento($user);
+    }
+
+    /** Profundidade máxima do auto-monitor do tier (trial = due_diligence, libera tudo). */
+    public function profundidadeMaximaMonitoramento(User $user): string
+    {
+        if ($user->hasActiveTrial()) {
+            return 'due_diligence';
+        }
+
+        return (string) ($this->planFor($user)->profundidade_auto_monitor ?? 'cadastral');
+    }
+
+    /** O plano de monitoramento escolhido (`$codigoPlano`) cabe na profundidade do tier? */
+    public function permiteProfundidadeMonitoramento(User $user, string $codigoPlano): bool
+    {
+        $rankEscolhido = self::RANK_PROFUNDIDADE[$codigoPlano] ?? null;
+        if ($rankEscolhido === null) {
+            return true; // código desconhecido: não bloqueia (best-effort)
+        }
+
+        $rankMax = self::RANK_PROFUNDIDADE[$this->profundidadeMaximaMonitoramento($user)] ?? 4;
+
+        return $rankEscolhido <= $rankMax;
     }
 }

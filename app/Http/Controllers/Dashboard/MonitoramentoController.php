@@ -388,6 +388,28 @@ class MonitoramentoController extends Controller
             ], Response::HTTP_FORBIDDEN);
         }
 
+        // Gating de frequência (Fase 5.1): não pode monitorar mais frequente que o tier permite.
+        $frequenciaDias = $this->frequenciaParaDias($frequencia);
+        if (! $this->entitlements->permiteFrequenciaMonitoramento($user, $frequenciaDias)) {
+            $minLabel = $this->frequenciaLabel($this->entitlements->frequenciaMinimaMonitoramento($user));
+
+            return response()->json([
+                'success' => false,
+                'error' => "Seu plano permite monitorar no máximo a cada {$minLabel}. Reduza a frequência ou faça upgrade do plano.",
+            ], Response::HTTP_FORBIDDEN);
+        }
+
+        // Gating de profundidade (Fase 5.1): o plano de monitoramento escolhido não pode ser mais
+        // profundo que o teto do tier (cadastral < validação < licitação < compliance < due diligence).
+        if (! $this->entitlements->permiteProfundidadeMonitoramento($user, (string) $plano->codigo)) {
+            $maxProf = $this->entitlements->profundidadeMaximaMonitoramento($user);
+
+            return response()->json([
+                'success' => false,
+                'error' => "Seu plano permite monitoramento automático até a profundidade \"{$maxProf}\". Escolha um plano de monitoramento compatível ou faça upgrade.",
+            ], Response::HTTP_FORBIDDEN);
+        }
+
         try {
             DB::beginTransaction();
 
@@ -713,6 +735,16 @@ class MonitoramentoController extends Controller
             'quinzenal' => 15,
             'mensal' => 30,
             default => 15,
+        };
+    }
+
+    private function frequenciaLabel(int $dias): string
+    {
+        return match (true) {
+            $dias <= 1 => 'dia (diária)',
+            $dias <= 7 => '7 dias (semanal)',
+            $dias <= 15 => '15 dias (quinzenal)',
+            default => '30 dias (mensal)',
         };
     }
 

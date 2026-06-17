@@ -33,6 +33,7 @@ class SubscriptionPlanSeeder extends Seeder
                     'bi' => 'basico', 'export' => [], 'pdf_executivo' => false,
                     'clearance_lote' => false, 'clearance_full' => false,
                     'score_historico' => false, 'retencao_meses' => 6,
+                    'frequencia_minima_dias' => 30,
                 ],
             ],
             [
@@ -46,6 +47,7 @@ class SubscriptionPlanSeeder extends Seeder
                     'bi' => 'completo', 'export' => ['csv'], 'pdf_executivo' => false,
                     'clearance_lote' => true, 'clearance_full' => false,
                     'score_historico' => false, 'retencao_meses' => null,
+                    'frequencia_minima_dias' => 30,
                 ],
             ],
             [
@@ -59,6 +61,7 @@ class SubscriptionPlanSeeder extends Seeder
                     'bi' => 'completo', 'export' => ['csv', 'excel'], 'pdf_executivo' => true,
                     'clearance_lote' => true, 'clearance_full' => false,
                     'score_historico' => true, 'retencao_meses' => null,
+                    'frequencia_minima_dias' => 15,
                 ],
             ],
             [
@@ -72,6 +75,7 @@ class SubscriptionPlanSeeder extends Seeder
                     'bi' => 'completo', 'export' => ['csv', 'excel'], 'pdf_executivo' => true,
                     'clearance_lote' => true, 'clearance_full' => true,
                     'score_historico' => true, 'retencao_meses' => null,
+                    'frequencia_minima_dias' => 7,
                 ],
             ],
             [
@@ -85,6 +89,7 @@ class SubscriptionPlanSeeder extends Seeder
                     'bi' => 'completo', 'export' => ['csv', 'excel', 'api'], 'pdf_executivo' => true,
                     'clearance_lote' => true, 'clearance_full' => true,
                     'score_historico' => true, 'retencao_meses' => null,
+                    'frequencia_minima_dias' => 1,
                 ],
             ],
         ];
