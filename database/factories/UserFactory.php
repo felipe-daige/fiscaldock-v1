@@ -21,10 +21,14 @@ class UserFactory extends Factory
             'name' => 'Usuário',
             'sobrenome' => 'Teste',
             'telefone' => '(11) 99999-9999',
-            'email' => 'usuario' . uniqid() . '@example.com',
+            'email' => 'usuario'.uniqid().'@example.com',
             'email_verified_at' => now(),
             'password' => 'password', // O cast 'hashed' do modelo já faz o hash automaticamente
             'remember_token' => Str::random(10),
+            // LGPD fase 2.2: espelha um signup recente (versões em dia) — sem isto o
+            // middleware RequireCurrentTerms redirecionaria todo usuário de teste pro re-aceite.
+            'terms_version' => config('legal.terms_version', '1.0'),
+            'privacy_version' => config('legal.privacy_version', '1.0'),
         ];
     }
 

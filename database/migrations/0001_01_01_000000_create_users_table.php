@@ -32,6 +32,12 @@ return new class extends Migration
             // LGPD fase 2: pedido de exclusão de conta (direito do titular). Flag, não hard-delete —
             // o processamento/anonimização respeita a retenção fiscal de SPED/XML.
             $table->timestamp('deletion_requested_at')->nullable();
+            // LGPD fase 2.2: versão dos documentos legais aceitos (force re-aceite quando sobe).
+            // Backfill p/ '1.0' nos usuários existentes — eles já aceitaram a única versão que existiu.
+            $table->string('terms_version')->nullable();
+            $table->string('privacy_version')->nullable();
+            // LGPD fase 2.2: marca quando a PII do titular foi anonimizada (comando lgpd:processar-exclusoes).
+            $table->timestamp('anonimizado_em')->nullable();
             // Operador FiscalDock (acesso ao painel admin §6.1). Ligado manualmente via SQL.
             $table->boolean('is_admin')->default(false);
             $table->boolean('trial_used')->default(false);

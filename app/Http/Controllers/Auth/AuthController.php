@@ -335,6 +335,8 @@ class AuthController extends Controller
                 'faturamento_anual' => $validated['faturamento'],
                 'desafio_principal' => $validated['desafio_principal'],
                 'terms_accepted_at' => now(),
+                'terms_version' => config('legal.terms_version'),
+                'privacy_version' => config('legal.privacy_version'),
                 'marketing_opt_in' => (bool) ($validated['marketing_opt_in'] ?? false),
                 'marketing_opt_in_at' => ! empty($validated['marketing_opt_in']) ? now() : null,
             ]);

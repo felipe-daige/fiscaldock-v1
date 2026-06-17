@@ -137,6 +137,37 @@ class PrivacidadeController extends Controller
         ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
     }
 
+    public function exportarCsv(Request $request)
+    {
+        /** @var User $user */
+        $user = Auth::user();
+
+        $logs = ConsentLog::where('user_id', $user->id)->orderBy('created_at')->get();
+
+        $handle = fopen('php://temp', 'r+');
+        fputcsv($handle, ['data', 'tipo', 'acao', 'valor', 'versao', 'ip']);
+        foreach ($logs as $l) {
+            fputcsv($handle, [
+                optional($l->created_at)->toIso8601String(),
+                $l->tipo,
+                $l->acao,
+                $l->valor === null ? '' : ($l->valor ? 'true' : 'false'),
+                $l->versao,
+                $l->ip,
+            ]);
+        }
+        rewind($handle);
+        $csv = stream_get_contents($handle);
+        fclose($handle);
+
+        $filename = 'fiscaldock-consentimentos-'.now()->format('Ymd-His').'.csv';
+
+        return response($csv, 200, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        ]);
+    }
+
     public function solicitarExclusao(Request $request)
     {
         /** @var User $user */

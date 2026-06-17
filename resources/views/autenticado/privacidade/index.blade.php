@@ -69,9 +69,14 @@
         @endphp
         @if($historico->isNotEmpty())
             <div class="bg-white rounded border border-gray-300 mb-5 overflow-hidden">
-                <div class="px-4 py-3 border-b border-gray-200">
-                    <h2 class="text-sm font-bold text-gray-900">Histórico de consentimentos</h2>
-                    <p class="text-[11px] text-gray-500 mt-0.5">Registro auditável de cada aceite, revogação e pedido — com data, versão do documento e IP.</p>
+                <div class="px-4 py-3 border-b border-gray-200 flex items-start justify-between gap-3">
+                    <div>
+                        <h2 class="text-sm font-bold text-gray-900">Histórico de consentimentos</h2>
+                        <p class="text-[11px] text-gray-500 mt-0.5">Registro auditável de cada aceite, revogação e pedido — com data, versão do documento e IP.</p>
+                    </div>
+                    <a href="{{ route('app.privacidade.exportar-csv') }}" class="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded border border-gray-300 text-[11px] font-semibold text-gray-700 hover:bg-gray-50">
+                        Exportar CSV
+                    </a>
                 </div>
                 <div class="divide-y divide-gray-100">
                     @foreach($historico as $log)

@@ -72,7 +72,13 @@ Route::get('/api/csrf-token', function () {
 })->name('api.csrf-token');
 
 // Rotas autenticadas
-Route::middleware('auth')->group(function () {
+// RequireCurrentTerms por FQCN (bootstrap/app.php não é montado): força re-aceite (LGPD 2.2)
+// quando a versão dos documentos sobe. Só intercepta GET full-page; o interstitial app.reaceite.*
+// é isento via routeIs (sem loop).
+Route::middleware(['auth', \App\Http\Middleware\RequireCurrentTerms::class])->group(function () {
+    Route::get('/app/reaceite', [\App\Http\Controllers\Dashboard\TermosReaceiteController::class, 'show'])->name('app.reaceite.show');
+    Route::post('/app/reaceite', [\App\Http\Controllers\Dashboard\TermosReaceiteController::class, 'aceitar'])->name('app.reaceite.aceitar');
+
     Route::get('/app/dashboard', [DashboardController::class, 'dashboard'])->name('dashboard');
     Route::get('/app/perfil', [DashboardController::class, 'perfil'])->name('app.perfil');
 
@@ -311,6 +317,7 @@ Route::middleware('auth')->group(function () {
     Route::prefix('app/privacidade')->name('app.privacidade.')->group(function () {
         Route::get('/', [\App\Http\Controllers\Dashboard\PrivacidadeController::class, 'index'])->name('index');
         Route::get('/exportar', [\App\Http\Controllers\Dashboard\PrivacidadeController::class, 'exportarDados'])->name('exportar');
+        Route::get('/exportar-csv', [\App\Http\Controllers\Dashboard\PrivacidadeController::class, 'exportarCsv'])->name('exportar-csv');
         Route::post('/marketing/revogar', [\App\Http\Controllers\Dashboard\PrivacidadeController::class, 'revogarMarketing'])->name('marketing.revogar');
         Route::post('/exclusao', [\App\Http\Controllers\Dashboard\PrivacidadeController::class, 'solicitarExclusao'])->name('exclusao.solicitar');
         Route::post('/exclusao/cancelar', [\App\Http\Controllers\Dashboard\PrivacidadeController::class, 'cancelarExclusao'])->name('exclusao.cancelar');
