@@ -32,7 +32,7 @@ class AdminUsuariosService
 
         $busca = trim((string) ($filtros['q'] ?? ''));
         if ($busca !== '') {
-            $like = '%'.str_replace('%', '', $busca).'%';
+            $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $busca).'%';
             $q->where(function ($w) use ($like) {
                 $w->where('name', 'ilike', $like)
                     ->orWhere('email', 'ilike', $like)

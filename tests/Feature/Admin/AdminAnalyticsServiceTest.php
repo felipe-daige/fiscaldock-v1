@@ -45,6 +45,16 @@ it('conta conversão de trial (trial_used + compra)', function () {
     expect($r['trial']['convertidos'])->toBe(1);
 });
 
+it('saldo_base não dobra crédito de trial (trial_credits_remaining é subconjunto de credits)', function () {
+    // grantTrial soma o trial no credits E espelha em trial_credits_remaining
+    User::factory()->create(['credits' => 100, 'trial_credits_remaining' => 100]);
+    User::factory()->create(['credits' => 30, 'trial_credits_remaining' => 0]);
+
+    $r = app(AdminAnalyticsService::class)->resumo();
+
+    expect($r['creditos']['saldo_base'])->toBe(130.0); // não 230
+});
+
 it('periodo "tudo" não filtra por data', function () {
     User::factory()->create(['created_at' => now()->subDays(400)]);
 

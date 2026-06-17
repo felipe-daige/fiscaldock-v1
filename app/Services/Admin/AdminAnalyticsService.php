@@ -70,7 +70,8 @@ class AdminAnalyticsService
             'creditos' => [
                 'vendidos' => (float) DB::table('credit_transactions')->where('type', 'purchase')->where('amount', '>', 0)->sum('amount'),
                 'consumidos' => abs((float) DB::table('credit_transactions')->where('amount', '<', 0)->sum('amount')),
-                'saldo_base' => (float) DB::table('users')->selectRaw('coalesce(sum(credits),0) + coalesce(sum(trial_credits_remaining),0) as s')->value('s'),
+                // trial_credits_remaining é subconjunto de credits (grantTrial soma no credits) — não somar
+                'saldo_base' => (float) DB::table('users')->sum('credits'),
                 'consumo_por_tipo' => $consumoPorTipo,
             ],
             'uso' => [
