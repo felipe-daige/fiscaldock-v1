@@ -94,6 +94,31 @@ class DashboardController extends Controller
         ], $data));
     }
 
+    /** JSON do cockpit (KPIs + triagem + tendência), filtrável por cliente/período. */
+    public function dados(Request $request)
+    {
+        if (! Auth::check()) {
+            return response()->json(['success' => false, 'redirect' => '/login'], 401);
+        }
+
+        $user = Auth::user();
+        $userId = (int) $user->id;
+
+        $clienteId = (int) $request->integer('cliente');
+        if ($clienteId > 0) {
+            $existe = Cliente::where('id', $clienteId)->where('user_id', $userId)->exists();
+            $clienteId = $existe ? $clienteId : null;
+        } else {
+            $clienteId = null;
+        }
+
+        $periodo = (int) $request->integer('periodo', 6);
+
+        return response()->json(
+            $this->dashboardDataService->cockpit($userId, $user, $clienteId, $periodo)
+        );
+    }
+
     /**
      * Verifica se a requisição é AJAX de forma compatível com Laravel 11 e 12
      */

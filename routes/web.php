@@ -83,6 +83,7 @@ Route::middleware(['auth', \App\Http\Middleware\RequireCurrentTerms::class])->gr
     Route::post('/app/onboarding/confirmar-termos', [\App\Http\Controllers\Dashboard\OnboardingController::class, 'confirmarTermos'])->name('app.onboarding.confirmar-termos');
 
     Route::get('/app/dashboard', [DashboardController::class, 'dashboard'])->name('dashboard');
+    Route::get('/app/dashboard/dados', [DashboardController::class, 'dados'])->name('app.dashboard.dados');
     Route::get('/app/perfil', [DashboardController::class, 'perfil'])->name('app.perfil');
 
     Route::get('/app/alertas', [DashboardController::class, 'alertas'])->name('app.alertas');
