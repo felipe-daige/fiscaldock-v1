@@ -3,6 +3,7 @@
 namespace App\Services\Dashboard;
 
 use App\Models\ConsultaLote;
+use App\Models\ConsultaResultado;
 use App\Models\EfdImportacao;
 use App\Models\Participante;
 use App\Models\User;
@@ -71,6 +72,48 @@ class DashboardDataService
             'creditos_usados_mes' => $creditosUsadosMes,
             'alertas_total' => $alertasTotal,
             'alertas_alta' => $alertasAlta,
+        ];
+    }
+
+    /** Participantes (não-próprios) com score alto/crítico, opcionalmente por cliente. */
+    public function contarRisco(int $userId, ?int $clienteId = null): int
+    {
+        return DB::table('participante_scores')
+            ->join('participantes', 'participantes.id', '=', 'participante_scores.participante_id')
+            ->where('participantes.user_id', $userId)
+            ->when($clienteId, fn ($q) => $q->where('participantes.cliente_id', $clienteId))
+            ->where(function ($q) {
+                $q->where('participantes.origem_tipo', '!=', 'PROPRIO')
+                    ->orWhereNull('participantes.origem_tipo');
+            })
+            ->whereIn('participante_scores.classificacao', ['alto', 'critico'])
+            ->count();
+    }
+
+    /** Linhas de "precisa de atenção" (count + link), ordem fixa por severidade. */
+    public function getTriagem(int $userId, ?int $clienteId = null): array
+    {
+        $alertasAlta = $this->alertaCentralService->obterResumo($userId)['por_severidade']['alta'] ?? 0;
+
+        $importsErro = EfdImportacao::where('user_id', $userId)
+            ->where('status', 'erro')
+            ->when($clienteId, fn ($q) => $q->where('cliente_id', $clienteId))
+            ->count();
+
+        $certidoesDesatualizadas = ConsultaResultado::query()
+            ->join('participantes', 'participantes.id', '=', 'consulta_resultados.participante_id')
+            ->where('participantes.user_id', $userId)
+            ->when($clienteId, fn ($q) => $q->where('participantes.cliente_id', $clienteId))
+            ->where('consulta_resultados.status', ConsultaResultado::STATUS_SUCESSO)
+            ->where('consulta_resultados.consultado_em', '<', now()->subDays(30))
+            ->distinct('consulta_resultados.participante_id')
+            ->count('consulta_resultados.participante_id');
+
+        return [
+            ['chave' => 'alertas_alta', 'label' => 'Alertas alta severidade',        'count' => (int) $alertasAlta,             'hex' => '#dc2626', 'url' => '/app/alertas'],
+            ['chave' => 'certidoes',    'label' => 'Certidões desatualizadas (+30d)', 'count' => (int) $certidoesDesatualizadas, 'hex' => '#d97706', 'url' => '/app/score-fiscal'],
+            ['chave' => 'imports_erro', 'label' => 'Importações com erro',            'count' => (int) $importsErro,             'hex' => '#d97706', 'url' => '/app/importacao/historico'],
+            ['chave' => 'risco',        'label' => 'Participantes em risco',          'count' => $this->contarRisco($userId, $clienteId), 'hex' => '#ca8a04', 'url' => '/app/score-fiscal'],
         ];
     }
 
