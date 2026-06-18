@@ -49,6 +49,18 @@ class DashboardController extends Controller
 
     private const AUTH_LAYOUT_VIEW = 'autenticado.layouts.app';
 
+    /** Catálogo canônico de atalhos do cockpit (slug => rota). Fonte da whitelist de prefs. */
+    public const ATALHOS_CATALOGO = [
+        'consulta_nova' => '/app/consulta/nova',
+        'importar_efd' => '/app/importacao/efd',
+        'importar_xml' => '/app/importacao/xml',
+        'verificar_notas' => '/app/clearance/notas',
+        'bi_dashboard' => '/app/bi/dashboard',
+        'resumo_fiscal' => '/app/resumo-fiscal',
+        'clientes' => '/app/clientes',
+        'score_fiscal' => '/app/score-fiscal',
+    ];
+
     public function dashboard(Request $request)
     {
         $dashboardView = self::AUTH_VIEW_PREFIX.'dashboard.index';
@@ -117,6 +129,42 @@ class DashboardController extends Controller
         return response()->json(
             $this->dashboardDataService->cockpit($userId, $user, $clienteId, $periodo)
         );
+    }
+
+    /** Persiste prefs do cockpit — só chaves da whitelist; nunca confia no front. */
+    public function salvarPrefs(Request $request)
+    {
+        if (! Auth::check()) {
+            return response()->json(['success' => false, 'redirect' => '/login'], 401);
+        }
+
+        $cardsValidos = array_keys(\App\Models\User::DASHBOARD_PREFS_DEFAULT['cards']);
+        $atalhosValidos = array_keys(self::ATALHOS_CATALOGO);
+
+        $validated = $request->validate([
+            'cards' => ['sometimes', 'array'],
+            'cards.*' => ['array'],
+            'cards.*.visivel' => ['sometimes', 'boolean'],
+            'cards.*.ordem' => ['sometimes', 'integer', 'min:0', 'max:50'],
+            'atalhos_fixos' => ['sometimes', 'array'],
+            'atalhos_fixos.*' => ['string', Rule::in($atalhosValidos)],
+            'atalhos_ordem' => ['sometimes', 'array'],
+            'atalhos_ordem.*' => ['string', Rule::in($atalhosValidos)],
+        ]);
+
+        // Rejeita chave de card fora da whitelist (a regra acima valida o valor, não a chave).
+        foreach (array_keys($validated['cards'] ?? []) as $chave) {
+            if (! in_array($chave, $cardsValidos, true)) {
+                return response()->json(['success' => false, 'message' => "Card inválido: {$chave}"], 422);
+            }
+        }
+
+        $user = Auth::user();
+        $atual = $user->dashboard_prefs ?? [];
+        $user->dashboard_prefs = array_replace_recursive($atual, $validated);
+        $user->save();
+
+        return response()->json(['success' => true, 'prefs' => $user->dashboardPrefs()]);
     }
 
     /**

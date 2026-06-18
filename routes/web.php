@@ -84,6 +84,7 @@ Route::middleware(['auth', \App\Http\Middleware\RequireCurrentTerms::class])->gr
 
     Route::get('/app/dashboard', [DashboardController::class, 'dashboard'])->name('dashboard');
     Route::get('/app/dashboard/dados', [DashboardController::class, 'dados'])->name('app.dashboard.dados');
+    Route::post('/app/dashboard/prefs', [DashboardController::class, 'salvarPrefs'])->name('app.dashboard.prefs');
     Route::get('/app/perfil', [DashboardController::class, 'perfil'])->name('app.perfil');
 
     Route::get('/app/alertas', [DashboardController::class, 'alertas'])->name('app.alertas');
