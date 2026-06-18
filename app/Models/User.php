@@ -42,6 +42,7 @@ class User extends Authenticatable
         'alertas_operacionais',
         'alertas_monitoramento',
         'resumo_periodico',
+        'dashboard_prefs',
     ];
 
     protected $hidden = [
@@ -70,6 +71,38 @@ class User extends Authenticatable
             'alertas_operacionais' => 'boolean',
             'alertas_monitoramento' => 'boolean',
             'resumo_periodico' => 'boolean',
+            'dashboard_prefs' => 'array',
+        ];
+    }
+
+    public const DASHBOARD_PREFS_DEFAULT = [
+        'cards' => [
+            'tendencia' => ['visivel' => true,  'ordem' => 0],
+            'triagem'   => ['visivel' => true,  'ordem' => 1],
+            'atalhos'   => ['visivel' => true,  'ordem' => 2],
+            'atividade' => ['visivel' => false, 'ordem' => 3],
+        ],
+        'atalhos_fixos' => ['consulta_nova', 'importar_efd', 'verificar_notas', 'bi_dashboard'],
+        'atalhos_ordem' => ['consulta_nova', 'importar_efd', 'verificar_notas', 'bi_dashboard'],
+    ];
+
+    /** Prefs do dashboard mescladas sobre o default — sempre shape completo, nunca null. */
+    public function dashboardPrefs(): array
+    {
+        $salvas = $this->dashboard_prefs ?? [];
+        $default = self::DASHBOARD_PREFS_DEFAULT;
+
+        $cards = $default['cards'];
+        foreach (($salvas['cards'] ?? []) as $chave => $cfg) {
+            if (isset($cards[$chave]) && is_array($cfg)) {
+                $cards[$chave] = array_merge($cards[$chave], array_intersect_key($cfg, $cards[$chave]));
+            }
+        }
+
+        return [
+            'cards' => $cards,
+            'atalhos_fixos' => $salvas['atalhos_fixos'] ?? $default['atalhos_fixos'],
+            'atalhos_ordem' => $salvas['atalhos_ordem'] ?? $default['atalhos_ordem'],
         ];
     }
 

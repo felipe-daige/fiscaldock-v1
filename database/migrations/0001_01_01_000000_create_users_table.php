@@ -50,6 +50,7 @@ return new class extends Migration
             $table->boolean('alertas_operacionais')->default(true);
             $table->boolean('alertas_monitoramento')->default(true);
             $table->boolean('resumo_periodico')->default(true);
+            $table->jsonb('dashboard_prefs')->nullable();
             $table->timestamps();
         });
 
