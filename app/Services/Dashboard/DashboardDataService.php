@@ -150,6 +150,37 @@ class DashboardDataService
         ];
     }
 
+    /** Assembler único do cockpit: usado pela 1ª pintura (controller) e pelo endpoint JSON. */
+    public function cockpit(int $userId, User $user, ?int $clienteId, int $periodo): array
+    {
+        $periodo = in_array($periodo, [3, 6, 12], true) ? $periodo : 6;
+        $dataInicio = now()->subMonths($periodo - 1)->startOfMonth()->toDateString();
+        $dataFim = now()->endOfMonth()->toDateString();
+
+        $bloco = fn (callable $fn, $fallback) => rescue($fn, $fallback, report: false);
+
+        $kpis = $bloco(
+            fn () => $this->getCockpitKpis($userId, $user, $clienteId, $dataInicio, $dataFim),
+            ['volume' => ['notas' => 0, 'valor' => 0.0], 'saude' => ['total' => 0, 'alertas_alta' => 0, 'risco' => 0], 'creditos' => ['saldo' => 0, 'usados_mes' => 0]]
+        );
+
+        $triagem = $bloco(fn () => $this->getTriagem($userId, $clienteId), []);
+
+        $serie = $bloco(fn () => $this->efd->faturamentoMensal($userId, 'saida', $dataInicio, $dataFim, $clienteId), []);
+        $tendencia = [
+            'meses' => array_map(fn ($r) => \Carbon\Carbon::parse($r['mes'])->translatedFormat('M/y'), $serie),
+            'valor' => array_map(fn ($r) => (float) $r['valor'], $serie),
+            'qtd' => array_map(fn ($r) => (int) $r['qtd'], $serie),
+        ];
+
+        return [
+            'kpis' => $kpis,
+            'triagem' => $triagem,
+            'tendencia' => $tendencia,
+            'meta' => ['cliente' => $clienteId, 'periodo' => $periodo],
+        ];
+    }
+
     /**
      * Retorna atividade recente mesclando importações e consultas.
      */
