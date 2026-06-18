@@ -10,6 +10,7 @@
         'clientes' => 'Clientes', 'score_fiscal' => 'Score Fiscal',
     ];
     $atalhosFixos = $dashboardPrefs['atalhos_fixos'] ?? [];
+    $cardLabels = ['tendencia' => 'Tendência', 'risco' => 'Risco da carteira', 'triagem' => 'Precisa de atenção', 'fornecedores' => 'Top fornecedores', 'atividade' => 'Atividade recente', 'atalhos' => 'Atalhos'];
 @endphp
 
 <div id="dashboard-cockpit" class="min-h-screen bg-gray-100">
@@ -49,7 +50,7 @@
         <div data-personalizar-panel class="hidden bg-white rounded border border-gray-300 p-4 mb-4">
             <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Mostrar cards</p>
             <div class="flex flex-wrap gap-4 mb-4">
-                @foreach(['tendencia' => 'Tendência', 'triagem' => 'Precisa de atenção', 'atalhos' => 'Atalhos', 'atividade' => 'Atividade recente'] as $k => $label)
+                @foreach($cardLabels as $k => $label)
                     <label class="inline-flex items-center gap-2 text-[13px] text-gray-700">
                         <input type="checkbox" data-pref-card="{{ $k }}" @checked($cardVisivel($k))> {{ $label }}
                     </label>
@@ -94,23 +95,52 @@
             </a>
         </div>
 
-        {{-- Triagem + Tendência --}}
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-            <div data-card="triagem" class="bg-white rounded border border-gray-300 p-4 {{ $cardVisivel('triagem') ? '' : 'hidden' }}">
-                <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-3">Precisa de atenção</p>
-                <div id="triagem-lista" class="divide-y divide-gray-100">
-                    @include('autenticado.dashboard.partials.triagem', ['triagem' => $cockpit['triagem']])
-                </div>
-            </div>
-            <div data-card="tendencia" class="bg-white rounded border border-gray-300 p-4 {{ $cardVisivel('tendencia') ? '' : 'hidden' }}">
+        {{-- Tendência (2/3) + Risco da carteira (1/3) --}}
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+            <div data-card="tendencia" class="lg:col-span-2 bg-white rounded border border-gray-300 p-4 {{ $cardVisivel('tendencia') ? '' : 'hidden' }}">
                 <div class="flex items-baseline justify-between mb-2">
-                    <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Tendência</p>
+                    <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Tendência — entrada × saída</p>
                     <select data-control="metrica" class="text-[11px] text-gray-500 border-0 bg-transparent focus:ring-0">
                         <option value="valor" selected>Faturamento</option>
                         <option value="qtd">Volume</option>
                     </select>
                 </div>
                 <div id="chartTendencia"></div>
+            </div>
+            <div data-card="risco" class="bg-white rounded border border-gray-300 p-4 {{ $cardVisivel('risco') ? '' : 'hidden' }}">
+                <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Risco da carteira</p>
+                <div id="chartRisco"></div>
+                <p id="risco-vazio" class="hidden text-center text-sm text-gray-400 py-10">Nenhum participante avaliado ainda.</p>
+            </div>
+        </div>
+
+        {{-- Triagem (1/3) + Top fornecedores (1/3) + Atividade (1/3) --}}
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+            <div data-card="triagem" class="bg-white rounded border border-gray-300 p-4 {{ $cardVisivel('triagem') ? '' : 'hidden' }}">
+                <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-3">Precisa de atenção</p>
+                <div id="triagem-lista" class="divide-y divide-gray-100">
+                    @include('autenticado.dashboard.partials.triagem', ['triagem' => $cockpit['triagem']])
+                </div>
+            </div>
+            <div data-card="fornecedores" class="bg-white rounded border border-gray-300 p-4 {{ $cardVisivel('fornecedores') ? '' : 'hidden' }}">
+                <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Top fornecedores</p>
+                <div id="chartFornecedores"></div>
+                <p id="fornecedores-vazio" class="hidden text-center text-sm text-gray-400 py-10">Sem compras no período.</p>
+            </div>
+            <div data-card="atividade" class="bg-white rounded border border-gray-300 overflow-hidden {{ $cardVisivel('atividade') ? '' : 'hidden' }}">
+                <div class="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                    <h2 class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Atividade recente</h2>
+                </div>
+                <div class="divide-y divide-gray-100">
+                    @forelse($atividadeRecente as $atividade)
+                        <div class="px-4 py-2.5 flex items-center justify-between gap-2">
+                            <span class="text-sm text-gray-700 truncate">{{ $atividade['descricao'] }}</span>
+                            <span class="text-[11px] text-gray-400 flex-shrink-0">{{ $atividade['data']->format('d/m H:i') }}</span>
+                        </div>
+                    @empty
+                        <div class="px-4 py-6 text-center text-sm text-gray-500">Nenhuma atividade recente</div>
+                    @endforelse
+                </div>
             </div>
         </div>
 
@@ -128,23 +158,6 @@
             </div>
         </div>
 
-        {{-- Atividade recente (opcional) --}}
-        <div data-card="atividade" class="bg-white rounded border border-gray-300 overflow-hidden mb-4 {{ $cardVisivel('atividade') ? '' : 'hidden' }}">
-            <div class="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                <h2 class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Atividade recente</h2>
-            </div>
-            <div class="divide-y divide-gray-100">
-                @forelse($atividadeRecente as $atividade)
-                    <div class="px-4 py-2.5 flex items-center justify-between gap-2">
-                        <span class="text-sm text-gray-700 truncate">{{ $atividade['descricao'] }}</span>
-                        <span class="text-[11px] text-gray-400 flex-shrink-0">{{ $atividade['data']->format('d/m/Y H:i') }}</span>
-                    </div>
-                @empty
-                    <div class="px-4 py-6 text-center text-sm text-gray-500">Nenhuma atividade recente</div>
-                @endforelse
-            </div>
-        </div>
-
         @if($isUsuarioNovo)
             @include('autenticado.dashboard.partials.primeiros-passos')
         @endif
@@ -155,4 +168,3 @@
 </div>
 
 <script src="/js/apexcharts.min.js"></script>
-<script src="/js/dashboard-cockpit.js"></script>

@@ -11,7 +11,9 @@ it('devolve o default quando dashboard_prefs e null', function () {
     $prefs = $user->dashboardPrefs();
 
     expect($prefs['cards']['tendencia']['visivel'])->toBeTrue()
-        ->and($prefs['cards']['atividade']['visivel'])->toBeFalse()
+        ->and($prefs['cards']['atividade']['visivel'])->toBeTrue()
+        ->and($prefs['cards']['risco']['visivel'])->toBeTrue()
+        ->and($prefs['cards']['fornecedores']['visivel'])->toBeTrue()
         ->and($prefs['atalhos_fixos'])->toBeArray();
 });
 

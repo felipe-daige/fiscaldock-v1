@@ -77,10 +77,12 @@ class User extends Authenticatable
 
     public const DASHBOARD_PREFS_DEFAULT = [
         'cards' => [
-            'tendencia' => ['visivel' => true,  'ordem' => 0],
-            'triagem'   => ['visivel' => true,  'ordem' => 1],
-            'atalhos'   => ['visivel' => true,  'ordem' => 2],
-            'atividade' => ['visivel' => false, 'ordem' => 3],
+            'tendencia'    => ['visivel' => true, 'ordem' => 0],
+            'risco'        => ['visivel' => true, 'ordem' => 1],
+            'triagem'      => ['visivel' => true, 'ordem' => 2],
+            'fornecedores' => ['visivel' => true, 'ordem' => 3],
+            'atividade'    => ['visivel' => true, 'ordem' => 4],
+            'atalhos'      => ['visivel' => true, 'ordem' => 5],
         ],
         'atalhos_fixos' => ['consulta_nova', 'importar_efd', 'verificar_notas', 'bi_dashboard'],
         'atalhos_ordem' => ['consulta_nova', 'importar_efd', 'verificar_notas', 'bi_dashboard'],

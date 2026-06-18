@@ -8,8 +8,10 @@ use App\Models\EfdImportacao;
 use App\Models\Participante;
 use App\Models\User;
 use App\Services\AlertaCentralService;
+use App\Services\BiService;
 use App\Services\CreditService;
 use App\Services\EfdAgregadorService;
+use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -19,8 +21,24 @@ class DashboardDataService
     public function __construct(
         protected CreditService $creditService,
         protected AlertaCentralService $alertaCentralService,
-        protected EfdAgregadorService $efd
+        protected EfdAgregadorService $efd,
+        protected BiService $bi
     ) {}
+
+    /** Cores (hex inline — regra do design system) por classificação de risco. */
+    private const RISCO_HEX = [
+        'baixo' => '#047857',
+        'medio' => '#d97706',
+        'alto' => '#ea580c',
+        'critico' => '#dc2626',
+    ];
+
+    private const RISCO_LABEL = [
+        'baixo' => 'Baixo',
+        'medio' => 'Médio',
+        'alto' => 'Alto',
+        'critico' => 'Crítico',
+    ];
 
     /**
      * Obtém todos os KPIs do dashboard para um usuário.
@@ -150,6 +168,65 @@ class DashboardDataService
         ];
     }
 
+    /** Distribuição de participantes por classificação de risco (donut). Ordem canônica. */
+    public function getRiscoDistribuicao(int $userId, ?int $clienteId = null): array
+    {
+        $contagem = DB::table('participante_scores')
+            ->join('participantes', 'participantes.id', '=', 'participante_scores.participante_id')
+            ->where('participantes.user_id', $userId)
+            ->when($clienteId, fn ($q) => $q->where('participantes.cliente_id', $clienteId))
+            ->where(function ($q) {
+                $q->where('participantes.origem_tipo', '!=', 'PROPRIO')
+                    ->orWhereNull('participantes.origem_tipo');
+            })
+            ->selectRaw('participante_scores.classificacao, COUNT(*) as total')
+            ->groupBy('participante_scores.classificacao')
+            ->pluck('total', 'classificacao');
+
+        $out = [];
+        foreach (['baixo', 'medio', 'alto', 'critico'] as $chave) {
+            $valor = (int) ($contagem[$chave] ?? 0);
+            if ($valor > 0) {
+                $out[] = ['label' => self::RISCO_LABEL[$chave], 'valor' => $valor, 'hex' => self::RISCO_HEX[$chave]];
+            }
+        }
+
+        return $out;
+    }
+
+    /** Tendência entrada × saída por mês, alinhada num eixo único do período. */
+    private function tendenciaEntradaSaida(int $userId, string $dataInicio, string $dataFim, ?int $clienteId): array
+    {
+        $chave = fn ($mes) => Carbon::parse($mes)->format('Y-m');
+        $saida = collect($this->efd->faturamentoMensal($userId, 'saida', $dataInicio, $dataFim, $clienteId))->keyBy(fn ($r) => $chave($r['mes']));
+        $entrada = collect($this->efd->faturamentoMensal($userId, 'entrada', $dataInicio, $dataFim, $clienteId))->keyBy(fn ($r) => $chave($r['mes']));
+
+        $cursor = Carbon::parse($dataInicio)->startOfMonth();
+        $fim = Carbon::parse($dataFim)->startOfMonth();
+        $meses = [];
+        $saidaValor = [];
+        $saidaQtd = [];
+        $entradaValor = [];
+        $entradaQtd = [];
+        while ($cursor <= $fim) {
+            $k = $cursor->format('Y-m');
+            $meses[] = $cursor->translatedFormat('M/y');
+            $saidaValor[] = (float) ($saida[$k]['valor'] ?? 0);
+            $saidaQtd[] = (int) ($saida[$k]['qtd'] ?? 0);
+            $entradaValor[] = (float) ($entrada[$k]['valor'] ?? 0);
+            $entradaQtd[] = (int) ($entrada[$k]['qtd'] ?? 0);
+            $cursor->addMonth();
+        }
+
+        return [
+            'meses' => $meses,
+            'saida_valor' => $saidaValor,
+            'saida_qtd' => $saidaQtd,
+            'entrada_valor' => $entradaValor,
+            'entrada_qtd' => $entradaQtd,
+        ];
+    }
+
     /** Assembler único do cockpit: usado pela 1ª pintura (controller) e pelo endpoint JSON. */
     public function cockpit(int $userId, User $user, ?int $clienteId, int $periodo): array
     {
@@ -165,18 +242,17 @@ class DashboardDataService
         );
 
         $triagem = $bloco(fn () => $this->getTriagem($userId, $clienteId), []);
-
-        $serie = $bloco(fn () => $this->efd->faturamentoMensal($userId, 'saida', $dataInicio, $dataFim, $clienteId), []);
-        $tendencia = [
-            'meses' => array_map(fn ($r) => \Carbon\Carbon::parse($r['mes'])->translatedFormat('M/y'), $serie),
-            'valor' => array_map(fn ($r) => (float) $r['valor'], $serie),
-            'qtd' => array_map(fn ($r) => (int) $r['qtd'], $serie),
-        ];
+        $tendencia = $bloco(fn () => $this->tendenciaEntradaSaida($userId, $dataInicio, $dataFim, $clienteId),
+            ['meses' => [], 'saida_valor' => [], 'saida_qtd' => [], 'entrada_valor' => [], 'entrada_qtd' => []]);
+        $topFornecedores = $bloco(fn () => $this->bi->getTopFornecedores($userId, 5, $dataInicio, $dataFim, $clienteId), []);
+        $riscoDistribuicao = $bloco(fn () => $this->getRiscoDistribuicao($userId, $clienteId), []);
 
         return [
             'kpis' => $kpis,
             'triagem' => $triagem,
             'tendencia' => $tendencia,
+            'top_fornecedores' => $topFornecedores,
+            'risco_distribuicao' => $riscoDistribuicao,
             'meta' => ['cliente' => $clienteId, 'periodo' => $periodo],
         ];
     }
