@@ -9,35 +9,46 @@
                 background-color: #1f2937;
                 color: #ffffff;
             }
+
+            @media (max-width: 767px) {
+                #participantes-list-view {
+                    display: none !important;
+                }
+
+                #participantes-cards {
+                    display: grid !important;
+                }
+            }
         </style>
 
         {{-- Page Header --}}
         <div class="mb-4 sm:mb-8">
-            <div class="flex items-center justify-between">
-                <div>
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div class="min-w-0">
                     <h1 class="text-lg sm:text-xl font-bold text-gray-900 uppercase tracking-wide">Participantes</h1>
-                    <p class="mt-1 text-xs text-gray-500">Base operacional de participantes vinculados às importações e consultas.</p>
+                    <p class="mt-1 max-w-2xl text-xs text-gray-500">Base operacional de participantes vinculados às importações e consultas.</p>
                 </div>
-                <div class="flex items-center gap-2">
+                <div class="grid w-full grid-cols-2 gap-2 sm:w-auto sm:flex sm:items-center sm:justify-end">
                     <a
                         href="/app/participante/novo"
-                        class="inline-flex items-center gap-2 px-4 py-2 rounded bg-gray-800 text-white text-sm font-medium transition hover:bg-gray-700"
+                        class="inline-flex min-w-0 items-center justify-center gap-1.5 rounded bg-gray-800 px-3 py-2 text-xs font-medium text-white transition hover:bg-gray-700 sm:gap-2 sm:px-4 sm:text-sm"
                         data-link
                     >
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                         </svg>
-                        Novo Participante
+                        <span class="truncate sm:hidden">Novo</span>
+                        <span class="hidden sm:inline">Novo Participante</span>
                     </a>
                     <a
                         href="/app/dashboard"
-                        class="inline-flex items-center gap-2 px-4 py-2 rounded border border-gray-300 bg-white text-gray-700 text-sm font-medium transition hover:bg-gray-50"
+                        class="inline-flex min-w-0 items-center justify-center gap-1.5 rounded border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition hover:bg-gray-50 sm:gap-2 sm:px-4 sm:text-sm"
                         data-link
                     >
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
                         </svg>
-                        Voltar
+                        <span class="truncate">Voltar</span>
                     </a>
                 </div>
             </div>
@@ -182,7 +193,7 @@
                         Limpar
                     </a>
                 </div>
-                <div class="flex items-center gap-1 self-start sm:self-auto">
+                <div class="hidden items-center gap-1 self-start md:flex sm:self-auto">
                     <button id="btn-view-list"
                         class="p-2 rounded border border-gray-300 text-gray-500 hover:bg-gray-50 transition-colors view-toggle-btn active-view"
                         title="Visualização em lista" type="button">
@@ -204,8 +215,8 @@
         </form>
 
         {{-- Barra de selecao global --}}
-        <div class="flex items-center justify-between mb-4">
-            <div class="flex items-center gap-4 text-sm">
+        <div class="flex flex-col gap-2 mb-4 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
                 <button type="button" id="btn-selecionar-todos-filtro" class="text-gray-700 hover:text-gray-900 font-medium underline">
                     Selecionar todos (<span id="total-filtrado">{{ $participantes->total() }}</span>)
                 </button>
@@ -213,38 +224,38 @@
                     Limpar selecao
                 </button>
             </div>
-            <span id="selecao-persistente-info" class="text-xs text-gray-500 hidden">
+            <span id="selecao-persistente-info" class="text-xs text-gray-500 hidden sm:text-right">
                 <span id="total-selecionados-persistente">0</span> selecionados (todas as paginas)
             </span>
         </div>
 
         {{-- Acoes em lote (aparece quando ha selecao) --}}
         <div id="acoes-lote" class="hidden bg-white border border-gray-300 rounded p-4 mb-6">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div class="flex min-w-0 items-center gap-3">
                     <span class="inline-flex items-center justify-center w-8 h-8 rounded text-white text-sm font-bold" id="count-selecionados" style="background-color: #374151">0</span>
                     <span class="text-sm font-medium text-gray-900"><span id="participantes-selecionados-label">participantes selecionados</span></span>
                 </div>
-                <div class="flex gap-2">
-                    <button type="button" id="btn-exportar" class="inline-flex items-center gap-2 px-4 py-2 rounded border border-gray-300 bg-white text-gray-700 text-sm font-medium transition hover:bg-gray-50">
+                <div class="grid grid-cols-2 gap-2 sm:flex">
+                    <button type="button" id="btn-exportar" class="inline-flex items-center justify-center gap-2 px-3 py-2 rounded border border-gray-300 bg-white text-gray-700 text-sm font-medium transition hover:bg-gray-50 sm:px-4">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                         </svg>
                         Exportar
                     </button>
-                    <button type="button" id="btn-monitorar-selecionados" class="inline-flex items-center gap-2 px-4 py-2 rounded bg-gray-800 text-white text-sm font-medium transition hover:bg-gray-700">
+                    <button type="button" id="btn-monitorar-selecionados" class="inline-flex items-center justify-center gap-2 px-3 py-2 rounded bg-gray-800 text-white text-sm font-medium transition hover:bg-gray-700 sm:px-4">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                         </svg>
                         Consultar
                     </button>
-                    <button type="button" id="btn-bulk-delete" class="inline-flex items-center gap-2 px-4 py-2 rounded border text-white text-sm font-medium transition hover:opacity-90" style="background-color: #b91c1c; border-color: #b91c1c">
+                    <button type="button" id="btn-bulk-delete" class="inline-flex items-center justify-center gap-2 px-3 py-2 rounded border text-white text-sm font-medium transition hover:opacity-90 sm:px-4" style="background-color: #b91c1c; border-color: #b91c1c">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                         </svg>
                         Deletar
                     </button>
-                    <button type="button" id="btn-limpar-selecao" class="px-4 py-2 rounded border border-gray-300 bg-white text-gray-700 text-sm font-medium transition hover:bg-gray-50">
+                    <button type="button" id="btn-limpar-selecao" class="px-3 py-2 rounded border border-gray-300 bg-white text-gray-700 text-sm font-medium transition hover:bg-gray-50 sm:px-4">
                         Limpar
                     </button>
                 </div>
@@ -261,6 +272,7 @@
                                 <input type="checkbox" id="select-all" class="w-4 h-4 rounded border-gray-300 text-gray-700 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
                             </th>
                             <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Participante</th>
+                            <th class="hidden lg:table-cell w-[140px] px-3 py-2.5 text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Regime</th>
                             <th class="w-[260px] px-3 py-2.5 text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Situação / CND</th>
                             <th class="w-[220px] px-3 py-2.5 text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Status de Consulta</th>
                             <th class="w-[140px] px-3 py-2.5 text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Origem</th>
@@ -325,6 +337,9 @@
                                         <div class="text-[11px] text-gray-500 mt-1">Cadastro bloqueado para seleção em lote</div>
                                     @endif
                                 </td>
+                                <td class="hidden lg:table-cell px-3 py-3 text-center text-sm text-gray-700">
+                                    <div class="truncate" title="{{ $part->regime_tributario }}">{{ $part->regime_tributario ?: '—' }}</div>
+                                </td>
                                 <td class="px-3 py-3 text-center">
                                     <div class="flex flex-col items-center gap-1" title="{{ $part->situacao_cadastral ?? '' }}">
                                         @if($part->situacao_cadastral)
@@ -387,7 +402,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="px-6 py-12 text-center">
+                                <td colspan="7" class="px-6 py-12 text-center">
                                     <div class="flex flex-col items-center">
                                         <svg class="w-16 h-16 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
@@ -441,9 +456,18 @@
                         default            => ['label' => $part->origem_tipo ?? 'Manual', 'color' => '#6b7280'],
                     };
                 @endphp
-                <div class="participante-card bg-white border border-gray-300 rounded p-4 hover:bg-gray-50/50 transition-colors cursor-pointer flex flex-col gap-3"
+                <div class="participante-card bg-white border border-gray-300 rounded p-3 hover:bg-gray-50/50 transition-colors cursor-pointer flex flex-col gap-3 sm:p-4"
+                     data-participante-id="{{ $part->id }}"
                      data-href="{{ $participanteUrl }}">
-                    <div class="flex items-start justify-between gap-2">
+                    <div class="flex items-start gap-3">
+                        <input
+                            type="checkbox"
+                            class="checkbox-participante mt-1 h-4 w-4 flex-shrink-0 rounded border-gray-300 text-gray-700 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100"
+                            value="{{ $part->id }}"
+                            data-bloqueado="{{ $isCpf ? '1' : '0' }}"
+                            aria-label="Selecionar {{ $part->razao_social ?? $part->cnpj_formatado }}"
+                            {{ $isCpf ? 'disabled' : '' }}
+                        >
                         <div class="flex-1 min-w-0">
                             <div class="flex items-center gap-2 min-w-0">
                                 <div class="text-sm font-semibold text-gray-900 truncate min-w-0">{{ $part->razao_social ?? '-' }}</div>
@@ -455,7 +479,7 @@
                             @if($isCpf)
                                 <div class="text-[11px] text-gray-500 mt-1">Cadastro bloqueado para seleção em lote</div>
                             @endif
-                            <div class="mt-2 flex items-center justify-center gap-2 flex-wrap">
+                            <div class="mt-2 flex items-center gap-2 flex-wrap">
                                 <span class="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $part->consulta_status_hex }}">
                                     {{ $part->consulta_status_label }}
                                 </span>
@@ -465,7 +489,6 @@
                                     </span>
                                 @endif
                             </div>
-                            <p class="text-[11px] text-gray-500 mt-1 text-center">{{ $part->consulta_status_meta }}</p>
                             <div class="text-[11px] text-gray-500 mt-1 truncate">
                                 @if($part->cliente)
                                     Cliente: {{ $part->cliente->razao_social ?? '-' }}
@@ -474,32 +497,30 @@
                                 @endif
                             </div>
                         </div>
-                        <span class="inline-flex max-w-full items-center justify-center whitespace-nowrap px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white flex-shrink-0" style="background-color: {{ $cardOrigemLabel['color'] }}">
-                            {{ $cardOrigemLabel['label'] }}
-                        </span>
+                        <button type="button" class="acoes-btn flex-shrink-0 p-2 -mr-1 -mt-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                            data-id="{{ $part->id }}"
+                            data-nome="{{ $part->razao_social }}"
+                            data-cnpj="{{ $part->cnpj_formatado }}"
+                            aria-label="Ações de {{ $part->razao_social ?? $part->cnpj_formatado }}">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path>
+                            </svg>
+                        </button>
                     </div>
-                    <div class="border-t border-gray-100 pt-3 flex flex-col gap-2">
-                        <div>
-                            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide text-center">Status de consulta</p>
-                            <div class="flex flex-col items-center">
-                                <div class="flex items-center justify-center gap-2 flex-wrap">
-                                    <span class="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $part->consulta_status_hex }}">
-                                        {{ $part->consulta_status_label }}
-                                    </span>
-                                    @if($part->assinatura_label)
-                                        <span class="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $part->assinatura_hex }}">
-                                            {{ $part->assinatura_label }}
-                                        </span>
-                                    @endif
-                                </div>
-                                <p class="text-[11px] text-gray-500 mt-1 leading-tight text-center">{{ $part->consulta_status_meta }}</p>
-                            </div>
+                    <div class="border-t border-gray-100 pt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        <div class="min-w-0">
+                            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Regime</p>
+                            <p class="text-[11px] text-gray-700 mt-1 leading-tight truncate" title="{{ $part->regime_tributario }}">{{ $part->regime_tributario ?: '—' }}</p>
                         </div>
-                        <div>
-                            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide text-center">Situação / CND</p>
-                            <div class="flex flex-col items-center">
+                        <div class="min-w-0">
+                            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Consulta</p>
+                            <p class="text-[11px] text-gray-500 mt-1 leading-tight">{{ $part->consulta_status_meta }}</p>
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Situação / CND</p>
+                            <div class="mt-1 flex flex-col items-start gap-1">
                                 @if($part->situacao_cadastral)
-                                    <div class="flex items-center justify-center gap-2 flex-wrap">
+                                    <div class="flex items-center gap-2 flex-wrap">
                                         @if($part->situacao_cadastral === 'ATIVA')
                                             <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: #047857">Ativa</span>
                                         @else
@@ -510,23 +531,23 @@
                                         </span>
                                     </div>
                                 @else
-                                    <div class="flex flex-col items-center gap-1">
+                                    <div class="flex items-center gap-2 flex-wrap">
                                         <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: #9ca3af">Sem Mov.</span>
                                         <span class="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $part->cnd_federal_status_hex }}">
                                             {{ $part->cnd_federal_status_label }}
                                         </span>
                                     </div>
                                 @endif
-                                <p class="text-[11px] text-gray-500 mt-1 leading-tight text-center">{{ $part->cnd_federal_meta }}</p>
+                                <p class="text-[11px] text-gray-500 leading-tight">{{ $part->cnd_federal_meta }}</p>
                             </div>
                         </div>
-                        <div>
-                            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide text-center">Origem</p>
-                            <div class="flex flex-col items-center px-1">
+                        <div class="min-w-0">
+                            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Origem</p>
+                            <div class="mt-1 flex flex-col items-start">
                                 <span class="inline-flex max-w-full items-center justify-center whitespace-nowrap px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $cardOrigemLabel['color'] }}">
                                     {{ $cardOrigemLabel['label'] }}
                                 </span>
-                                <p class="text-xs text-gray-500 text-center mt-1">{{ $part->created_at?->format('d/m/Y') ?? '-' }}</p>
+                                <p class="text-[11px] text-gray-500 mt-1">Base: {{ $part->created_at?->format('d/m/Y') ?? '-' }}</p>
                             </div>
                         </div>
                     </div>
@@ -660,7 +681,6 @@
         console.log('[Monitoramento Participantes Importados] Inicializando...');
 
         var selectAll = document.getElementById('select-all');
-        var checkboxes = document.querySelectorAll('.checkbox-participante');
         var acoesLote = document.getElementById('acoes-lote');
         var countSelecionados = document.getElementById('count-selecionados');
         var btnLimparSelecao = document.getElementById('btn-limpar-selecao');
@@ -671,6 +691,7 @@
         var btnLimparSelecaoGeral = document.getElementById('btn-limpar-selecao-geral');
         var infoSelecaoPersistente = document.getElementById('selecao-persistente-info');
         var totalSelecionadosPersistente = document.getElementById('total-selecionados-persistente');
+        var desktopMedia = window.matchMedia ? window.matchMedia('(min-width: 768px)') : null;
 
         // === Persistencia via sessionStorage ===
         function carregarSelecao() {
@@ -700,6 +721,26 @@
 
         function checkboxBloqueado(cb) {
             return cb.disabled || cb.dataset.bloqueado === '1';
+        }
+
+        function getCheckboxes() {
+            return Array.from(document.querySelectorAll('.checkbox-participante'));
+        }
+
+        function getIdsElegiveisDaPagina() {
+            var ids = new Set();
+            getCheckboxes().forEach(function(cb) {
+                if (!checkboxBloqueado(cb)) {
+                    ids.add(Number(cb.value));
+                }
+            });
+            return ids;
+        }
+
+        function removerParticipanteDaTela(id) {
+            document.querySelectorAll('[data-participante-id="' + id + '"]').forEach(function(el) {
+                el.remove();
+            });
         }
 
         // Funcao para atualizar contagem e visibilidade das acoes em lote
@@ -738,18 +779,15 @@
             }
 
             // Atualizar estado do checkbox "selecionar todos" da pagina
-            var checkboxesAtual = Array.from(document.querySelectorAll('.checkbox-participante'));
-            var checkboxesElegiveis = checkboxesAtual.filter(function(cb) {
-                return !checkboxBloqueado(cb);
-            });
+            var idsElegiveis = getIdsElegiveisDaPagina();
             var checkedCount = 0;
-            checkboxesElegiveis.forEach(function(cb) {
-                if (cb.checked) checkedCount++;
+            idsElegiveis.forEach(function(id) {
+                if (selectedIds.has(id)) checkedCount++;
             });
             if (selectAll) {
-                selectAll.checked = checkedCount === checkboxesElegiveis.length && checkedCount > 0;
-                selectAll.indeterminate = checkedCount > 0 && checkedCount < checkboxesElegiveis.length;
-                selectAll.disabled = checkboxesElegiveis.length === 0;
+                selectAll.checked = checkedCount === idsElegiveis.size && checkedCount > 0;
+                selectAll.indeterminate = checkedCount > 0 && checkedCount < idsElegiveis.size;
+                selectAll.disabled = idsElegiveis.size === 0;
             }
 
             salvarSelecao(selectedIds);
@@ -757,7 +795,7 @@
 
         // Sincronizar checkboxes da pagina atual com o Set persistente
         function sincronizarCheckboxes() {
-            checkboxes.forEach(function(cb) {
+            getCheckboxes().forEach(function(cb) {
                 var id = Number(cb.value);
                 if (checkboxBloqueado(cb)) {
                     cb.checked = false;
@@ -775,40 +813,39 @@
         // Event listener para checkbox "selecionar todos" (pagina atual)
         if (selectAll) {
             selectAll.addEventListener('change', function() {
-                checkboxes.forEach(function(cb) {
-                    if (checkboxBloqueado(cb)) {
-                        cb.checked = false;
-                        return;
-                    }
-                    var id = Number(cb.value);
-                    cb.checked = selectAll.checked;
+                getIdsElegiveisDaPagina().forEach(function(id) {
                     if (selectAll.checked) {
                         selectedIds.add(id);
                     } else {
                         selectedIds.delete(id);
                     }
                 });
+                sincronizarCheckboxes();
                 atualizarAcoesLote();
             });
         }
 
-        // Event listeners para checkboxes individuais
-        checkboxes.forEach(function(cb) {
-            cb.addEventListener('change', function() {
-                if (checkboxBloqueado(cb)) {
-                    cb.checked = false;
-                    selectedIds.delete(Number(cb.value));
-                    atualizarAcoesLote();
-                    return;
-                }
-                var id = Number(cb.value);
-                if (cb.checked) {
-                    selectedIds.add(id);
-                } else {
-                    selectedIds.delete(id);
-                }
+        // Event listener para checkboxes individuais (tabela e cards compartilham IDs)
+        container.addEventListener('change', function(e) {
+            var cb = e.target.closest('.checkbox-participante');
+            if (!cb) return;
+
+            if (checkboxBloqueado(cb)) {
+                cb.checked = false;
+                selectedIds.delete(Number(cb.value));
+                sincronizarCheckboxes();
                 atualizarAcoesLote();
-            });
+                return;
+            }
+
+            var id = Number(cb.value);
+            if (cb.checked) {
+                selectedIds.add(id);
+            } else {
+                selectedIds.delete(id);
+            }
+            sincronizarCheckboxes();
+            atualizarAcoesLote();
         });
 
         // === Botao "Selecionar todos (N)" - busca AJAX ===
@@ -966,10 +1003,9 @@
 
                     window.showToast && window.showToast(data.message || 'Participantes excluidos com sucesso!', 'success');
 
-                    // Remover linhas da tabela que estao na pagina
+                    // Remover participantes da tabela/cards que estao na pagina
                     ids.forEach(function(id) {
-                        var row = document.querySelector('tr[data-participante-id="' + id + '"]');
-                        if (row) row.remove();
+                        removerParticipanteDaTela(id);
                     });
 
                     // Limpar selecao
@@ -1132,6 +1168,15 @@
             document.removeEventListener('click', _piOnDocClick);
             document.removeEventListener('keydown', _piOnDocKeydown);
             window.removeEventListener('scroll', _piOnScroll, true);
+            if (desktopMedia) {
+                if (desktopMedia.removeEventListener) {
+                    desktopMedia.removeEventListener('change', _piOnResizeView);
+                } else if (desktopMedia.removeListener) {
+                    desktopMedia.removeListener(_piOnResizeView);
+                }
+            } else {
+                window.removeEventListener('resize', _piOnResizeView);
+            }
         };
 
         if (dropdownAcoesVer) {
@@ -1181,8 +1226,7 @@
                     selectedIds.delete(Number(participanteIdParaExcluir));
                     salvarSelecao(selectedIds);
 
-                    var row = document.querySelector('tr[data-participante-id="' + participanteIdParaExcluir + '"]');
-                    if (row) row.remove();
+                    removerParticipanteDaTela(participanteIdParaExcluir);
 
                     fecharModalExclusao();
                     atualizarAcoesLote();
@@ -1205,9 +1249,18 @@
         var btnViewList = document.getElementById('btn-view-list');
         var btnViewCards = document.getElementById('btn-view-cards');
 
-        function setView(mode) {
-            localStorage.setItem(VIEW_KEY, mode);
-            if (mode === 'cards') {
+        function isDesktopView() {
+            return desktopMedia ? desktopMedia.matches : window.innerWidth >= 768;
+        }
+
+        function setView(mode, persist) {
+            var resolvedMode = isDesktopView() ? mode : 'cards';
+
+            if (persist && isDesktopView()) {
+                localStorage.setItem(VIEW_KEY, resolvedMode);
+            }
+
+            if (resolvedMode === 'cards') {
                 if (tableWrapper) tableWrapper.classList.add('hidden');
                 if (cardsGrid) cardsGrid.classList.remove('hidden');
                 if (btnViewList) btnViewList.classList.remove('active-view');
@@ -1220,11 +1273,17 @@
             }
         }
 
-        if (btnViewList) btnViewList.addEventListener('click', function() { setView('list'); });
-        if (btnViewCards) btnViewCards.addEventListener('click', function() { setView('cards'); });
+        function restaurarViewPreferida() {
+            setView(localStorage.getItem(VIEW_KEY) || 'list', false);
+        }
+
+        if (btnViewList) btnViewList.addEventListener('click', function() { setView('list', true); });
+        if (btnViewCards) btnViewCards.addEventListener('click', function() { setView('cards', true); });
 
         if (cardsGrid) {
             cardsGrid.addEventListener('click', function(e) {
+                if (e.target.closest('input[type="checkbox"], button, a')) return;
+
                 var card = e.target.closest('.participante-card');
                 if (!card || !card.dataset.href) return;
                 var href = card.dataset.href;
@@ -1236,8 +1295,22 @@
             });
         }
 
-        // Restaurar preferencia (padrao: lista)
-        setView(localStorage.getItem(VIEW_KEY) || 'list');
+        function _piOnResizeView() {
+            restaurarViewPreferida();
+        }
+
+        if (desktopMedia) {
+            if (desktopMedia.addEventListener) {
+                desktopMedia.addEventListener('change', _piOnResizeView);
+            } else if (desktopMedia.addListener) {
+                desktopMedia.addListener(_piOnResizeView);
+            }
+        } else {
+            window.addEventListener('resize', _piOnResizeView);
+        }
+
+        // Restaurar preferencia: mobile força cards; desktop usa lista por padrão.
+        restaurarViewPreferida();
 
         console.log('[Monitoramento Participantes Importados] Inicializacao concluida');
     }

@@ -77,7 +77,7 @@
                                     <td class="px-3 py-2 text-gray-700 truncate max-w-xs" title="{{ $d['descricao'] }}">{{ $d['descricao'] ?: '—' }}</td>
                                     <td class="px-3 py-2 font-mono font-semibold" style="color:#b45309">{{ $d['ncm_xml'] ?: '—' }}</td>
                                     <td class="px-3 py-2 font-mono text-gray-600">{{ $d['cat_ncm'] ?: '—' }}</td>
-                                    <td class="px-3 py-2 text-[11px] text-blue-600 underline cursor-pointer">{{ $d['importacoes'] ?: '—' }}</td>
+                                    <td class="px-3 py-2 text-[11px]"><div class="max-w-[200px] truncate text-blue-600 underline" title="{{ $d['importacoes'] }}">{{ $d['importacoes'] ?: '—' }}</div></td>
                                     <td class="px-3 py-2 text-right whitespace-nowrap">
                                         @if($d['dispensado'])
                                             <button type="button" onclick="catalogoAlerta.restaurar('ncm_divergente', @js($d['codigo_item']))" class="text-[11px] text-blue-600 underline cursor-pointer">Restaurar</button>
@@ -117,7 +117,7 @@
                                     <td class="px-3 py-2 font-mono text-gray-900">{{ $i['codigo_item'] }}</td>
                                     <td class="px-3 py-2 text-gray-700 truncate max-w-xs" title="{{ $i['descricao'] }}">{{ $i['descricao'] ?: '—' }}</td>
                                     <td class="px-3 py-2"><span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase text-white" style="background-color: {{ ['efd' => '#1d4ed8', 'xml' => '#7c3aed', 'ambas' => '#047857'][$i['fontes']] ?? '#334155' }}">{{ $i['fontes'] }}</span></td>
-                                    <td class="px-3 py-2 text-[11px] text-blue-600 underline cursor-pointer">{{ $i['importacoes'] ?: '—' }}</td>
+                                    <td class="px-3 py-2 text-[11px]"><div class="max-w-[200px] truncate text-blue-600 underline" title="{{ $i['importacoes'] }}">{{ $i['importacoes'] ?: '—' }}</div></td>
                                     <td class="px-3 py-2 text-right whitespace-nowrap">
                                         @if($i['dispensado'])
                                             <button type="button" onclick="catalogoAlerta.restaurar('sem_catalogo', @js($i['codigo_item']))" class="text-[11px] text-blue-600 underline cursor-pointer">Restaurar</button>
@@ -192,12 +192,14 @@
                         <td class="px-3 py-2">
                             <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase text-white" style="background-color: {{ $origemCor }}">{{ $item['fontes'] }}</span>
                         </td>
-                        <td class="px-3 py-2 text-[11px]">
-                            @forelse($item['importacoes'] as $imp)
-                                <a href="{{ $imp['fonte'] === 'xml' ? route('app.importacao.xml.detalhes', $imp['id']) : route('app.importacao.efd.detalhes', $imp['id']) }}" data-link class="text-blue-600 underline cursor-pointer">{{ $imp['label'] }}</a>@if(! $loop->last) <span class="text-gray-300">·</span> @endif
-                            @empty
-                                <span class="text-gray-400">—</span>
-                            @endforelse
+                        <td class="px-3 py-2 text-[11px] align-top">
+                            <div class="max-w-[200px] space-y-0.5">
+                                @forelse($item['importacoes'] as $imp)
+                                    <a href="{{ $imp['fonte'] === 'xml' ? route('app.importacao.xml.detalhes', $imp['id']) : route('app.importacao.efd.detalhes', $imp['id']) }}" data-link class="block truncate text-blue-600 underline cursor-pointer" title="{{ $imp['label'] }}">{{ $imp['label'] }}</a>
+                                @empty
+                                    <span class="text-gray-400">—</span>
+                                @endforelse
+                            </div>
                         </td>
                         <td class="px-3 py-2 font-mono text-gray-600">{{ $item['ncm'] ?: '—' }}</td>
                         <td class="px-3 py-2 text-gray-600">{{ $item['cfops'] ?: '—' }}</td>

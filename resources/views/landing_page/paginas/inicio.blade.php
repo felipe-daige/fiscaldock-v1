@@ -571,6 +571,25 @@
     }
 }
 
+/* Two-column hero for the 1024–1535px band, owned by THIS stylesheet (px breakpoints),
+   independent of Tailwind's rem-gated lg:/xl: utilities.
+   Tailwind v4 gates lg: at 64rem; with a non-16px root font-size (browser font-size
+   preference, OS "make text bigger", some HiDPI/zoom combos) 64rem != 1024px, so the
+   rem-gated grid stayed single-column while the px-based min-height rules below still
+   rendered a full-height "desktop" hero — dropping the laptop mockup to the bottom,
+   cut off (bug reported on "outro computador"). A true 50/50 split mirrors what
+   lg:col-span-6 gave when Tailwind did kick in, so the mockup keeps the same size.
+   >=1536px is intentionally left untouched: its asymmetric template + larger,
+   edge-bleeding mockup is the designed wide-screen layout (2 children auto-place into
+   its 2 explicit tracks, so it stays two-column even if Tailwind's rem gate misses). */
+@media (min-width: 1024px) and (max-width: 1535.98px) {
+    .hero-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .hero-copy   { grid-column: 1; }
+    .hero-visual { grid-column: 2; }
+}
+
 /* iPad landscape (Mini 1024px / Air ~1180px): the xl tuning only kicks in at 1280px,
    so this range gets cramped. Tune copy width, h1 size, gap and mockup explicitly. */
 @media (min-width: 1024px) and (max-width: 1279.98px) {

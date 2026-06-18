@@ -12,6 +12,7 @@ use App\Models\CreditTransaction;
 use App\Models\EfdImportacao;
 use App\Models\Participante;
 use App\Services\AlertaCentralService;
+use App\Services\Consultas\ResultadoDetalhePresenter;
 use App\Services\Dashboard\DashboardDataService;
 use App\Services\NotaFiscalService;
 use App\Services\PricingCatalogService;
@@ -29,7 +30,20 @@ class DashboardController extends Controller
         protected NotaFiscalService $notaFiscalService,
         protected AlertaCentralService $alertaCentralService,
         protected PricingCatalogService $pricingCatalogService,
+        protected ResultadoDetalhePresenter $detalhePresenter,
     ) {}
+
+    /** Rótulo curto por fonte de certidão p/ os badges compactos na listagem de clientes. */
+    private const FONTE_CURTA = [
+        'cnd_federal' => 'Federal',
+        'cnd_estadual' => 'Estadual',
+        'cnd_municipal' => 'Municipal',
+        'crf_fgts' => 'FGTS',
+        'cndt' => 'CNDT',
+        'sintegra' => 'Sintegra',
+        'cgu_cnc' => 'Sanções',
+        'cnj_improbidade' => 'Improbidade',
+    ];
 
     private const AUTH_VIEW_PREFIX = 'autenticado.';
 
@@ -204,7 +218,6 @@ class DashboardController extends Controller
             $participante = $participantesPorDocumento->get($documento);
             $ultimoResultado = $participante ? $ultimosResultadosClientes->get($participante->id) : null;
             $ultimaConsulta = $ultimoResultado?->consultado_em;
-            $cndFederal = $ultimoResultado?->getCndFederal() ?? [];
 
             $consultaStatusLabel = 'Não Consultado';
             $consultaStatusHex = '#9ca3af';
@@ -224,53 +237,30 @@ class DashboardController extends Controller
                 $consultaStatusMeta = 'Última atualização em '.$ultimaConsulta->format('d/m/Y H:i');
             }
 
-            $cndStatusLabel = 'Não Consultado';
-            $cndStatusHex = '#9ca3af';
-            $cndMeta = 'Sem CND consultada';
-            $cndStatus = strtoupper((string) ($cndFederal['status'] ?? ''));
-            $cndValidade = $cndFederal['data_validade'] ?? null;
-
-            if ($cndStatus !== '') {
-                if (in_array($cndStatus, ['NEGATIVA', 'REGULAR', 'REGULARIDADE'])) {
-                    $cndStatusLabel = 'Negativa';
-                    $cndStatusHex = '#047857';
-                } elseif (str_contains($cndStatus, 'POSITIVA COM EFEITO') || str_contains($cndStatus, 'EFEITO DE NEGATIVA')) {
-                    $cndStatusLabel = 'Positiva c/ efeito';
-                    $cndStatusHex = '#d97706';
-                } elseif (in_array($cndStatus, ['POSITIVA', 'IRREGULAR', 'IRREGULARIDADE'])) {
-                    $cndStatusLabel = 'Positiva';
-                    $cndStatusHex = '#dc2626';
-                } else {
-                    $cndStatusLabel = $cndStatus;
-                    $cndStatusHex = '#374151';
-                }
-
-                $cndMeta = 'Validade não informada';
-
-                if ($cndValidade) {
-                    try {
-                        $dataValidade = Carbon::parse($cndValidade);
-                        $diasRestantes = $agora->diffInDays($dataValidade, false);
-
-                        if ($diasRestantes <= 0) {
-                            $cndMeta = 'Vencida em '.$dataValidade->format('d/m/Y');
-                        } elseif ($diasRestantes <= 7) {
-                            $cndMeta = 'Vence em '.(int) $diasRestantes.' dias';
-                        } else {
-                            $cndMeta = 'Validade: '.$dataValidade->format('d/m/Y');
-                        }
-                    } catch (\Exception $e) {
-                        $cndMeta = 'Validade: '.(string) $cndValidade;
+            // Badge compacto de TODAS as fontes que a consulta trouxe (CND Federal/Estadual/
+            // Municipal, FGTS, CNDT, SINTEGRA, sanções CGU, improbidade CNJ). A cor reflete a
+            // regularidade, classificada pela fonte única (CertidaoBadge via ResultadoDetalhePresenter).
+            $certidoesBadges = [];
+            if ($ultimoResultado) {
+                foreach ($this->detalhePresenter->blocos($ultimoResultado) as $bloco) {
+                    $chave = $bloco['chave'] ?? '';
+                    if ($chave === 'cadastro' || empty($bloco['badge'])) {
+                        continue;
                     }
+                    $certidoesBadges[] = [
+                        'fonte' => $chave,
+                        'curto' => self::FONTE_CURTA[$chave] ?? ($bloco['titulo'] ?? $chave),
+                        'titulo' => $bloco['titulo'] ?? $chave,
+                        'label' => $bloco['badge']['label'] ?? '—',
+                        'hex' => $bloco['badge']['hex'] ?? '#9ca3af',
+                    ];
                 }
             }
 
             $cliente->setAttribute('consulta_status_label', $consultaStatusLabel);
             $cliente->setAttribute('consulta_status_hex', $consultaStatusHex);
             $cliente->setAttribute('consulta_status_meta', $consultaStatusMeta);
-            $cliente->setAttribute('cnd_federal_status_label', $cndStatusLabel);
-            $cliente->setAttribute('cnd_federal_status_hex', $cndStatusHex);
-            $cliente->setAttribute('cnd_federal_meta', $cndMeta);
+            $cliente->setAttribute('certidoes_badges', $certidoesBadges);
 
             return $cliente;
         });

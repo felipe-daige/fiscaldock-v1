@@ -1,10 +1,20 @@
 {{-- Clientes - Autenticado --}}
-<div class="bg-gray-100 min-h-screen" id="clientes-container">
+<div class="bg-gray-100 min-h-screen" id="clientes-container" data-view="list">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         <style>
             .view-toggle-btn.active-view {
                 background-color: #1f2937;
                 color: #ffffff;
+            }
+            /* Responsivo no padrão /app/notas: no mobile sempre cards (a tabela some);
+               no desktop (md+) o toggle lista/cards decide. */
+            #clientes-list-view.clientes-table-view { display: none; }
+            #clientes-cards-view { display: grid; }
+            @media (min-width: 768px) {
+                #clientes-container[data-view="list"] #clientes-list-view.clientes-table-view { display: block; }
+                #clientes-container[data-view="list"] #clientes-cards-view { display: none; }
+                #clientes-container[data-view="cards"] #clientes-list-view.clientes-table-view { display: none; }
+                #clientes-container[data-view="cards"] #clientes-cards-view { display: grid; }
             }
         </style>
         <div class="space-y-6">
@@ -129,7 +139,7 @@
                             <button type="submit" class="bg-gray-800 text-white hover:bg-gray-700 rounded text-sm font-medium px-4 py-2">Filtrar</button>
                             <a href="/app/clientes" data-link class="bg-white border border-gray-300 text-gray-600 hover:bg-gray-50 rounded text-sm font-medium px-4 py-2">Limpar</a>
                         </div>
-                        <div class="flex items-center gap-1 self-start sm:self-auto">
+                        <div class="hidden md:flex items-center gap-1 self-start sm:self-auto">
                             <button id="btn-view-list-clientes"
                                 class="p-2 rounded border border-gray-300 text-gray-500 hover:bg-gray-50 transition-colors view-toggle-btn active-view"
                                 title="Visualização em lista" type="button">
@@ -177,7 +187,7 @@
                 </div>
             </div>
 
-            <div id="clientes-list-view" class="bg-white rounded border border-gray-300 overflow-hidden">
+            <div id="clientes-list-view" class="bg-white rounded border border-gray-300 overflow-hidden @if(isset($clientes) && $clientes->count() > 0) clientes-table-view @endif">
                 @if(isset($clientes) && $clientes->count() > 0)
                     <div class="overflow-x-auto">
                         <table class="w-full table-fixed">
@@ -186,12 +196,12 @@
                                     <th class="w-10 px-3 py-2.5 text-left bg-gray-50">
                                         <input type="checkbox" id="select-all-clientes" class="w-4 h-4 rounded border-gray-300 text-gray-700 focus:ring-gray-400">
                                     </th>
-                                    <th class="w-10 px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50"></th>
                                     <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Cliente</th>
                                     <th class="w-[150px] px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Documento</th>
+                                    <th class="hidden lg:table-cell w-[140px] px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Regime</th>
                                     <th class="hidden xl:table-cell w-[190px] px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Contato</th>
                                     <th class="w-[90px] px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Particip.</th>
-                                    <th class="w-[180px] px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Status</th>
+                                    <th class="w-[280px] px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Certidões</th>
                                     <th class="w-[72px] px-3 py-2.5 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Ações</th>
                                 </tr>
                             </thead>
@@ -202,19 +212,6 @@
                                             @unless($cliente->is_empresa_propria)
                                                 <input type="checkbox" class="cliente-checkbox w-4 h-4 rounded border-gray-300 text-gray-700 focus:ring-gray-400" data-id="{{ $cliente->id }}">
                                             @endunless
-                                        </td>
-                                        <td class="px-3 py-3">
-                                            <button
-                                                type="button"
-                                                class="cliente-expand-btn text-gray-400 hover:text-gray-700 transition-colors"
-                                                data-cliente-id="{{ $cliente->id }}"
-                                                data-expand-url="/app/cliente/{{ $cliente->id }}/participantes"
-                                                title="Ver participantes vinculados"
-                                            >
-                                                <svg class="w-4 h-4 cliente-expand-icon transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                                                </svg>
-                                            </button>
                                         </td>
                                         <td class="px-3 py-3">
                                             <div class="flex items-center gap-2 flex-wrap min-w-0">
@@ -264,6 +261,7 @@
                                             </div>
                                         </td>
                                         <td class="px-3 py-3 text-sm text-gray-700 font-mono truncate" title="{{ $cliente->documento_formatado }}">{{ $cliente->documento_formatado }}</td>
+                                        <td class="hidden lg:table-cell px-3 py-3 text-sm text-gray-700 truncate" title="{{ $cliente->regime_tributario }}">{{ $cliente->regime_tributario ?: '—' }}</td>
                                         <td class="hidden xl:table-cell px-3 py-3">
                                             <div class="text-sm text-gray-700 truncate" title="{{ $cliente->email ?: '' }}">{{ $cliente->email ?: '-' }}</div>
                                             <div class="text-[11px] text-gray-500 mt-1 truncate">
@@ -277,22 +275,19 @@
                                             {{ number_format($cliente->participantes_count ?? 0, 0, ',', '.') }}
                                         </td>
                                         <td class="px-3 py-3">
-                                            <div class="flex flex-col gap-1">
-                                                <div class="flex items-center gap-2 flex-wrap">
-                                                    @if(($cliente->situacao_cadastral ?? '') === 'ATIVA')
-                                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: #047857">Ativa</span>
-                                                    @elseif($cliente->situacao_cadastral)
-                                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: #d97706">{{ $cliente->situacao_cadastral }}</span>
-                                                    @else
-                                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: #9ca3af">{{ $cliente->ativo ? 'Ativo' : 'Inativo' }}</span>
-                                                    @endif
-                                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: {{ $cliente->cnd_federal_status_hex }}">
-                                                        {{ $cliente->cnd_federal_status_label }}
-                                                    </span>
-                                                </div>
-                                                <div class="text-[11px] text-gray-500">
-                                                    {{ $cliente->cnd_federal_meta }}
-                                                </div>
+                                            <div class="flex items-center gap-1.5 flex-wrap">
+                                                @if(($cliente->situacao_cadastral ?? '') === 'ATIVA')
+                                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: #047857" title="Situação cadastral (Receita Federal)">Ativa</span>
+                                                @elseif($cliente->situacao_cadastral)
+                                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: #d97706" title="Situação cadastral (Receita Federal)">{{ $cliente->situacao_cadastral }}</span>
+                                                @else
+                                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: #9ca3af" title="Situação cadastral">{{ $cliente->ativo ? 'Ativo' : 'Inativo' }}</span>
+                                                @endif
+                                                @forelse($cliente->certidoes_badges ?? [] as $b)
+                                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: {{ $b['hex'] }}" title="{{ $b['titulo'] }}: {{ $b['label'] }}">{{ $b['curto'] }}</span>
+                                                @empty
+                                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: #9ca3af">Sem certidões consultadas</span>
+                                                @endforelse
                                             </div>
                                         </td>
                                         <td class="px-3 py-3 text-right">
@@ -314,19 +309,6 @@
                             </tbody>
                         </table>
                     </div>
-
-                    @if($clientes->hasPages())
-                        <div class="border-t border-gray-300 px-4 py-3">
-                            <div class="flex items-center justify-between gap-3">
-                                <p class="text-[10px] text-gray-500 uppercase tracking-wide">
-                                    Mostrando {{ $clientes->firstItem() }}-{{ $clientes->lastItem() }} de {{ $clientes->total() }}
-                                </p>
-                                <div>
-                                    {{ $clientes->links() }}
-                                </div>
-                            </div>
-                        </div>
-                    @endif
                 @else
                     <div class="text-center py-12 px-6">
                         <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -345,9 +327,9 @@
             </div>
 
             @if(isset($clientes) && $clientes->count() > 0)
-                <div id="clientes-cards-view" class="hidden grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div id="clientes-cards-view" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                     @foreach($clientes as $cliente)
-                        <div class="bg-white rounded border border-gray-300 overflow-hidden">
+                        <div class="cliente-card bg-white rounded border border-gray-300 overflow-hidden" data-cliente-id="{{ $cliente->id }}">
                             <div class="px-4 py-3 border-b border-gray-200 bg-gray-50/60">
                                 <div class="flex items-start justify-between gap-3">
                                     <div class="flex items-start gap-3 min-w-0">
@@ -404,9 +386,15 @@
                                 </div>
                             </div>
                             <div class="divide-y divide-gray-100">
-                                <div class="px-4 py-3">
-                                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Documento</p>
-                                    <p class="text-sm font-mono text-gray-700 mt-1">{{ $cliente->documento_formatado }}</p>
+                                <div class="px-4 py-3 grid grid-cols-2 gap-3">
+                                    <div>
+                                        <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Documento</p>
+                                        <p class="text-sm font-mono text-gray-700 mt-1">{{ $cliente->documento_formatado }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Regime</p>
+                                        <p class="text-sm text-gray-700 mt-1">{{ $cliente->regime_tributario ?: '—' }}</p>
+                                    </div>
                                 </div>
                                 <div class="px-4 py-3">
                                     <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Contato</p>
@@ -424,42 +412,45 @@
                                         <p class="text-sm text-gray-700 mt-1">{{ number_format($cliente->participantes_count ?? 0, 0, ',', '.') }}</p>
                                     </div>
                                     <div>
-                                        <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Situação / CND</p>
-                                        <div class="mt-1">
-                                            <div class="flex items-center gap-2 flex-wrap">
-                                                @if(($cliente->situacao_cadastral ?? '') === 'ATIVA')
-                                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: #047857">Ativa</span>
-                                                @elseif($cliente->situacao_cadastral)
-                                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: #d97706">{{ $cliente->situacao_cadastral }}</span>
-                                                @else
-                                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: #9ca3af">{{ $cliente->ativo ? 'Ativo' : 'Inativo' }}</span>
-                                                @endif
-                                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: {{ $cliente->cnd_federal_status_hex }}">
-                                                    {{ $cliente->cnd_federal_status_label }}
-                                                </span>
-                                            </div>
-                                            <p class="text-[11px] text-gray-500 mt-1">{{ $cliente->cnd_federal_meta }}</p>
+                                        <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Situação</p>
+                                        <div class="mt-1 flex items-center gap-1.5 flex-wrap">
+                                            @if(($cliente->situacao_cadastral ?? '') === 'ATIVA')
+                                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: #047857">Ativa</span>
+                                            @elseif($cliente->situacao_cadastral)
+                                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: #d97706">{{ $cliente->situacao_cadastral }}</span>
+                                            @else
+                                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: #9ca3af">{{ $cliente->ativo ? 'Ativo' : 'Inativo' }}</span>
+                                            @endif
                                         </div>
                                     </div>
                                 </div>
                                 <div class="px-4 py-3">
-                                    <button
-                                        type="button"
-                                        class="cliente-expand-btn cliente-card-expand-btn inline-flex items-center gap-2 text-xs text-gray-600 hover:text-gray-900 hover:underline transition-colors"
-                                        data-cliente-id="{{ $cliente->id }}"
-                                        data-expand-url="/app/cliente/{{ $cliente->id }}/participantes"
-                                    >
-                                        <svg class="w-4 h-4 cliente-expand-icon transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                                        </svg>
-                                        Ver participantes vinculados
-                                    </button>
+                                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Certidões</p>
+                                    <div class="mt-1 flex items-center gap-1.5 flex-wrap">
+                                        @forelse($cliente->certidoes_badges ?? [] as $b)
+                                            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: {{ $b['hex'] }}" title="{{ $b['titulo'] }}: {{ $b['label'] }}">{{ $b['curto'] }}</span>
+                                        @empty
+                                            <span class="text-[11px] text-gray-500">Sem certidões consultadas</span>
+                                        @endforelse
+                                    </div>
                                 </div>
-                                <div class="cliente-card-expand hidden px-4 py-4 bg-gray-50" data-cliente-id="{{ $cliente->id }}"></div>
                             </div>
                         </div>
                     @endforeach
                 </div>
+
+                @if($clientes->hasPages())
+                    <div class="bg-white rounded border border-gray-300 px-4 py-3">
+                        <div class="flex items-center justify-between gap-3">
+                            <p class="text-[10px] text-gray-500 uppercase tracking-wide">
+                                Mostrando {{ $clientes->firstItem() }}-{{ $clientes->lastItem() }} de {{ $clientes->total() }}
+                            </p>
+                            <div>
+                                {{ $clientes->links() }}
+                            </div>
+                        </div>
+                    </div>
+                @endif
             @endif
         </div>
     </div>
@@ -470,12 +461,6 @@
         <p class="text-sm font-semibold text-gray-900 truncate" id="dropdown-acoes-nome"></p>
         <p class="text-xs text-gray-500 font-mono whitespace-nowrap tabular-nums" id="dropdown-acoes-documento"></p>
     </div>
-    <button type="button" id="dropdown-acoes-expandir" class="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-        </svg>
-        Ver participantes
-    </button>
     <a id="dropdown-acoes-editar" href="#" class="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors" data-link>
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
@@ -556,7 +541,6 @@
         var dropdownAcoes = document.getElementById('dropdown-acoes');
         var dropdownAcoesNome = document.getElementById('dropdown-acoes-nome');
         var dropdownAcoesDocumento = document.getElementById('dropdown-acoes-documento');
-        var dropdownAcoesExpandir = document.getElementById('dropdown-acoes-expandir');
         var dropdownAcoesEditar = document.getElementById('dropdown-acoes-editar');
         var dropdownAcoesExcluir = document.getElementById('dropdown-acoes-excluir');
         var acaoClienteId = null;
@@ -565,8 +549,6 @@
         var dropdownBtnAtual = null;
         var btnViewList = document.getElementById('btn-view-list-clientes');
         var btnViewCards = document.getElementById('btn-view-cards-clientes');
-        var listView = document.getElementById('clientes-list-view');
-        var cardsView = document.getElementById('clientes-cards-view');
         var btnSelecionarTodos = document.getElementById('btn-selecionar-todos-clientes');
         var btnLimparSelecaoGlobal = document.getElementById('btn-limpar-selecao-clientes');
 
@@ -591,9 +573,10 @@
         }
 
         function ativarModoVisualizacao(mode) {
+            // No mobile o CSS força cards; este toggle só vale no desktop (md+).
+            // A visibilidade real é controlada por CSS via [data-view] no container.
             var isCards = mode === 'cards';
-            if (listView) listView.classList.toggle('hidden', isCards);
-            if (cardsView) cardsView.classList.toggle('hidden', !isCards);
+            container.dataset.view = isCards ? 'cards' : 'list';
             if (btnViewList) btnViewList.classList.toggle('active-view', !isCards);
             if (btnViewCards) btnViewCards.classList.toggle('active-view', isCards);
         }
@@ -655,14 +638,11 @@
 
         function removerClienteDaTela(id) {
             container.querySelectorAll('tr[data-cliente-id="' + id + '"]').forEach(function(row) {
-                var nextRow = row.nextElementSibling;
                 row.remove();
-                if (nextRow && nextRow.classList.contains('cliente-expand-row')) nextRow.remove();
             });
 
-            container.querySelectorAll('.cliente-card-expand[data-cliente-id="' + id + '"]').forEach(function(expand) {
-                var card = expand.closest('.bg-white.rounded.border.border-gray-300.overflow-hidden');
-                if (card) card.remove();
+            container.querySelectorAll('.cliente-card[data-cliente-id="' + id + '"]').forEach(function(card) {
+                card.remove();
             });
         }
 
@@ -798,84 +778,7 @@
             dropdownAcoes.classList.remove('hidden');
         }
 
-        function toggleExpandCliente(clienteId, url, preferCard) {
-            var row = container.querySelector('tr[data-cliente-id="' + clienteId + '"]');
-            if (row && !preferCard) {
-                var nextRow = row.nextElementSibling;
-                if (nextRow && nextRow.classList.contains('cliente-expand-row')) {
-                    nextRow.remove();
-                    var iconOpen = row.querySelector('.cliente-expand-icon');
-                    if (iconOpen) iconOpen.classList.remove('rotate-90');
-                    return;
-                }
-
-                var expandRow = document.createElement('tr');
-                expandRow.className = 'cliente-expand-row bg-gray-50';
-                expandRow.innerHTML = '<td colspan="8" class="px-4 py-4"><div class="text-sm text-gray-500">Carregando participantes...</div></td>';
-                row.after(expandRow);
-
-                var icon = row.querySelector('.cliente-expand-icon');
-                if (icon) icon.classList.add('rotate-90');
-
-                fetch(url, {
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Accept': 'text/html',
-                    },
-                })
-                    .then(function(res) { return res.text(); })
-                    .then(function(html) {
-                        var contentCell = expandRow.querySelector('td');
-                        if (contentCell) contentCell.innerHTML = html;
-                    })
-                    .catch(function() {
-                        var contentCell = expandRow.querySelector('td');
-                        if (contentCell) contentCell.innerHTML = '<div class="text-sm text-red-600">Erro ao carregar participantes vinculados.</div>';
-                    });
-                return;
-            }
-
-            var cardExpand = container.querySelector('.cliente-card-expand[data-cliente-id="' + clienteId + '"]');
-            if (!cardExpand) return;
-
-            var cardButton = container.querySelector('.cliente-card-expand-btn[data-cliente-id="' + clienteId + '"]');
-            var cardIcon = cardButton ? cardButton.querySelector('.cliente-expand-icon') : null;
-
-            if (!cardExpand.classList.contains('hidden')) {
-                cardExpand.classList.add('hidden');
-                cardExpand.innerHTML = '';
-                if (cardIcon) cardIcon.classList.remove('rotate-90');
-                return;
-            }
-
-            cardExpand.classList.remove('hidden');
-            cardExpand.innerHTML = '<div class="text-sm text-gray-500">Carregando participantes...</div>';
-            if (cardIcon) cardIcon.classList.add('rotate-90');
-
-            fetch(url, {
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'text/html',
-                },
-            })
-                .then(function(res) { return res.text(); })
-                .then(function(html) {
-                    cardExpand.innerHTML = html;
-                })
-                .catch(function() {
-                    cardExpand.innerHTML = '<div class="text-sm text-red-600">Erro ao carregar participantes vinculados.</div>';
-                });
-        }
-
         container.addEventListener('click', function(event) {
-            var expandBtn = event.target.closest('.cliente-expand-btn');
-            if (expandBtn) {
-                event.preventDefault();
-                event.stopPropagation();
-                toggleExpandCliente(expandBtn.dataset.clienteId, expandBtn.dataset.expandUrl, expandBtn.classList.contains('cliente-card-expand-btn'));
-                return;
-            }
-
             var acaoBtn = event.target.closest('.acoes-btn');
             if (acaoBtn) {
                 event.preventDefault();
@@ -883,125 +786,7 @@
                 abrirDropdownAcoes(acaoBtn);
                 return;
             }
-
-            var pageBtn = event.target.closest('.js-related-page');
-            if (pageBtn) {
-                event.preventDefault();
-                if (pageBtn.disabled) return;
-                var url = pageBtn.dataset.url;
-                var row = pageBtn.closest('.cliente-expand-row');
-                var cardExpand = pageBtn.closest('.cliente-card-expand');
-                var cell = row ? row.querySelector('td') : null;
-                if (cell) {
-                    cell.innerHTML = '<div class="text-sm text-gray-500">Carregando participantes...</div>';
-                }
-                if (cardExpand) {
-                    cardExpand.innerHTML = '<div class="text-sm text-gray-500">Carregando participantes...</div>';
-                }
-                fetch(url, {
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Accept': 'text/html',
-                    },
-                })
-                    .then(function(res) { return res.text(); })
-                    .then(function(html) {
-                        if (cell) cell.innerHTML = html;
-                        if (cardExpand) cardExpand.innerHTML = html;
-                    })
-                    .catch(function() {
-                        if (cell) cell.innerHTML = '<div class="text-sm text-red-600">Erro ao carregar participantes vinculados.</div>';
-                        if (cardExpand) cardExpand.innerHTML = '<div class="text-sm text-red-600">Erro ao carregar participantes vinculados.</div>';
-                    });
-            }
         });
-
-        container.addEventListener('submit', function(event) {
-            var relatedFilterForm = event.target.closest('.js-related-filter-form');
-            if (!relatedFilterForm) return;
-
-            event.preventDefault();
-
-            var baseUrl = relatedFilterForm.getAttribute('action') || '';
-            var formData = new FormData(relatedFilterForm);
-            var params = new URLSearchParams();
-            formData.forEach(function(value, key) {
-                if (value !== null && String(value).trim() !== '') {
-                    params.set(key, String(value));
-                }
-            });
-
-            var targetUrl = baseUrl + (params.toString() ? '?' + params.toString() : '');
-            var row = relatedFilterForm.closest('.cliente-expand-row');
-            var cardExpand = relatedFilterForm.closest('.cliente-card-expand');
-            var cell = row ? row.querySelector('td') : null;
-
-            if (cell) {
-                cell.innerHTML = '<div class="text-sm text-gray-500">Carregando participantes...</div>';
-            }
-            if (cardExpand) {
-                cardExpand.innerHTML = '<div class="text-sm text-gray-500">Carregando participantes...</div>';
-            }
-
-            fetch(targetUrl, {
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'text/html',
-                },
-            })
-                .then(function(res) { return res.text(); })
-                .then(function(html) {
-                    if (cell) cell.innerHTML = html;
-                    if (cardExpand) cardExpand.innerHTML = html;
-                })
-                .catch(function() {
-                    if (cell) cell.innerHTML = '<div class="text-sm text-red-600">Erro ao carregar participantes vinculados.</div>';
-                    if (cardExpand) cardExpand.innerHTML = '<div class="text-sm text-red-600">Erro ao carregar participantes vinculados.</div>';
-                });
-        });
-
-        container.addEventListener('click', function(event) {
-            var relatedFilterReset = event.target.closest('.js-related-filter-reset');
-            if (!relatedFilterReset) return;
-
-            event.preventDefault();
-
-            var targetUrl = relatedFilterReset.getAttribute('href');
-            var row = relatedFilterReset.closest('.cliente-expand-row');
-            var cardExpand = relatedFilterReset.closest('.cliente-card-expand');
-            var cell = row ? row.querySelector('td') : null;
-
-            if (cell) {
-                cell.innerHTML = '<div class="text-sm text-gray-500">Carregando participantes...</div>';
-            }
-            if (cardExpand) {
-                cardExpand.innerHTML = '<div class="text-sm text-gray-500">Carregando participantes...</div>';
-            }
-
-            fetch(targetUrl, {
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'text/html',
-                },
-            })
-                .then(function(res) { return res.text(); })
-                .then(function(html) {
-                    if (cell) cell.innerHTML = html;
-                    if (cardExpand) cardExpand.innerHTML = html;
-                })
-                .catch(function() {
-                    if (cell) cell.innerHTML = '<div class="text-sm text-red-600">Erro ao carregar participantes vinculados.</div>';
-                    if (cardExpand) cardExpand.innerHTML = '<div class="text-sm text-red-600">Erro ao carregar participantes vinculados.</div>';
-                });
-        });
-
-        if (dropdownAcoesExpandir) {
-            dropdownAcoesExpandir.addEventListener('click', function() {
-                if (!acaoClienteId) return;
-                fecharDropdownAcoes();
-                toggleExpandCliente(acaoClienteId, '/app/cliente/' + acaoClienteId + '/participantes', cardsView && !cardsView.classList.contains('hidden'));
-            });
-        }
 
         function _clientesOnDocClick(event) {
             if (dropdownAcoes && !dropdownAcoes.classList.contains('hidden') && !dropdownAcoes.contains(event.target)) {
