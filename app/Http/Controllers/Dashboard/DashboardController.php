@@ -84,16 +84,11 @@ class DashboardController extends Controller
         $user = Auth::user();
         $userId = $user->id;
 
-        $kpis = $this->dashboardDataService->getKpis($userId, $user);
-        $atividadeRecente = $this->dashboardDataService->getAtividadeRecente($userId);
-        $isUsuarioNovo = $this->dashboardDataService->isUsuarioNovo($userId);
-        $ultimaImportacao = $this->dashboardDataService->getUltimaImportacao($userId);
-
+        // O cockpit (KPIs/triagem/tendência) vem do assembler único; aqui só sobram
+        // os dados auxiliares que a view ainda usa (atividade recente, onboarding, trial).
         $data = [
-            'kpis' => $kpis,
-            'atividadeRecente' => $atividadeRecente,
-            'isUsuarioNovo' => $isUsuarioNovo,
-            'ultimaImportacao' => $ultimaImportacao,
+            'atividadeRecente' => $this->dashboardDataService->getAtividadeRecente($userId),
+            'isUsuarioNovo' => $this->dashboardDataService->isUsuarioNovo($userId),
             'trialResumo' => $this->buildTrialResumo($user),
             'cockpit' => $this->dashboardDataService->cockpit($userId, $user, null, 6),
             'dashboardPrefs' => $user->dashboardPrefs(),
