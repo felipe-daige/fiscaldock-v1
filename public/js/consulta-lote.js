@@ -503,6 +503,7 @@
                                 ${alertaIconHtml}
                                 ${canSelect ? '' : '<span class="inline-flex shrink-0 items-center whitespace-nowrap px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: #9ca3af">CPF</span>'}
                             </div>
+                        ${getRelacaoFiscalHtml(p)}
                         </div>
                         ${detailsButtonHtml}
                     </div>
@@ -2053,6 +2054,23 @@
             + ' style="color: ' + hex + ';">'
             + '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" aria-hidden="true">' + path + '</svg>'
             + '</button>';
+    }
+
+    function getRelacaoFiscalHtml(p) {
+        const fr = p.fiscal_resumo;
+        if (!fr) return '';
+        const hex = fr.papel === 'fornecedor' ? '#2563eb'
+            : fr.papel === 'cliente' ? '#0f766e'
+            : '#7c3aed';
+        const empresa = (fr.empresa_label || '').replace(/"/g, '&quot;');
+        return `
+            <div class="mt-1 flex flex-wrap items-center gap-1.5">
+                <span class="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white"
+                      style="background-color: ${hex}" title="${fr.papel_label} de ${empresa}">${fr.papel_label}</span>
+                <span class="text-[11px] text-gray-500 truncate max-w-[180px]" title="${empresa}">${empresa}</span>
+                <span class="text-[11px] font-semibold text-gray-700">${fr.total_formatado}</span>
+            </div>
+        `;
     }
 
     function buildParticipanteDetailsPanel(participante, options) {
