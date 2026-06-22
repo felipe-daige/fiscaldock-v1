@@ -48,7 +48,7 @@ class AdminAcaoService
             $saldoDepois = (int) $alvo->fresh()->credits;
 
             return $this->registrar($admin, $alvo, $acao, $motivo, [
-                'valor' => $valor,
+                'valor' => (int) $valor,
                 'saldo_antes' => $saldoAntes,
                 'saldo_depois' => $saldoDepois,
             ]);

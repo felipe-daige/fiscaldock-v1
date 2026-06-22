@@ -19,7 +19,7 @@ it('creditar positivo adiciona saldo e registra audit', function () {
 
     expect($alvo->fresh()->credits)->toBe(60);
     expect($log->acao)->toBe('creditar');
-    expect($log->detalhe['valor'])->toBe(50.0);
+    expect($log->detalhe['valor'])->toBe(50);
     expect($log->detalhe['saldo_depois'])->toBe(60);
     expect(AdminActionLog::where('target_user_id', $alvo->id)->count())->toBe(1);
 });
