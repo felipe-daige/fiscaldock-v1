@@ -50,6 +50,12 @@
                     
                     <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{{ $alerta->titulo }}</h1>
                     <p class="text-sm sm:text-base text-gray-600 max-w-2xl">{{ $alerta->descricao }}</p>
+                    @if(!empty($alerta->notas))
+                    <div class="mt-3 inline-flex items-start gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded text-sm text-gray-600 max-w-2xl">
+                        <svg class="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>
+                        <span><span class="font-semibold text-gray-700">Motivo:</span> {{ $alerta->notas }}</span>
+                    </div>
+                    @endif
                 </div>
                 
                 @if($alerta->status === 'ativo')
@@ -127,46 +133,13 @@
             </div>
         </div>
 
-        {{-- Guia de Resolução Didático --}}
+        {{-- Guia de Resolução Didático (fonte: App\Services\GuiaAlertaService) --}}
         @php
-            $guia = [
-                'titulo_o_que_e' => 'O que isso significa?',
-                'texto_o_que_e' => 'Encontramos algumas inconsistências em nossos registros ou integrações automáticas.',
-                'titulo_acao' => 'Como resolver',
-                'texto_acao' => 'Siga os protocolos internos para revisar as informações listadas abaixo e marque o alerta como resolvido ao concluir.',
-                'icone_acao' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>',
-                'cta_text' => 'Marcar como Resolvido',
-                'cta_url' => null,
-            ];
-
+            $iconeAcao = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>';
             if (in_array($alerta->tipo, ['nunca_consultado', 'consulta_vencida'])) {
-                $guia['texto_o_que_e'] = 'O participante identificado nunca teve seu CNPJ verificado junto à base da Receita Federal ou a consulta foi feita há mais de 90 dias. Manter a situação cadastral em dia evita negócios com empresas inaptas.';
-                $guia['texto_acao'] = 'Recomendamos que você acesse a ficha do participante agora e realize a consulta na Receita Federal. Ao finalizar com sucesso, este alerta sumirá sozinho do painel (ou você pode resolvê-lo manualmente).';
-                $guia['icone_acao'] = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>';
-                $guia['cta_text'] = 'Ir para Consulta';
-                if ($alerta->participante_id) $guia['cta_url'] = '/app/participante/' . $alerta->participante_id;
+                $iconeAcao = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>';
             } elseif (in_array($alerta->tipo, ['situacao_irregular', 'cnpj_situacao_irregular', 'participante_inativo', 'participante_sem_ie', 'fornecedor_irregular'])) {
-                $guia['texto_o_que_e'] = 'Este participante está com pendências cadastrais na Receita Federal (ex: Baixada, Inapta, Suspensa). Operar com este CNPJ pode causar rejeições de notas fiscais e pesadas multas.';
-                $guia['texto_acao'] = 'Entre em contato com o responsável financeiro do seu cliente e recomende a interrupção de operações comerciais e bloqueio do cadastro no ERP até a total regularização.';
-                $guia['icone_acao'] = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>';
-                $guia['cta_text'] = '';
-            } elseif ($alerta->tipo === 'notas_duplicadas') {
-                $guia['texto_o_que_e'] = 'O sistema encontrou duas ou mais notas registradas com exatamente a mesma numeração, série, modelo e participante associado. Isso normalmente indica notas importadas em duplicidade ou duplo input no ERP.';
-                $guia['texto_acao'] = 'Acesse o seu sistema ERP/Contábil e confira a listagem destas notas duplicadas. Cancele e apague o registro excedente, garantindo que os livros fiscais reflitam a realidade. Depois, gere novo SPED.';
-                $guia['cta_text'] = '';
-            } elseif (in_array($alerta->tipo, ['notas_valor_zerado', 'notas_sem_itens', 'cfops_inconsistentes', 'participantes_sem_cnpj'])) {
-                $guia['texto_o_que_e'] = 'Existem notas fiscais importadas com inconsistências nos dados (ex: sem valor, sem itens preenchidos ou com erro no CFOP de entrada/saída cruzado). Isso impedirá escriturações corretas e pode geral passivos.';
-                $guia['texto_acao'] = 'Acesse os dados da(s) nota(s) afetada(s) dentro de seu software ERP. Revise se os itens das notas foram integrados corretamente ou se as alíquotas CFOP estão de acordo com o padrão SEFAZ.';
-                $guia['cta_text'] = '';
-            } elseif (in_array($alerta->tipo, ['gap_importacao', 'gap_temporal'])) {
-                $guia['texto_o_que_e'] = 'Detectamos um vácuo no processamento de notas fiscais no sistema num período onde seria esperado ter arquivos fiscais. Faltam meses de escrituração EFD importada.';
-                $guia['texto_acao'] = 'Por favor, realize o upload do(s) arquivo(s) SPED (EFD ICMS/IPI ou Contribuições) dos meses indicados abaixo dentro da plataforma.';
-                $guia['cta_text'] = 'Ir para Importações SPED';
-                $guia['cta_url'] = '/app/importacao/efd';
-            } elseif ($alerta->tipo === 'pis_cofins_incompleto') {
-                $guia['texto_o_que_e'] = 'Um volume muito alto de itens nas notas (PIS/COFINS) vieram sem detalhamento de impostos ou sem as alíquotas bases informadas no próprio arquivo exportado.';
-                $guia['texto_acao'] = 'Esse alerta aponta provavelmente um erro em cadastros de produtos ou no mapeamento Tributário/NCM no próprio ERP fiscal.';
-                $guia['cta_text'] = '';
+                $iconeAcao = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>';
             }
         @endphp
 
@@ -185,7 +158,7 @@
                 </div>
                 <div>
                     <h3 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">{!! $guia['icone_acao'] !!}</svg>
+                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">{!! $iconeAcao !!}</svg>
                         {{ $guia['titulo_acao'] }}
                     </h3>
                     <p class="text-sm text-gray-700 leading-relaxed mb-3">{{ $guia['texto_acao'] }}</p>

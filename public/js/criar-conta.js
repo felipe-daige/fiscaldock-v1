@@ -206,6 +206,7 @@ function initCriarConta() {
     }
 
     applyMasks();
+    setupPersonaToggle(freshForm);
 
     freshForm.addEventListener('submit', function (e) {
         e.preventDefault();
@@ -253,4 +254,63 @@ function initCriarConta() {
                 resetButton();
             });
     });
+}
+
+// Persona da conta (orientação no signup): "minha própria empresa" x "contador/escritório".
+// Apenas relabela campos e mostra ajuda — o backend segue usando empresa/cargo/documento.
+// Objetivo: evitar que um contador cadastre um CLIENTE como se fosse a própria empresa.
+function setupPersonaToggle(form) {
+    const radios = form.querySelectorAll('input[name="perfil_conta"]');
+    if (!radios.length) {
+        return;
+    }
+
+    const empresaLabel = form.querySelector('label[for="empresa"]');
+    const empresaInput = form.querySelector('#empresa');
+    const documentoAjuda = form.querySelector('#documento-ajuda');
+    const personaAjuda = form.querySelector('#persona-ajuda');
+    const cargoInput = form.querySelector('#cargo');
+
+    const COPY = {
+        empresa: {
+            empresaLabel: 'Empresa',
+            empresaPlaceholder: 'Nome da empresa',
+            persona: 'Cadastre os dados da sua própria empresa — é ela que você vai monitorar.',
+            documento: 'CPF ou CNPJ da sua empresa.',
+        },
+        contador: {
+            empresaLabel: 'Escritório de contabilidade',
+            empresaPlaceholder: 'Razão social do seu escritório',
+            persona: 'Cadastre o seu escritório. Cada empresa que você atende é adicionada depois em Cadastros › Clientes — não use os dados do cliente aqui.',
+            documento: 'CPF ou CNPJ do escritório — não o do cliente.',
+        },
+    };
+
+    function aplicar(valor) {
+        const c = COPY[valor] || COPY.empresa;
+        if (empresaLabel) empresaLabel.textContent = c.empresaLabel;
+        if (empresaInput) empresaInput.setAttribute('placeholder', c.empresaPlaceholder);
+        if (personaAjuda) personaAjuda.textContent = c.persona;
+        if (documentoAjuda) documentoAjuda.textContent = c.documento;
+
+        // Realça o cartão selecionado (borda/anel mais escuros).
+        form.querySelectorAll('.persona-opt').forEach((opt) => {
+            const input = opt.querySelector('input[name="perfil_conta"]');
+            const checked = !!(input && input.checked);
+            opt.classList.toggle('border-gray-800', checked);
+            opt.classList.toggle('ring-1', checked);
+            opt.classList.toggle('ring-gray-800', checked);
+            opt.classList.toggle('border-gray-300', !checked);
+        });
+
+        // Conveniência: contador quase sempre tem cargo "Contador". Só preenche se vazio.
+        if (valor === 'contador' && cargoInput && !cargoInput.value.trim()) {
+            cargoInput.value = 'Contador';
+        }
+    }
+
+    radios.forEach((r) => r.addEventListener('change', () => aplicar(r.value)));
+
+    const inicial = form.querySelector('input[name="perfil_conta"]:checked');
+    aplicar(inicial ? inicial.value : 'empresa');
 }

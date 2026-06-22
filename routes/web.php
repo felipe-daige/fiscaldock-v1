@@ -92,6 +92,7 @@ Route::middleware(['auth', \App\Http\Middleware\RequireCurrentTerms::class])->gr
     Route::get('/app/alertas/resumo', [DashboardController::class, 'alertasResumo'])->name('app.alertas.resumo');
     Route::get('/app/alertas/evolucao', [DashboardController::class, 'alertasEvolucao'])->name('app.alertas.evolucao');
     Route::post('/app/alertas/{id}/status', [DashboardController::class, 'alertasMarcarStatus'])->name('app.alertas.status');
+    Route::post('/app/alertas/status-lote', [DashboardController::class, 'alertasMarcarStatusLote'])->name('app.alertas.status-lote');
     Route::post('/app/alertas/recalcular', [DashboardController::class, 'alertasRecalcular'])->name('app.alertas.recalcular');
     Route::get('/app/alertas/{id}', [DashboardController::class, 'alertaDetalhes'])->name('app.alertas.show');
 

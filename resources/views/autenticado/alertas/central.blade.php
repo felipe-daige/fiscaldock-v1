@@ -894,6 +894,13 @@
 
     function renderActionButtons(alerta) {
         var html = '';
+        // CTA inline (fonte: GuiaAlertaService.resumo, anexado em obterAlertas)
+        if (alerta.status !== 'resolvido' && alerta.guia && alerta.guia.cta_url && alerta.guia.cta_text) {
+            html += '<a href="' + alerta.guia.cta_url + '" data-link class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-gray-800 rounded hover:bg-gray-700 transition-colors" title="' + escapeHtml(alerta.guia.cta_text) + '">';
+            html += '<span>' + escapeHtml(alerta.guia.cta_text) + '</span>';
+            html += '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>';
+            html += '</a>';
+        }
         if (alerta.status !== 'resolvido') {
         html += '<a href="/app/alertas/' + alerta.id + '" data-link class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors" title="Ver detalhes e resolver">';
             html += '<span class="hidden sm:inline">Saiba Mais</span>';
@@ -1395,7 +1402,7 @@
 
     // ─── Actions ──────────────────────────────────────────────
 
-    async function marcarStatus(id, status, btn) {
+    async function marcarStatus(id, status, btn, notas) {
         if (!id || !status) return;
 
         var originalHtml = btn.innerHTML;
@@ -1403,7 +1410,9 @@
         btn.innerHTML = '<svg class="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>';
 
         try {
-            await postJson('/app/alertas/' + id + '/status', { status: status });
+            var payload = { status: status };
+            if (notas) payload.notas = notas;
+            await postJson('/app/alertas/' + id + '/status', payload);
 
             // Refresh KPIs and list
             try {
@@ -1460,7 +1469,13 @@
                 e.stopPropagation();
                 var id = this.getAttribute('data-alerta-id');
                 var action = this.getAttribute('data-action');
-                marcarStatus(id, action, this);
+                var notas = null;
+                if (action === 'ignorado') {
+                    var motivo = window.prompt('Motivo para ignorar (opcional). Cancele para não ignorar:');
+                    if (motivo === null) return; // cancelou — não ignora
+                    notas = motivo.trim() || null;
+                }
+                marcarStatus(id, action, this, notas);
             });
         });
     }

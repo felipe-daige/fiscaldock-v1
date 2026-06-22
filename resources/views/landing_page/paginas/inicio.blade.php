@@ -571,23 +571,27 @@
     }
 }
 
-/* Two-column hero for the 1024–1535px band, owned by THIS stylesheet (px breakpoints),
-   independent of Tailwind's rem-gated lg:/xl: utilities.
-   Tailwind v4 gates lg: at 64rem; with a non-16px root font-size (browser font-size
-   preference, OS "make text bigger", some HiDPI/zoom combos) 64rem != 1024px, so the
-   rem-gated grid stayed single-column while the px-based min-height rules below still
-   rendered a full-height "desktop" hero — dropping the laptop mockup to the bottom,
-   cut off (bug reported on "outro computador"). A true 50/50 split mirrors what
-   lg:col-span-6 gave when Tailwind did kick in, so the mockup keeps the same size.
-   >=1536px is intentionally left untouched: its asymmetric template + larger,
-   edge-bleeding mockup is the designed wide-screen layout (2 children auto-place into
-   its 2 explicit tracks, so it stays two-column even if Tailwind's rem gate misses). */
+/* Two-column hero, owned ENTIRELY by THIS stylesheet (px breakpoints), independent of
+   Tailwind's rem-gated lg:/xl: utilities. The HTML no longer carries lg:grid-cols-12 /
+   lg:col-span-6 / xl:col-span-6 — those were the bug.
+   Why: Tailwind v4 gates lg: at 64rem; with a non-16px root font-size (browser font-size
+   preference, OS "make text bigger", some HiDPI/zoom combos) 64rem != 1024px. When lg:
+   DID fire, col-span-6 set `grid-column: span 6 / span 6` on each child; inside the
+   2-track grids defined below (>=1536px especially) `span 6` overflows to full width, so
+   the two children stack into two rows — copy on top, laptop dropped to the bottom and
+   cut off by the px-based full-height rules. That's the "outro computador" bug, hit on
+   wide (>=1536px) screens. Pinning grid-column:1/2 across the whole desktop range makes
+   the 50/50 split deterministic at every width. The per-band grid-template-columns rules
+   (1024–1536 here, plus the asymmetric templates at >=1536/1920/2200 below) all expose
+   exactly 2 tracks, so 1->copy / 2->laptop always maps correctly. */
+@media (min-width: 1024px) {
+    .hero-copy   { grid-column: 1; }
+    .hero-visual { grid-column: 2; }
+}
 @media (min-width: 1024px) and (max-width: 1535.98px) {
     .hero-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
-    .hero-copy   { grid-column: 1; }
-    .hero-visual { grid-column: 2; }
 }
 
 /* iPad landscape (Mini 1024px / Air ~1180px): the xl tuning only kicks in at 1280px,
@@ -841,9 +845,9 @@
 <section id="hero" class="relative overflow-hidden bg-gradient-to-br from-primary-700 to-primary-500 text-white" style="background: linear-gradient(135deg, #0f172a 0%, #1e5a9a 50%, #0f172a 100%);">
     <div class="hero-grain" aria-hidden="true"></div>
     <div class="hero-shell mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-16 sm:pt-12 sm:pb-16 lg:pt-14 lg:pb-20">
-        <div class="hero-grid grid grid-cols-1 lg:grid-cols-12 gap-8 items-center justify-center">
+        <div class="hero-grid grid grid-cols-1 gap-8 items-center justify-center">
             <!-- Coluna Esquerda: Texto -->
-            <div class="hero-copy lg:col-span-6 xl:col-span-6">
+            <div class="hero-copy">
                 <!-- Badge -->
                 <div class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold mb-4">
                     <span class="hero-badge-dot w-2 h-2 rounded-full bg-blue-400"></span>
@@ -918,7 +922,7 @@
             </div>
 
             <!-- Coluna Direita: Mockup -->
-            <div class="hero-visual lg:col-span-6 xl:col-span-6">
+            <div class="hero-visual">
                 <div class="hero-visual-glow" aria-hidden="true"></div>
                 <img
                     src="{{ asset('binary_files/mockups/macbook-mockup.png') }}"

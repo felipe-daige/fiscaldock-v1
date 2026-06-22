@@ -183,7 +183,19 @@ class Participante extends Model
      */
     public function scopeExcluindoEmpresaPropria($query)
     {
-        $query->whereDoesntHave('cliente', fn ($q) => $q->where('is_empresa_propria', true));
+        // Exclui APENAS o participante que REPRESENTA a empresa própria (mesmo
+        // documento de um cliente is_empresa_propria do usuário), NÃO todos os
+        // participantes vinculados ao livro dela. Sem isso, quando o usuário
+        // importa o EFD da própria empresa (todos os 0150 ficam com cliente_id =
+        // empresa própria), a listagem inteira de contrapartes some.
+        $query->whereNotExists(function ($sub) {
+            $sub->selectRaw('1')
+                ->from('clientes')
+                ->whereColumn('clientes.user_id', 'participantes.user_id')
+                ->where('clientes.is_empresa_propria', true)
+                ->whereNotNull('clientes.documento')
+                ->whereColumn('clientes.documento', 'participantes.documento');
+        });
 
         $userCnpj = auth()->user()?->cnpj;
         if ($userCnpj) {

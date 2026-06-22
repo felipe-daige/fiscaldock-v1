@@ -14,6 +14,7 @@ class AlertaCentralService
 {
     public function __construct(
         private NotasFiscaisAlertService $notasFiscaisAlertService,
+        private GuiaAlertaService $guiaAlertaService,
     ) {}
 
     /**
@@ -65,11 +66,12 @@ class AlertaCentralService
             }
         }
 
-        // 2. Alertas de compliance (3 detectores)
+        // 2. Alertas de compliance por participante (acionáveis, 1 por CNPJ).
+        // `nunca_consultado` NÃO entra aqui — é agregado num único alerta abaixo
+        // (senão um import de empresa própria gera dezenas de alertas de ruído).
         $complianceDetectors = [
             'situacao_irregular' => 'detectarSituacaoIrregular',
             'consulta_vencida' => 'detectarConsultaVencida',
-            'nunca_consultado' => 'detectarNuncaConsultado',
         ];
 
         foreach ($complianceDetectors as $tipo => $method) {
@@ -98,6 +100,46 @@ class AlertaCentralService
                     ]));
                     $novos++;
                 }
+            }
+        }
+
+        // 2b. Nunca consultado — alerta AGREGADO (1 por usuário, não 1 por CNPJ).
+        $nuncaConsultados = $this->detectarNuncaConsultado($userId);
+        if ($nuncaConsultados->isNotEmpty()) {
+            $hash = hash('sha256', "$userId:nunca_consultado");
+            $allHashes[] = $hash;
+
+            $total = $nuncaConsultados->count();
+            $data = [
+                'tipo' => 'nunca_consultado',
+                'categoria' => 'compliance',
+                'severidade' => 'baixa',
+                'titulo' => "{$total} participante(s) nunca consultado(s)",
+                'descricao' => "{$total} participante(s) com notas fiscais nunca tiveram os dados cadastrais verificados na Receita Federal. Consulte-os para checar regularidade.",
+                'total_afetados' => $total,
+                // Lista (renderizada como tabela no detalhe); capada por defesa de escala.
+                'detalhes' => $nuncaConsultados->take(100)->map(fn ($p) => [
+                    'razao_social' => $p->razao_social,
+                    'documento' => $p->documento,
+                ])->values()->all(),
+            ];
+
+            $existing = Alerta::where('user_id', $userId)->where('hash', $hash)->first();
+
+            if ($existing) {
+                $updateData = $data;
+                if (! in_array($existing->status, ['resolvido', 'ignorado'])) {
+                    $updateData['status'] = 'ativo';
+                }
+                $existing->update($updateData);
+                $atualizados++;
+            } else {
+                Alerta::create(array_merge($data, [
+                    'user_id' => $userId,
+                    'hash' => $hash,
+                    'status' => 'ativo',
+                ]));
+                $novos++;
             }
         }
 
@@ -232,7 +274,12 @@ class AlertaCentralService
             ->orderByRaw("CASE severidade WHEN 'alta' THEN 3 WHEN 'media' THEN 2 WHEN 'baixa' THEN 1 ELSE 0 END DESC")
             ->orderByDesc('created_at');
 
-        return $query->paginate(50);
+        // Anexa o resumo do guia (cta) pra lista renderizar a ação inline.
+        return $query->paginate(50)->through(function (Alerta $alerta) {
+            $alerta->setAttribute('guia', $this->guiaAlertaService->resumo($alerta));
+
+            return $alerta;
+        });
     }
 
     /**
@@ -307,6 +354,39 @@ class AlertaCentralService
         $alerta->save();
 
         return $alerta;
+    }
+
+    /**
+     * Marca o status de vários alertas de uma vez. Escopado ao user_id (nunca
+     * confiar nos ids do frontend). Retorna a quantidade efetivamente alterada.
+     *
+     * @param  array<int, int|string>  $alertaIds
+     */
+    public function marcarStatusEmLote(array $alertaIds, int $userId, string $status, ?string $notas = null): int
+    {
+        $alertas = Alerta::whereIn('id', $alertaIds)
+            ->where('user_id', $userId)
+            ->get();
+
+        foreach ($alertas as $alerta) {
+            $alerta->status = $status;
+
+            if ($status === 'visto' && $alerta->visto_em === null) {
+                $alerta->visto_em = now();
+            }
+
+            if ($status === 'resolvido') {
+                $alerta->resolvido_em = now();
+            }
+
+            if ($notas !== null) {
+                $alerta->notas = $notas;
+            }
+
+            $alerta->save();
+        }
+
+        return $alertas->count();
     }
 
     /**
@@ -498,14 +578,26 @@ class AlertaCentralService
         $fim = Carbon::now()->startOfMonth();
         $mesesFaltantes = [];
 
-        foreach (CarbonPeriod::create($inicio, '1 month', $fim) as $mes) {
-            $temImportacao = DB::table('efd_importacoes')
-                ->where('user_id', $userId)
-                ->where('status', 'concluido')
-                ->whereRaw("DATE_TRUNC('month', created_at) = ?", [$mes->startOfMonth()->toDateString()])
-                ->exists();
+        // Cobertura por COMPETÊNCIA (período da EFD), não por created_at — a data
+        // do upload não é a competência (ver BiService::getGapImportacoes). Janela:
+        // últimos 12 meses a partir de hoje (nudge de obrigação acessória recorrente).
+        $competenciasEntregues = [];
+        $importacoes = DB::table('efd_importacoes')
+            ->where('user_id', $userId)
+            ->where('status', 'concluido')
+            ->whereNotNull('periodo_inicio')
+            ->get(['periodo_inicio', 'periodo_fim']);
 
-            if (! $temImportacao) {
+        foreach ($importacoes as $imp) {
+            $ini = Carbon::parse($imp->periodo_inicio)->startOfMonth();
+            $end = $imp->periodo_fim ? Carbon::parse($imp->periodo_fim)->startOfMonth() : $ini;
+            foreach (CarbonPeriod::create($ini, '1 month', $end) as $mes) {
+                $competenciasEntregues[$mes->format('Y-m')] = true;
+            }
+        }
+
+        foreach (CarbonPeriod::create($inicio, '1 month', $fim) as $mes) {
+            if (! isset($competenciasEntregues[$mes->format('Y-m')])) {
                 $mesesFaltantes[] = $mes->locale('pt_BR')->isoFormat('MMM/YY');
             }
         }

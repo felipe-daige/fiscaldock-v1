@@ -50,7 +50,7 @@ beforeEach(function () {
     $mk($this->s2, ['chave_acesso' => $chave, 'origem_arquivo' => 'contribuicoes', 'importacao_id' => $this->impC->id, 'valor_total' => 1000]);
     $mk($this->s2, ['chave_acesso' => str_pad('9', 44, '0', STR_PAD_LEFT), 'origem_arquivo' => 'fiscal', 'valor_total' => 500, 'cancelada' => true]);
 
-    (new AlertaCentralService(new NotasFiscaisAlertService))->recalcular($this->user->id);
+    app(AlertaCentralService::class)->recalcular($this->user->id);
 });
 
 it('situacao irregular trata código 02 como ATIVA (não alerta) e flagra SUSPENSA', function () {

@@ -31,6 +31,7 @@ class DashboardController extends Controller
         protected AlertaCentralService $alertaCentralService,
         protected PricingCatalogService $pricingCatalogService,
         protected ResultadoDetalhePresenter $detalhePresenter,
+        protected \App\Services\GuiaAlertaService $guiaAlertaService,
     ) {}
 
     /** Rótulo curto por fonte de certidão p/ os badges compactos na listagem de clientes. */
@@ -701,6 +702,33 @@ class DashboardController extends Controller
         return response()->json(['success' => true, 'alerta' => $alerta]);
     }
 
+    public function alertasMarcarStatusLote(Request $request)
+    {
+        if (! Auth::check()) {
+            return response()->json(['success' => false, 'redirect' => '/login']);
+        }
+
+        $request->validate([
+            'ids' => 'required|array|max:1000',
+            'ids.*' => 'integer',
+            'status' => 'required|in:ativo,visto,resolvido,ignorado',
+            'notas' => 'nullable|string|max:1000',
+        ]);
+
+        $total = $this->alertaCentralService->marcarStatusEmLote(
+            $request->input('ids'),
+            Auth::id(),
+            $request->input('status'),
+            $request->input('notas')
+        );
+
+        return response()->json([
+            'success' => true,
+            'total' => $total,
+            'resumo' => $this->alertaCentralService->obterResumo(Auth::id()),
+        ]);
+    }
+
     public function alertasRecalcular(Request $request)
     {
         if (! Auth::check()) {
@@ -734,7 +762,10 @@ class DashboardController extends Controller
             ->with(['cliente', 'participante'])
             ->firstOrFail();
 
-        $data = ['alerta' => $alerta];
+        $data = [
+            'alerta' => $alerta,
+            'guia' => $this->guiaAlertaService->para($alerta),
+        ];
         $viewName = self::AUTH_VIEW_PREFIX.'alertas.show';
 
         if ($this->isAjaxRequest($request)) {

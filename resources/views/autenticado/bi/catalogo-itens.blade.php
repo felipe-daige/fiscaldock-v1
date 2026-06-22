@@ -164,21 +164,21 @@
 
         {{-- Tabela --}}
         <div class="bg-white rounded border border-gray-300 overflow-x-auto">
-            <table class="w-full text-sm">
+            <table class="w-full text-sm table-fixed">
                 <thead class="bg-gray-50 text-[10px] uppercase tracking-wide text-gray-400">
                     <tr>
-                        <th class="text-left px-3 py-2.5">Código</th>
-                        <th class="text-left px-3 py-2.5">Descrição</th>
-                        <th class="text-left px-3 py-2.5">Origem</th>
-                        <th class="text-left px-3 py-2.5">Arquivo de origem</th>
-                        <th class="text-left px-3 py-2.5">NCM</th>
-                        <th class="text-left px-3 py-2.5">CFOP</th>
-                        <th class="text-left px-3 py-2.5">CST</th>
-                        <th class="text-right px-3 py-2.5">Qtd</th>
-                        <th class="text-right px-3 py-2.5">Ocorr.</th>
-                        <th class="text-right px-3 py-2.5">Alíq. méd.</th>
-                        <th class="text-right px-3 py-2.5">Valor movimentado</th>
-                        <th class="text-left px-3 py-2.5">Catálogo</th>
+                        <th class="text-left px-3 py-2.5" style="width:9%">Código</th>
+                        <th class="text-left px-3 py-2.5" style="width:20%">Descrição</th>
+                        <th class="text-left px-3 py-2.5" style="width:6%">Origem</th>
+                        <th class="text-left px-3 py-2.5 hidden lg:table-cell" style="width:13%">Arquivo de origem</th>
+                        <th class="text-left px-3 py-2.5 hidden sm:table-cell" style="width:8%">NCM</th>
+                        <th class="text-left px-3 py-2.5 hidden md:table-cell" style="width:7%">CFOP</th>
+                        <th class="text-left px-3 py-2.5 hidden xl:table-cell" style="width:6%">CST</th>
+                        <th class="text-right px-3 py-2.5 hidden sm:table-cell" style="width:6%">Qtd</th>
+                        <th class="text-right px-3 py-2.5 hidden lg:table-cell" style="width:5%">Ocorr.</th>
+                        <th class="text-right px-3 py-2.5 hidden md:table-cell" style="width:7%">Alíq. méd.</th>
+                        <th class="text-right px-3 py-2.5" style="width:11%">Valor movimentado</th>
+                        <th class="text-left px-3 py-2.5" style="width:14%">Catálogo</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
@@ -187,12 +187,12 @@
                         $origemCor = ['efd' => '#1d4ed8', 'xml' => '#7c3aed', 'ambas' => '#047857'][$item['fontes']] ?? '#334155';
                     @endphp
                     <tr>
-                        <td class="px-3 py-2 font-mono text-gray-900">{{ $item['codigo_item'] }}</td>
-                        <td class="px-3 py-2 text-gray-700 truncate max-w-xs" title="{{ $item['descricao'] }}">{{ $item['descricao'] ?: '—' }}</td>
+                        <td class="px-3 py-2 font-mono text-gray-900 truncate" title="{{ $item['codigo_item'] }}">{{ $item['codigo_item'] }}</td>
+                        <td class="px-3 py-2 text-gray-700 truncate" title="{{ $item['descricao'] }}">{{ $item['descricao'] ?: '—' }}</td>
                         <td class="px-3 py-2">
                             <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase text-white" style="background-color: {{ $origemCor }}">{{ $item['fontes'] }}</span>
                         </td>
-                        <td class="px-3 py-2 text-[11px] align-top">
+                        <td class="px-3 py-2 text-[11px] align-top hidden lg:table-cell">
                             <div class="max-w-[200px] space-y-0.5">
                                 @forelse($item['importacoes'] as $imp)
                                     <a href="{{ $imp['fonte'] === 'xml' ? route('app.importacao.xml.detalhes', $imp['id']) : route('app.importacao.efd.detalhes', $imp['id']) }}" data-link class="block truncate text-blue-600 underline cursor-pointer" title="{{ $imp['label'] }}">{{ $imp['label'] }}</a>
@@ -201,16 +201,16 @@
                                 @endforelse
                             </div>
                         </td>
-                        <td class="px-3 py-2 font-mono text-gray-600">{{ $item['ncm'] ?: '—' }}</td>
-                        <td class="px-3 py-2 text-gray-600">{{ $item['cfops'] ?: '—' }}</td>
-                        <td class="px-3 py-2 text-gray-600">{{ $item['csts'] ?: '—' }}</td>
-                        <td class="px-3 py-2 text-right text-gray-700">{{ number_format($item['quantidade'], 0, ',', '.') }}</td>
-                        <td class="px-3 py-2 text-right text-gray-700">{{ $item['ocorrencias'] }}</td>
-                        <td class="px-3 py-2 text-right text-gray-600">{{ $item['aliquota_media'] !== null ? number_format($item['aliquota_media'], 2, ',', '.').'%' : '—' }}</td>
-                        <td class="px-3 py-2 text-right text-gray-900 font-semibold">{{ $fmtMoeda($item['valor_total']) }}</td>
-                        <td class="px-3 py-2">
+                        <td class="px-3 py-2 font-mono text-gray-600 hidden sm:table-cell">{{ $item['ncm'] ?: '—' }}</td>
+                        <td class="px-3 py-2 text-gray-600 hidden md:table-cell">{{ $item['cfops'] ?: '—' }}</td>
+                        <td class="px-3 py-2 text-gray-600 hidden xl:table-cell">{{ $item['csts'] ?: '—' }}</td>
+                        <td class="px-3 py-2 text-right text-gray-700 hidden sm:table-cell">{{ number_format($item['quantidade'], 0, ',', '.') }}</td>
+                        <td class="px-3 py-2 text-right text-gray-700 hidden lg:table-cell">{{ $item['ocorrencias'] }}</td>
+                        <td class="px-3 py-2 text-right text-gray-600 hidden md:table-cell">{{ $item['aliquota_media'] !== null ? number_format($item['aliquota_media'], 2, ',', '.').'%' : '—' }}</td>
+                        <td class="px-3 py-2 text-right text-gray-900 font-semibold whitespace-nowrap">{{ $fmtMoeda($item['valor_total']) }}</td>
+                        <td class="px-3 py-2 truncate">
                             @if($item['tem_catalogo'])
-                                <span class="text-[11px] text-gray-600">{{ $item['catalogo']['descr_item'] }}</span>
+                                <span class="text-[11px] text-gray-600" title="{{ $item['catalogo']['descr_item'] }}">{{ $item['catalogo']['descr_item'] }}</span>
                             @else
                                 <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase text-white" style="background-color: #b45309">sem catálogo</span>
                             @endif
