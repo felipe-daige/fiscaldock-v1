@@ -415,6 +415,13 @@
                                             <option value="{{ $grupo->id }}">{{ $grupo->nome }}</option>
                                         @endforeach
                                     </select>
+                                    <select id="filtro-relacao" class="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-700 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                                        <option value="">Todas as relações</option>
+                                        <option value="fornecedor">Fornecedor</option>
+                                        <option value="cliente">Cliente</option>
+                                        <option value="ambos">Fornecedor e cliente</option>
+                                        <option value="sem_movimentacao">Sem movimentação</option>
+                                    </select>
                                     <button type="button" id="btn-limpar-filtros-participantes" class="w-full inline-flex items-center justify-center px-4 py-2 bg-white border border-gray-300 text-gray-600 hover:bg-gray-50 rounded text-sm font-medium">
                                         Limpar filtros
                                     </button>

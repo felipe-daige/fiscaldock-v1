@@ -117,6 +117,31 @@ class ParticipanteFiscalResumoService
     }
 
     /**
+     * Papel fiscal de TODOS os participantes do usuário com movimentação (1 query),
+     * para filtrar a lista por relação. Participantes sem nota fiscal ficam ausentes
+     * do retorno (o caller trata como "sem movimentação").
+     *
+     * @return array<int, string> [participante_id => 'fornecedor'|'cliente'|'ambos']
+     */
+    public function papelPorParticipante(int $userId): array
+    {
+        return DB::table('efd_notas')
+            ->where('user_id', $userId)
+            ->where('origem_arquivo', 'fiscal')
+            ->where('cancelada', false)
+            ->whereNotNull('participante_id')
+            ->groupBy('participante_id')
+            ->selectRaw("participante_id,
+                bool_or(tipo_operacao = 'entrada') as tem_entrada,
+                bool_or(tipo_operacao = 'saida') as tem_saida")
+            ->get()
+            ->mapWithKeys(fn ($r) => [
+                (int) $r->participante_id => $this->papelDe((bool) $r->tem_entrada, (bool) $r->tem_saida),
+            ])
+            ->all();
+    }
+
+    /**
      * Top 3 CFOPs por participante a partir do C190 consolidado (mais leve que itens).
      *
      * @param  array<int, int>  $ids

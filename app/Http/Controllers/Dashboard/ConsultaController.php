@@ -160,6 +160,7 @@ class ConsultaController extends Controller
             'situacao_cadastral' => 'nullable|string|max:50',
             'uf' => 'nullable|string|size:2',
             'busca' => 'nullable|string|max:100',
+            'relacao' => 'nullable|string|in:fornecedor,cliente,ambos,sem_movimentacao',
             'page' => 'nullable|integer|min:1',
             'per_page' => 'nullable|integer|min:10|max:100',
         ]);
@@ -220,6 +221,30 @@ class ConsultaController extends Controller
                     $q->orWhere('documento', 'LIKE', "%{$buscaLimpa}%");
                 }
             });
+        }
+
+        // Filtro por relação fiscal (fornecedor/cliente/ambos/sem movimentação), derivada
+        // das notas EFD. Precisa ser aplicado ANTES da paginação. Semântica inclusiva:
+        // "fornecedor" abrange quem também é cliente ('ambos'); idem "cliente".
+        if (! empty($validated['relacao'])) {
+            $papeis = app(\App\Services\Consultas\ParticipanteFiscalResumoService::class)
+                ->papelPorParticipante($user->id);
+
+            if ($validated['relacao'] === 'sem_movimentacao') {
+                // whereNotIn com [] vira "1=1" (todos) — correto: ninguém tem movimentação.
+                $query->whereNotIn('id', array_keys($papeis));
+            } else {
+                $alvo = match ($validated['relacao']) {
+                    'fornecedor' => ['fornecedor', 'ambos'],
+                    'cliente' => ['cliente', 'ambos'],
+                    default => ['ambos'],
+                };
+                // whereIn com [] vira "0=1" (nenhum) — correto quando não há match.
+                $query->whereIn('id', array_keys(array_filter(
+                    $papeis,
+                    fn (string $papel) => in_array($papel, $alvo, true)
+                )));
+            }
         }
 
         $participantes = $query->orderBy('razao_social')

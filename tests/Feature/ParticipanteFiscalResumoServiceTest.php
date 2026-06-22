@@ -136,3 +136,25 @@ it('sem comCfops top_cfops fica vazio', function () {
     $r = app(ParticipanteFiscalResumoService::class)->paraParticipantes($d['user']->id, [$d['forn']]);
     expect($r[$d['forn']]['top_cfops'])->toBe([]);
 });
+
+it('papelPorParticipante mapeia papel de todos os participantes com movimentação', function () {
+    $d = pfrSetup();
+    $mapa = app(ParticipanteFiscalResumoService::class)->papelPorParticipante($d['user']->id);
+
+    expect($mapa[$d['forn']])->toBe('fornecedor');
+    expect($mapa[$d['cli']])->toBe('cliente');
+    expect($mapa[$d['ambos']])->toBe('ambos');
+});
+
+it('papelPorParticipante omite participante sem nota e não vaza entre usuários', function () {
+    $d = pfrSetup();
+    $semNota = DB::table('participantes')->insertGetId([
+        'user_id' => $d['user']->id, 'cliente_id' => $d['empresaA'], 'razao_social' => 'SEM NOTA',
+        'documento' => '44444444000144', 'origem_tipo' => 'MANUAL', 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    $mapa = app(ParticipanteFiscalResumoService::class)->papelPorParticipante($d['user']->id);
+    expect($mapa)->not->toHaveKey($semNota);
+
+    $outro = App\Models\User::factory()->create();
+    expect(app(ParticipanteFiscalResumoService::class)->papelPorParticipante($outro->id))->toBe([]);
+});

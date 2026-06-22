@@ -60,7 +60,8 @@
             tipo_documento: '',
             situacao_cadastral: '',
             uf: '',
-            busca: ''
+            busca: '',
+            relacao: ''
         },
         clientesFilters: {
             busca: '',
@@ -153,6 +154,7 @@
             filtroUf: document.getElementById('filtro-uf'),
             filtroCliente: document.getElementById('filtro-cliente'),
             filtroGrupo: document.getElementById('filtro-grupo'),
+            filtroRelacao: document.getElementById('filtro-relacao'),
             btnLimparFiltrosParticipantes: document.getElementById('btn-limpar-filtros-participantes'),
 
             // Abas
@@ -252,6 +254,7 @@
         if (elements.filtroUf) elements.filtroUf.addEventListener('change', onFilterChange);
         if (elements.filtroCliente) elements.filtroCliente.addEventListener('change', onFilterChange);
         if (elements.filtroGrupo) elements.filtroGrupo.addEventListener('change', onFilterChange);
+        if (elements.filtroRelacao) elements.filtroRelacao.addEventListener('change', onFilterChange);
         if (elements.btnLimparFiltrosParticipantes) {
             elements.btnLimparFiltrosParticipantes.addEventListener('click', resetParticipantesFilters);
         }
@@ -395,6 +398,7 @@
         if (state.filters.situacao_cadastral) params.append('situacao_cadastral', state.filters.situacao_cadastral);
         if (state.filters.uf) params.append('uf', state.filters.uf);
         if (state.filters.busca) params.append('busca', state.filters.busca);
+        if (state.filters.relacao) params.append('relacao', state.filters.relacao);
 
         try {
             const response = await fetch(`${window.consultaData.routes.getParticipantes}?${params}`, {
@@ -589,6 +593,7 @@
         state.filters.uf = elements.filtroUf?.value || '';
         state.filters.cliente_id = elements.filtroCliente?.value || '';
         state.filters.grupo_id = elements.filtroGrupo?.value || '';
+        state.filters.relacao = elements.filtroRelacao?.value || '';
         state.filterContext = null;
         if (elements.participantesContext) {
             elements.participantesContext.classList.add('hidden');
@@ -676,6 +681,7 @@
                 if (state.filters.situacao_cadastral) params.append('situacao_cadastral', state.filters.situacao_cadastral);
                 if (state.filters.uf) params.append('uf', state.filters.uf);
                 if (state.filters.busca) params.append('busca', state.filters.busca);
+                if (state.filters.relacao) params.append('relacao', state.filters.relacao);
 
                 const response = await fetch(`${window.consultaData.routes.getParticipantes}?${params}`, {
                     headers: {
@@ -3414,7 +3420,8 @@
             tipo_documento: '',
             situacao_cadastral: '',
             uf: '',
-            busca: ''
+            busca: '',
+            relacao: ''
         };
         state.filterContext = null;
         state.currentPage = 1;
@@ -3426,6 +3433,7 @@
         if (elements.filtroUf) elements.filtroUf.value = '';
         if (elements.filtroCliente) elements.filtroCliente.value = '';
         if (elements.filtroGrupo) elements.filtroGrupo.value = '';
+        if (elements.filtroRelacao) elements.filtroRelacao.value = '';
         if (elements.participantesContext) elements.participantesContext.classList.add('hidden');
 
         loadParticipantes();
@@ -3629,7 +3637,7 @@
         state.totalPages = 1;
         state.totalItems = 0;
         state.allIdsCurrentFilter = [];
-        state.filters = { grupo_id: '', cliente_id: '', origem_tipo: '', tipo_documento: '', situacao_cadastral: '', uf: '', busca: '' };
+        state.filters = { grupo_id: '', cliente_id: '', origem_tipo: '', tipo_documento: '', situacao_cadastral: '', uf: '', busca: '', relacao: '' };
         state.clientesFilters = { busca: '', tipo_pessoa: '', situacao_cadastral: '', uf: '', faixa_participantes: '' };
         state.activeTab = 'participantes';
         state.filterContext = null;
