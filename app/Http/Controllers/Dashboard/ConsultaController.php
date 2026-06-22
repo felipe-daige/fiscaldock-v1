@@ -234,9 +234,12 @@ class ConsultaController extends Controller
             ->unique('participante_id')
             ->keyBy('participante_id');
 
+        $fiscalResumos = app(\App\Services\Consultas\ParticipanteFiscalResumoService::class)
+            ->paraParticipantes($user->id, $participanteIds);
+
         return response()->json([
             'success' => true,
-            'data' => $participantes->getCollection()->map(function ($participante) use ($ultimosResultados, $agora) {
+            'data' => $participantes->getCollection()->map(function ($participante) use ($ultimosResultados, $agora, $fiscalResumos) {
                 $ultimoResultado = $ultimosResultados->get($participante->id);
                 $cndFederal = $ultimoResultado?->getCndFederal() ?? [];
                 $alerta = $this->buildParticipanteAlertData($ultimoResultado, $agora);
@@ -349,6 +352,7 @@ class ConsultaController extends Controller
                         'is_empresa_propria' => $participante->cliente->is_empresa_propria,
                     ] : null,
                     'grupos' => $participante->grupos,
+                    'fiscal_resumo' => $this->formatarFiscalResumoLista($fiscalResumos[$participante->id] ?? null),
                 ];
             })->values(),
             'pagination' => [
@@ -1811,6 +1815,39 @@ class ConsultaController extends Controller
         }
 
         return $documento ?: null;
+    }
+
+    /**
+     * Versão compacta do resumo fiscal pra lista da Nova Consulta (chip + valor).
+     *
+     * @param  array<string, mixed>|null  $resumo
+     * @return array<string, mixed>|null
+     */
+    private function formatarFiscalResumoLista(?array $resumo): ?array
+    {
+        if ($resumo === null) {
+            return null;
+        }
+
+        $papelLabel = match ($resumo['papel']) {
+            'fornecedor' => 'Fornecedor',
+            'cliente' => 'Cliente',
+            default => 'Fornecedor e cliente',
+        };
+
+        $empresaLabel = $resumo['empresas_count'] === 1
+            ? ($resumo['relacionamentos'][0]['empresa_nome'] ?? '—')
+            : $resumo['empresas_count'].' empresas';
+
+        $total = $resumo['total_comprado'] + $resumo['total_vendido'];
+
+        return [
+            'papel' => $resumo['papel'],
+            'papel_label' => $papelLabel,
+            'empresa_label' => $empresaLabel,
+            'total_movimentado' => round($total, 2),
+            'total_formatado' => 'R$ '.number_format($total, 2, ',', '.'),
+        ];
     }
 
     private function normalizeConsultaLoteRegularidadeBadge(mixed $valor, bool $aplicarIndeterminado = false): array
