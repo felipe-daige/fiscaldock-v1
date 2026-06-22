@@ -2062,8 +2062,10 @@
         const hex = fr.papel === 'fornecedor' ? '#2563eb'
             : fr.papel === 'cliente' ? '#0f766e'
             : '#7c3aed';
-        const empresa = escapeHtml(fr.empresa_label || '');
-        const papel = escapeHtml(fr.papel_label || '');
+        // escapeHtml em escopo (createTextNode) cobre & < > mas NÃO aspas; estes
+        // valores entram em title="..." → escapar " também (padrão escNome acima).
+        const empresa = escapeHtml(fr.empresa_label || '').replace(/"/g, '&quot;');
+        const papel = escapeHtml(fr.papel_label || '').replace(/"/g, '&quot;');
         return `
             <div class="mt-1 flex flex-wrap items-center gap-1.5">
                 <span class="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white"
