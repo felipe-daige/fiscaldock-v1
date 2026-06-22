@@ -104,6 +104,28 @@ return new class extends Migration
                 $table->index('user_id');
             });
         }
+
+        // --- Admin Console fase 2 (2026-06-22) ---
+        if (! Schema::hasTable('admin_action_logs')) {
+            Schema::create('admin_action_logs', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('admin_user_id')->constrained('users')->cascadeOnDelete();
+                $table->foreignId('target_user_id')->nullable()->constrained('users')->nullOnDelete();
+                $table->string('acao');
+                $table->text('motivo');
+                $table->jsonb('detalhe')->nullable();
+                $table->string('ip', 45)->nullable();
+                $table->timestamp('created_at')->nullable();
+                $table->index(['target_user_id', 'created_at']);
+                $table->index('created_at');
+            });
+        }
+
+        if (! Schema::hasColumn('users', 'bloqueado_em')) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->timestamp('bloqueado_em')->nullable()->after('is_admin');
+            });
+        }
     }
 
     /**
@@ -111,6 +133,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (Schema::hasColumn('users', 'bloqueado_em')) {
+            Schema::table('users', fn (Blueprint $t) => $t->dropColumn('bloqueado_em'));
+        }
+        Schema::dropIfExists('admin_action_logs');
         Schema::dropIfExists('catalogo_alerta_descartes');
         Schema::dropIfExists('consent_logs');
         Schema::dropIfExists('comercial_parametros');
