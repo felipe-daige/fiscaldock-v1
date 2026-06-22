@@ -1739,15 +1739,20 @@ class ConsultaController extends Controller
         $parecerService = app(ParecerFiscalService::class);
         $detalhePresenter = app(\App\Services\Consultas\ResultadoDetalhePresenter::class);
 
-        return $lote->resultados()
+        $resultados = $lote->resultados()
             ->with([
                 'participante:id,documento,razao_social,uf,crt,regime_tributario',
                 'cliente:id,documento,razao_social,uf',
             ])
             ->orderByDesc('consultado_em')
             ->orderBy('id')
-            ->get()
-            ->map(function (ConsultaResultado $resultado) use ($parecerService, $detalhePresenter) {
+            ->get();
+
+        $participanteIds = $resultados->pluck('participante_id')->filter()->unique()->values()->all();
+        $fiscalResumos = app(\App\Services\Consultas\ParticipanteFiscalResumoService::class)
+            ->paraParticipantes($lote->user_id, $participanteIds, comCfops: true);
+
+        return $resultados->map(function (ConsultaResultado $resultado) use ($parecerService, $detalhePresenter, $fiscalResumos) {
                 $parecerResumo = $resultado->isSucesso()
                     ? $parecerService->gerarResumo($resultado->getParecerFiscalPayload())
                     : [];
@@ -1798,6 +1803,7 @@ class ConsultaController extends Controller
                     'parecer_count' => count($parecerResumo),
                     'detalhe_blocos' => $detalhePresenter->blocos($resultado),
                     'resumo_texto' => $resultado->isSucesso() ? $detalhePresenter->resumoTextual($resultado) : null,
+                    'fiscal_resumo' => $resultado->participante_id ? ($fiscalResumos[$resultado->participante_id] ?? null) : null,
                 ];
             });
     }

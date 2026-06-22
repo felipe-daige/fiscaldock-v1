@@ -347,6 +347,7 @@
                                     <tr id="consulta-detalhe-d-{{ $loop->index }}" class="hidden">
                                         <td colspan="9" class="px-4 py-4 bg-gray-50/60 border-t border-gray-100">
                                             @include('autenticado.consulta.partials.detalhe-blocos', ['blocos' => $resultado['detalhe_blocos'] ?? [], 'resumo' => $resultado['resumo_texto'] ?? null])
+                                            @include('autenticado.consulta.partials.relacionamento-fiscal', ['fiscal' => $resultado['fiscal_resumo'] ?? null])
                                         </td>
                                     </tr>
                                 @endforeach
