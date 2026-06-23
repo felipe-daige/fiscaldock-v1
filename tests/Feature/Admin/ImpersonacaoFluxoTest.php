@@ -47,3 +47,12 @@ it('sair restaura o admin', function () {
     expect(auth()->id())->toBe($this->admin->id);
     expect(session('impersonator_id'))->toBeNull();
 });
+
+it('não impersona usuário bloqueado', function () {
+    $bloqueado = User::factory()->create(['is_admin' => false, 'bloqueado_em' => now()]);
+
+    actingAs($this->admin)
+        ->post("/app/admin/usuarios/{$bloqueado->id}/impersonar", ['motivo' => 'inspecionar'])
+        ->assertSessionHasErrors('motivo');
+    expect(session('impersonator_id'))->toBeNull();
+});

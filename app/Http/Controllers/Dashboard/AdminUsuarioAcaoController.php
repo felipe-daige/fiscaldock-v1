@@ -15,7 +15,7 @@ class AdminUsuarioAcaoController extends Controller
     public function creditar(Request $request, int $id)
     {
         $dados = $request->validate([
-            'valor' => ['required', 'numeric', 'not_in:0'],
+            'valor' => ['required', 'integer', 'not_in:0'],
             'motivo' => ['required', 'string', 'min:3', 'max:500'],
         ]);
         $alvo = User::findOrFail($id);
@@ -65,7 +65,7 @@ class AdminUsuarioAcaoController extends Controller
         $alvo = User::findOrFail($id);
         $admin = $request->user();
 
-        if ($alvo->id === $admin->id || $alvo->is_admin) {
+        if ($alvo->id === $admin->id || $alvo->is_admin || $alvo->bloqueado_em) {
             return back()->withErrors(['motivo' => 'Alvo inválido para impersonação.']);
         }
 
