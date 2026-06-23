@@ -29,6 +29,9 @@
                         <option value="3">Últimos 3 meses</option>
                         <option value="1">Este mês</option>
                     </select>
+                    {{-- Exports --}}
+                    <button id="bi-export-xlsx" type="button" class="w-full sm:w-auto px-3 py-2 rounded border border-gray-300 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50">Excel</button>
+                    <button id="bi-export-pdf" type="button" class="w-full sm:w-auto px-3 py-2 rounded border border-gray-300 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50">PDF</button>
                 </div>
             </div>
         </div>
@@ -590,6 +593,45 @@
 
         {{-- Tab CFOP --}}
         <div id="tab-cfop" class="bi-tab-content hidden">
+            @php
+                $cfopLabels = [
+                    1407 => 'Compra p/ uso/consumo c/ ST', 1915 => 'Entrada remetida p/ industrialização/conserto',
+                    1916 => 'Retorno remetido p/ industrialização/conserto', 2202 => 'Devolução de compra p/ comercialização',
+                    2556 => 'Compra de material p/ uso/consumo', 5411 => 'Devolução de compra c/ ST',
+                    5916 => 'Retorno recebido p/ industrialização/conserto', 6915 => 'Remessa p/ conserto/reparo',
+                    6916 => 'Retorno recebido p/ conserto',
+                ];
+                $cfopsForaFaturamento = config('efd.cfops_fora_faturamento', []);
+            @endphp
+            {{-- Como funciona / regras de negócio do BI Fiscal --}}
+            <details class="bg-white rounded border border-gray-300 mb-6 group">
+                <summary class="cursor-pointer select-none px-4 py-3 flex items-center justify-between bg-gray-50 border-b border-gray-200 list-none">
+                    <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Como funciona — regras de cálculo do BI Fiscal</span>
+                    <span class="text-[11px] text-gray-400 group-open:hidden">mostrar</span>
+                    <span class="text-[11px] text-gray-400 hidden group-open:inline">ocultar</span>
+                </summary>
+                <div class="p-4 sm:p-5 space-y-4 text-[13px] text-gray-700 leading-relaxed">
+                    <div>
+                        <p class="font-semibold text-gray-900 mb-1">Faturamento (Saídas) e Aquisições (Entradas)</p>
+                        <p>Somam o <strong>valor total</strong> das notas por tipo de operação, deduplicando a base: a mesma NF-e escriturada na EFD ICMS/IPI <em>e</em> na EFD PIS/COFINS conta <strong>uma única vez</strong>. Notas <strong>canceladas</strong> são ignoradas e os <strong>serviços</strong> (NFS-e) entram no faturamento.</p>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-gray-900 mb-1">Saldo Líquido</p>
+                        <p><strong>Saídas − Entradas</strong> (faturamento menos aquisições). Fica <strong>positivo</strong> quando a empresa vende mais do que compra e <strong>negativo</strong> no caso contrário.</p>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-gray-900 mb-1">CFOPs que não compõem faturamento</p>
+                        <p class="mb-2">Notas de remessa/retorno de conserto, devolução e uso/consumo geram documento fiscal com valor, mas <strong>não são receita de venda nem compra comercial</strong>. A nota <strong>inteira</strong> é excluída do faturamento/aquisições quando qualquer item carrega um destes CFOPs:</p>
+                        <div class="flex flex-wrap gap-1.5">
+                            @foreach ($cfopsForaFaturamento as $cfop)
+                                <span class="inline-flex items-center gap-1 rounded px-2 py-1 text-[12px]" style="background-color: #f1f5f9; color: #334155;" title="{{ $cfopLabels[$cfop] ?? '' }}">
+                                    <strong>{{ $cfop }}</strong><span class="text-gray-500">{{ $cfopLabels[$cfop] ?? '' }}</span>
+                                </span>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+            </details>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6">
                 <div class="bg-white rounded border border-gray-300">
                     <div class="bg-gray-50 px-4 py-2 border-b border-gray-200"><h3 class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Top CFOPs por Valor</h3></div>
