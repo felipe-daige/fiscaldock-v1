@@ -29,9 +29,9 @@
                     <p class="text-[11px] text-gray-500 mt-1">Consultas realizadas</p>
                 </div>
                 <div class="p-4 sm:p-6">
-                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Créditos Utilizados</p>
-                    <p class="text-lg font-bold text-gray-900 font-mono">{{ $totalCreditos ?? 0 }}</p>
-                    <p class="text-[11px] text-gray-500 mt-1">Créditos consumidos</p>
+                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Valor Gasto</p>
+                    <p class="text-lg font-bold text-gray-900 font-mono">@brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) ($totalCreditos ?? 0)))</p>
+                    <p class="text-[11px] text-gray-500 mt-1">Gasto em consultas</p>
                 </div>
                 <div class="p-4 sm:p-6">
                     <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Taxa de Sucesso</p>
@@ -106,7 +106,7 @@
                             <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Plano</th>
                             <th class="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Tipo</th>
                             <th class="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Status</th>
-                            <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Créditos</th>
+                            <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Custo</th>
                             <th class="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Ações</th>
                         </tr>
                     </thead>
@@ -144,7 +144,7 @@
                                     @endif
                                 </td>
                                 <td class="px-3 py-3 text-sm text-gray-700 font-mono whitespace-nowrap">
-                                    {{ $consulta->creditos_cobrados }}
+                                    @brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) $consulta->creditos_cobrados))
                                 </td>
                                 <td class="px-3 py-3 text-right whitespace-nowrap text-xs">
                                     <button type="button"

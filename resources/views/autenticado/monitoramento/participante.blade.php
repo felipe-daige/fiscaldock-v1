@@ -1038,8 +1038,8 @@
                                 </p>
                             </div>
                             <div>
-                                <p class="text-xs text-gray-500 uppercase tracking-wide">Créditos/Execução</p>
-                                <p class="mt-1 text-sm text-gray-900">{{ $assinaturaAtiva->plano->custo_creditos ?? 0 }} creditos</p>
+                                <p class="text-xs text-gray-500 uppercase tracking-wide">Custo/Execução</p>
+                                <p class="mt-1 text-sm text-gray-900">@brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) ($assinaturaAtiva->plano->custo_creditos ?? 0)))</p>
                             </div>
                             <div class="pt-4 border-t border-gray-200 flex gap-2">
                                 @if($assinaturaAtiva->status === 'ativo')
@@ -1100,8 +1100,8 @@
                             <span class="text-sm font-semibold text-red-600">{{ $estatisticas['consultas_erro'] ?? 0 }}</span>
                         </div>
                         <div class="flex items-center justify-between">
-                            <span class="text-sm text-gray-600">Creditos utilizados</span>
-                            <span class="text-sm font-semibold text-gray-900">{{ $estatisticas['creditos_utilizados'] ?? 0 }}</span>
+                            <span class="text-sm text-gray-600">Valor gasto</span>
+                            <span class="text-sm font-semibold text-gray-900">@brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) ($estatisticas['creditos_utilizados'] ?? 0)))</span>
                         </div>
                         <div class="flex items-center justify-between">
                             <span class="text-sm text-gray-600">Notas fiscais</span>
@@ -1110,10 +1110,10 @@
                     </div>
                 </div>
 
-                {{-- Saldo de Creditos --}}
+                {{-- Saldo --}}
                 <div class="bg-white rounded border border-gray-300 overflow-hidden">
                     <div class="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                        <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Saldo de Créditos</span>
+                        <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Saldo</span>
                     </div>
                     <div class="p-6">
                     <div class="flex items-center gap-3 mb-4">
@@ -1123,8 +1123,8 @@
                             </svg>
                         </div>
                         <div>
-                            <p class="text-sm text-gray-500">Saldo de Créditos</p>
-                            <p class="text-2xl font-bold text-gray-900">{{ number_format($credits ?? 0, 0, ',', '.') }}</p>
+                            <p class="text-sm text-gray-500">Saldo disponível</p>
+                            <p class="text-2xl font-bold text-gray-900">@brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) ($credits ?? 0)))</p>
                         </div>
                     </div>
                     <a
@@ -1132,7 +1132,7 @@
                         class="block w-full text-center px-4 py-2 rounded bg-gray-800 text-white text-sm font-semibold transition hover:bg-gray-700"
                         data-link
                     >
-                        Comprar Créditos
+                        Adicionar Saldo
                     </a>
                     </div>
                 </div>
@@ -1162,7 +1162,7 @@
                         <option value="">Selecione...</option>
                         @foreach($planos as $plano)
                             <option value="{{ $plano->id }}" data-creditos="{{ $plano->custo_creditos }}">
-                                {{ $plano->nome }} ({{ $plano->custo_creditos }} creditos)
+                                {{ $plano->nome }} ({{ \App\Support\Dinheiro::brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) $plano->custo_creditos)) }}/consulta)
                             </option>
                         @endforeach
                     </select>

@@ -24,13 +24,13 @@
                 <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Freio de consumo do auto-monitor</span>
             </div>
             <div class="p-4">
-                <p class="text-xs text-gray-500 mb-4 max-w-2xl">Defina o teto de créditos que o monitoramento automático pode gastar por ciclo. Ao atingir o teto, as assinaturas de monitoramento são pausadas automaticamente até o próximo ciclo — protegendo seu saldo de consumo inesperado.</p>
+                <p class="text-xs text-gray-500 mb-4 max-w-2xl">Defina o limite de gasto em R$ que o monitoramento automático pode consumir por ciclo. Ao atingir o limite, as assinaturas de monitoramento são pausadas automaticamente até o próximo ciclo — protegendo seu saldo de consumo inesperado.</p>
                 @if(! $assinaturaConta)
                 <div class="bg-blue-50 border border-blue-200 rounded p-3 text-xs text-gray-700 flex items-start gap-2">
                     <svg class="w-4 h-4 text-blue-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                     <div>
                         <p class="font-semibold text-gray-800 mb-0.5">O freio se ativa com uma assinatura de monitoramento</p>
-                        <p>Planos pagos de monitoramento incluem uma cota mensal de créditos, e é sobre ela que o freio atua. No seu plano atual, o monitoramento automático básico (cadastral) não consome créditos — então não há teto a definir.</p>
+                        <p>Planos pagos de monitoramento incluem uma cota mensal em R$, e é sobre ela que o freio atua. No seu plano atual, o monitoramento automático básico (cadastral) não tem custo adicional — então não há limite a definir.</p>
                         <a href="/app/planos" data-link class="inline-block mt-1 text-blue-600 hover:underline font-semibold">Ver planos de monitoramento →</a>
                     </div>
                 </div>
@@ -38,15 +38,15 @@
                 <div class="grid grid-cols-3 gap-3 mb-4">
                     <div class="bg-gray-50 border border-gray-200 rounded p-3">
                         <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Teto efetivo</p>
-                        <p class="text-base font-bold text-gray-900">{{ number_format($capEfetivo, 0, ',', '.') }} <span class="text-[11px] font-normal text-gray-400">cr/ciclo</span></p>
+                        <p class="text-base font-bold text-gray-900">@brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) $capEfetivo)) <span class="text-[11px] font-normal text-gray-400">/ciclo</span></p>
                     </div>
                     <div class="bg-gray-50 border border-gray-200 rounded p-3">
                         <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Consumido no ciclo</p>
-                        <p class="text-base font-bold text-gray-900">{{ number_format($consumoCiclo, 0, ',', '.') }}</p>
+                        <p class="text-base font-bold text-gray-900">@brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) $consumoCiclo))</p>
                     </div>
                     <div class="bg-gray-50 border border-gray-200 rounded p-3">
                         <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Padrão do plano</p>
-                        <p class="text-base font-bold text-gray-900">{{ number_format($capPadrao, 0, ',', '.') }}</p>
+                        <p class="text-base font-bold text-gray-900">@brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) $capPadrao))</p>
                     </div>
                 </div>
                 <div class="flex flex-wrap items-end gap-3">
@@ -57,7 +57,7 @@
                     <button id="btn-salvar-limite" type="button" class="px-3 py-2.5 rounded bg-gray-800 hover:bg-gray-700 text-white text-[13px] font-semibold transition">Salvar</button>
                     <span id="limite-feedback" class="text-[12px]"></span>
                 </div>
-                <p class="text-[11px] text-gray-400 mt-2">Deixe em branco para usar o padrão do plano ({{ number_format($capPadrao, 0, ',', '.') }} créditos inclusos). Use <span class="font-semibold">0</span> para não impor freio (o saldo passa a ser o único limite).</p>
+                <p class="text-[11px] text-gray-400 mt-2">Deixe em branco para usar o padrão do plano (@brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) $capPadrao)) em saldo incluso). Use <span class="font-semibold">0</span> para não impor limite (o saldo passa a ser o único controle).</p>
                 @endif
             </div>
         </div>

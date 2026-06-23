@@ -39,7 +39,7 @@
     // (pool único de consultas antes da 1ª compra) — não há bloqueio/"em breve" por plano aqui.
     $firstPurchaseLockedProducts = [];
     $planosEmBreve = [];
-    $tetoTeste = (int) config('trial.limite_consultas_sem_compra', 5);
+    $tetoTeste = (int) config('trial.limite_consultas_gratuito', 3);
     $planosDetalhados = [];
     foreach ($planos->where('is_active', true) as $p) {
         $meta = $planoMeta[$p->codigo] ?? ['cor' => 'gray', 'icone' => 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z', 'casos_uso' => []];
@@ -107,8 +107,7 @@
                 @if(! $hasMadeFirstPurchase)
                     <p class="text-xs text-gray-600 mt-2">
                         <span class="font-semibold text-gray-800">Período de teste:</span>
-                        antes da primeira compra de créditos você tem até <strong>{{ $tetoTeste }} consultas</strong> no total
-                        (somando Validação, Licitação, Compliance e Due Diligence). Esgotado o teto, é só recarregar créditos para liberar consultas ilimitadas.
+                        você tem até <strong>{{ $tetoTeste }} consultas gratuitas</strong> no plano Gratuito; depois, é só adicionar saldo para continuar consultando.
                     </p>
                 @endif
             </div>
@@ -127,7 +126,7 @@
                     <thead>
                         <tr class="border-b border-gray-300">
                             <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50 whitespace-nowrap">Plano</th>
-                            <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50 whitespace-nowrap">Créditos / CNPJ</th>
+                            <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50 whitespace-nowrap">Custo / CNPJ</th>
                             <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Cobertura</th>
                             <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Quando usar</th>
                             <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50 whitespace-nowrap">Status</th>
@@ -148,7 +147,7 @@
                                 $statusLabel = $isEmBreve
                                     ? 'Em breve'
                                     : (($plano['locked'] ?? false)
-                                    ? 'Após recarga'
+                                    ? 'Após saldo'
                                     : ($plano['coming_soon']
                                     ? 'Em breve'
                                     : ($plano['promo'] ? 'Promoção' : ($plano['gratuito'] ? 'Grátis' : 'Ativo'))));
@@ -165,19 +164,19 @@
                                         <p class="text-[11px] text-gray-500 mt-1">{{ $plano['descricao'] }}</p>
                                     @endif
                                     @if(($plano['locked'] ?? false) && ! $isEmBreve)
-                                        <p class="text-[11px] text-gray-500 mt-1">Disponível após a primeira recarga de créditos.</p>
+                                        <p class="text-[11px] text-gray-500 mt-1">Disponível após adicionar saldo.</p>
                                     @endif
                                 </td>
                                 <td class="px-3 py-3 text-sm text-gray-700">
                                     @if($plano['coming_soon'])
                                         <span class="text-gray-400 whitespace-nowrap">—</span>
                                     @elseif($plano['gratuito'])
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: #047857">0 créditos</span>
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: #047857">R$ 0,00</span>
                                     @elseif($plano['promo'])
-                                        <div class="text-gray-400 line-through text-[11px] whitespace-nowrap">{{ $plano['preco_original'] }} créditos</div>
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap mt-1" style="background-color: #d97706">{{ $plano['creditos'] }} créditos</span>
+                                        <div class="text-gray-400 line-through text-[11px] whitespace-nowrap">@brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) ($plano['preco_original'] ?? 0)))</div>
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap mt-1" style="background-color: #d97706">@brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) $plano['creditos']))</span>
                                     @else
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: #374151">{{ $plano['creditos'] }} créditos</span>
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: #374151">@brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) $plano['creditos']))</span>
                                     @endif
                                 </td>
                                 <td class="px-3 py-3 align-top">
@@ -221,7 +220,7 @@
                                     @if($isEmBreve)
                                         <span class="text-xs text-gray-400 whitespace-nowrap">Em breve</span>
                                     @elseif($plano['locked'] ?? false)
-                                        <a href="/app/creditos" data-link class="text-xs text-gray-900 hover:text-gray-600 hover:underline">Comprar créditos</a>
+                                        <a href="/app/creditos" data-link class="text-xs text-gray-900 hover:text-gray-600 hover:underline">Adicionar saldo</a>
                                     @elseif($plano['coming_soon'])
                                         <span class="text-xs text-gray-400">Indisponível</span>
                                     @else
@@ -261,24 +260,24 @@
                                     <p class="text-xs text-gray-500 mt-1">{{ $plano['descricao'] }}</p>
                                 @endif
                                 @if(($plano['locked'] ?? false) && ! $isEmBreve)
-                                    <p class="text-[11px] text-gray-500 mt-1">Disponível após a primeira recarga de créditos.</p>
+                                    <p class="text-[11px] text-gray-500 mt-1">Disponível após adicionar saldo.</p>
                                 @endif
                             </div>
                             <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: {{ $statusHex }}">{{ $statusLabel }}</span>
                         </div>
                         <div class="grid grid-cols-1 gap-2 mt-3 text-sm text-gray-700">
                             <div>
-                                <p class="text-[10px] text-gray-400 uppercase">Créditos / CNPJ</p>
+                                <p class="text-[10px] text-gray-400 uppercase">Custo / CNPJ</p>
                                 <p>
                                     @if($plano['coming_soon'])
                                         —
                                     @elseif($plano['gratuito'])
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: #047857">0 créditos</span>
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: #047857">R$ 0,00</span>
                                     @elseif($plano['promo'])
-                                        <span class="text-gray-400 line-through text-[11px] whitespace-nowrap">{{ $plano['preco_original'] }} créditos</span>
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap mt-1" style="background-color: #d97706">{{ $plano['creditos'] }} créditos</span>
+                                        <span class="text-gray-400 line-through text-[11px] whitespace-nowrap">@brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) ($plano['preco_original'] ?? 0)))</span>
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap mt-1" style="background-color: #d97706">@brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) $plano['creditos']))</span>
                                     @else
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: #374151">{{ $plano['creditos'] }} créditos</span>
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: #374151">@brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) $plano['creditos']))</span>
                                     @endif
                                 </p>
                             </div>
@@ -322,7 +321,7 @@
                                 @if($isEmBreve)
                                     <span class="text-xs text-gray-400 whitespace-nowrap">Em breve</span>
                                 @elseif($plano['locked'] ?? false)
-                                    <a href="/app/creditos" data-link class="text-xs text-gray-600 hover:text-gray-900 hover:underline">Comprar créditos</a>
+                                    <a href="/app/creditos" data-link class="text-xs text-gray-600 hover:text-gray-900 hover:underline">Adicionar saldo</a>
                                 @elseif($plano['coming_soon'])
                                     <span class="text-xs text-gray-400">Indisponível</span>
                                 @else
@@ -375,7 +374,7 @@
                         >
                             @foreach($planosAtivos as $plano)
                                 <option value="{{ $plano['creditos'] }}" {{ $plano['codigo'] === 'licitacao' ? 'selected' : '' }}>
-                                    {{ $plano['nome'] }} ({{ $plano['creditos'] }} cred.)
+                                    {{ $plano['nome'] }} ({{ \App\Support\Dinheiro::brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) $plano['creditos'])) }}/CNPJ)
                                 </option>
                             @endforeach
                         </select>
@@ -392,7 +391,7 @@
 
                 <div class="mt-4 pt-3 border-t border-gray-200 text-sm text-gray-600">
                     O custo depende do plano selecionado, da quantidade de CNPJs e da frequência de consulta.
-                    <a href="/app/creditos" data-link class="text-gray-900 hover:text-gray-600 hover:underline">Adquirir créditos</a>
+                    <a href="/app/creditos" data-link class="text-gray-900 hover:text-gray-600 hover:underline">Adicionar saldo</a>
                 </div>
             </div>
         </div>
