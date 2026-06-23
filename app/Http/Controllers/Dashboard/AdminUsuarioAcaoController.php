@@ -77,6 +77,21 @@ class AdminUsuarioAcaoController extends Controller
         return redirect('/app');
     }
 
+    public function auditoria(Request $request)
+    {
+        $logs = \App\Models\AdminActionLog::with(['admin', 'alvo'])
+            ->orderByDesc('created_at')->paginate(30);
+
+        $view = 'autenticado.admin.auditoria';
+        $data = ['logs' => $logs, 'tab' => 'auditoria'];
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response(view($view, $data)->render())->header('Content-Type', 'text/html');
+        }
+
+        return view('autenticado.layouts.app', array_merge(['initialView' => $view], $data));
+    }
+
     public function impersonarSair(Request $request)
     {
         $adminId = $request->session()->pull('impersonator_id');
