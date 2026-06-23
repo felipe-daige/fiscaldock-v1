@@ -11,7 +11,7 @@ use App\Services\Catalogo\NotaItemUnificadoService;
 use App\Services\Catalogo\ReconciliacaoXmlEfdService;
 use App\Support\Cfop;
 use App\Support\CsvExport;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Support\PdfReport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -136,7 +136,7 @@ class BiCatalogoItensController extends Controller
             'geradoEm' => now(),
         ];
 
-        $pdf = Pdf::loadView('autenticado.bi.catalogo-itens-pdf', $dados)->setPaper('a4', 'landscape');
+        $pdf = PdfReport::render('autenticado.bi.catalogo-itens-pdf', $dados, 'landscape');
 
         return $pdf->download('catalogo-itens-'.now()->format('Ymd-His').'.pdf');
     }
