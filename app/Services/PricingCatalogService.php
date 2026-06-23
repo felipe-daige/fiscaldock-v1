@@ -331,6 +331,10 @@ class PricingCatalogService
     /**
      * Retorna os dados de pricing para a landing page.
      * Cada produto tem {slug, nome, descricao, credits, price} — sem matriz de faixas.
+     *
+     * Shim backward-compat: 'tiers' e 'rows' por produto retornam [] para que
+     * views que ainda iterem essas chaves (precos.blade, plano/index) não fatalizem.
+     * Relabel das views é task posterior — aqui só paramos o 500.
      */
     public function getLandingPricingData(): array
     {
@@ -346,6 +350,11 @@ class PricingCatalogService
                 'descricao' => $product['descricao'],
                 'credits' => $credits,
                 'price' => $this->creditsToCurrency($credits),
+                // shim: views legadas iteram $product['rows'] — empty loop é safe
+                'rows' => [],
+                'by_tier' => [],
+                'entry_price_label' => 'A partir de R$ '.number_format($this->creditsToCurrency($credits), 2, ',', '.').'/consulta',
+                'best_price_label' => 'A partir de R$ '.number_format($this->creditsToCurrency($credits), 2, ',', '.').'/consulta',
             ];
         }, $this->getProductCatalog());
 
@@ -356,12 +365,18 @@ class PricingCatalogService
             'packages' => $featuredOffers,
             'products' => $products,
             'compliance_sources' => $this->getComplianceSources(),
+            // shim: views legadas iteram $tiers — empty loop é safe
+            'tiers' => [],
         ];
     }
 
     /**
      * Retorna o resumo comercial do usuário para as views autenticadas.
      * Cada produto tem {slug, nome, descricao, credits, price} — sem matriz de faixas.
+     *
+     * Shim backward-compat: chaves de faixa retornam valores seguros para que
+     * views que ainda as referenciem (plano/index, creditos/index) não fatalizem.
+     * Relabel das views é task posterior — aqui só paramos o 500.
      */
     public function getCommercialSummaryForUser(User $user): array
     {
@@ -377,6 +392,9 @@ class PricingCatalogService
                 'descricao' => $product['descricao'],
                 'credits' => $credits,
                 'price' => $this->creditsToCurrency($credits),
+                // shim: views legadas iteram $product['by_tier'] dentro do loop $tiers
+                // como $tiers=[] o loop externo nunca executa, mas por segurança:
+                'by_tier' => [],
             ];
         }, $this->getProductCatalog());
 
@@ -386,6 +404,13 @@ class PricingCatalogService
             'featured_offers' => $featuredOffers,
             'packages' => $featuredOffers,
             'products' => $products,
+            // shim backward-compat: chaves de faixa que views autenticadas ainda lêem
+            'tiers' => [],
+            'current_tier' => null,
+            'next_tier' => null,
+            'paid_credits' => 0,
+            'credits_remaining' => 0,
+            'progress_percent' => 100,
         ];
     }
 
