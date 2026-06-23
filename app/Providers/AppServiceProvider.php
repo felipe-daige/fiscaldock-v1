@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\View\Composers\SidebarComposer;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -45,5 +46,7 @@ class AppServiceProvider extends ServiceProvider
         }
 
         View::composer('autenticado.partials.sidebar', SidebarComposer::class);
+
+        Blade::directive('brl', fn ($e) => "<?php echo \App\Support\Dinheiro::brl($e); ?>");
     }
 }
