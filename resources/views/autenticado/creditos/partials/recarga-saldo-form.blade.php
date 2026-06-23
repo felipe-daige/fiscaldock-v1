@@ -7,7 +7,7 @@
     <div class="flex flex-wrap items-end gap-3">
         <div>
             <label for="recarga-saldo-limite" class="block text-[11px] text-gray-500 mb-1">Recarregar quando o saldo (em R$) for menor que</label>
-            <input id="recarga-saldo-limite" type="number" min="1" value="50" class="text-[13px] py-2.5 px-3 border border-gray-300 rounded bg-white w-44" />
+            <input id="recarga-saldo-limite" type="number" min="1" value="10" class="text-[13px] py-2.5 px-3 border border-gray-300 rounded bg-white w-44" />
         </div>
         <div>
             <label for="recarga-saldo-pacote" class="block text-[11px] text-gray-500 mb-1">Pacote a recomprar</label>

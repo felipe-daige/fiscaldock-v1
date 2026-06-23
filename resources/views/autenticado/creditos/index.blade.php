@@ -234,7 +234,7 @@
                                     </td>
                                     <td class="px-3 py-2.5 text-sm text-gray-600">{{ $tx->description ?? '-' }}</td>
                                     <td class="px-3 py-2.5 text-sm text-right font-semibold {{ $amountClass }}">{{ $amountPrefix }}@brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) abs($tx->amount)))</td>
-                                    <td class="px-3 py-2.5 text-sm text-right text-gray-500">{{ $tx->balance_after !== null ? 'R$ '.number_format(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) $tx->balance_after), 2, ',', '.') : '-' }}</td>
+                                    <td class="px-3 py-2.5 text-sm text-right text-gray-500">{{ $tx->balance_after !== null ? \App\Support\Dinheiro::brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) $tx->balance_after)) : '-' }}</td>
                                 </tr>
                             @endforeach
                         </tbody>

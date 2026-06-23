@@ -220,7 +220,7 @@
                     <div class="p-6 space-y-4 text-sm text-gray-700">
                         <div class="flex items-start gap-3">
                             <span class="text-[10px] font-bold uppercase tracking-wide text-white rounded px-2 py-0.5" style="background-color: #374151">1</span>
-                            <p>A faixa é um <span class="font-semibold">desconto comercial</span> (Base → X → Y → Z). Quanto mais alta, <span class="font-semibold">menor o custo por consulta</span> — o preço unitário (R$ {{ number_format($pricing['credit_unit_price'] ?? 0.20, 2, ',', '.') }}/cr) nunca muda.</p>
+                            <p>A faixa é um <span class="font-semibold">desconto comercial</span> (Base → X → Y → Z). Quanto mais alta, <span class="font-semibold">menor o custo por consulta</span> — o preço unitário (R$ {{ number_format($pricing['credit_unit_price'] ?? 0.20, 2, ',', '.') }}) nunca muda.</p>
                         </div>
                         <div class="flex items-start gap-3">
                             <span class="text-[10px] font-bold uppercase tracking-wide text-white rounded px-2 py-0.5" style="background-color: #374151">2</span>
