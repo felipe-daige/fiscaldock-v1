@@ -267,6 +267,49 @@ it('após reclassificar, participante_ids da importação contém só a contrapa
     expect($imp->participante_ids)->not->toContain($emitProvisorio);
 });
 
+// === Cap de clientes (Free = empresa própria + 1) nos fluxos XML que nascem cliente ===
+
+it('execute(emit) NÃO cria cliente quando o cap do Free está cheio', function () {
+    $user = User::factory()->create();
+    Cliente::create(['user_id' => $user->id, 'documento' => '10000000000191', 'tipo_pessoa' => 'PJ', 'razao_social' => 'Propria', 'ativo' => true, 'is_empresa_propria' => true]);
+    Cliente::create(['user_id' => $user->id, 'documento' => '22222222000191', 'tipo_pessoa' => 'PJ', 'razao_social' => 'Outro', 'ativo' => true, 'is_empresa_propria' => false]);
+
+    $imp = seedDecidirDepois($user->id);
+    app(DefinirClienteXmlService::class)->execute($imp, 'emit');
+
+    expect(Cliente::where('user_id', $user->id)->where('documento', '97551165000193')->exists())->toBeFalse();
+    $nota = XmlNota::where('importacao_xml_id', $imp->id)->first();
+    expect($nota->emit_cliente_id)->toBeNull();
+    expect($nota->cliente_id)->toBeNull();
+});
+
+it('execute(emit) cria normalmente sob trial mesmo com clientes além do cap Free', function () {
+    $user = User::factory()->trialAtivo()->create();
+    Cliente::create(['user_id' => $user->id, 'documento' => '10000000000191', 'tipo_pessoa' => 'PJ', 'razao_social' => 'Propria', 'ativo' => true, 'is_empresa_propria' => true]);
+    Cliente::create(['user_id' => $user->id, 'documento' => '22222222000191', 'tipo_pessoa' => 'PJ', 'razao_social' => 'Outro', 'ativo' => true, 'is_empresa_propria' => false]);
+
+    $imp = seedDecidirDepois($user->id);
+    app(DefinirClienteXmlService::class)->execute($imp, 'emit');
+
+    expect(Cliente::where('user_id', $user->id)->where('documento', '97551165000193')->exists())->toBeTrue();
+});
+
+it('import criar_cliente_lado=emit NÃO cria cliente quando o cap do Free está cheio', function () {
+    $user = User::factory()->create();
+    Cliente::create(['user_id' => $user->id, 'documento' => '10000000000191', 'tipo_pessoa' => 'PJ', 'razao_social' => 'Propria', 'ativo' => true, 'is_empresa_propria' => true]);
+    Cliente::create(['user_id' => $user->id, 'documento' => '22222222000191', 'tipo_pessoa' => 'PJ', 'razao_social' => 'Outro', 'ativo' => true, 'is_empresa_propria' => false]);
+
+    $imp = XmlImportacao::create(['user_id' => $user->id, 'tipo_documento' => 'NFE', 'modo_envio' => 'xml', 'status' => 'concluido', 'iniciado_em' => now()]);
+    $xml = file_get_contents(base_path('tests/Fixtures/nfe/50240197551165000193550010000248021000214750-nfe.xml'));
+    // 4º arg = ownerLado ('emit' = criar cliente pelo lado emitente)
+    app(XmlNotaImporter::class)->importar(app(NfeXmlParser::class)->parse($xml), '', $imp, 'emit');
+
+    expect(Cliente::where('user_id', $user->id)->where('documento', '97551165000193')->exists())->toBeFalse();
+    $nota = XmlNota::where('importacao_xml_id', $imp->id)->first();
+    expect($nota)->not->toBeNull();
+    expect($nota->emit_cliente_id)->toBeNull();
+});
+
 it('clientesResolvidos conta donos distintos das notas do lote', function () {
     $user = User::factory()->create();
     // 2 clientes cadastrados (cada um emitente de 1 nota → 2 donos) + 1 nota sem dono.
@@ -373,7 +416,8 @@ it('executePorDocumento classifica só as notas do documento naquele lado', func
 });
 
 it('executePorDocumento deixa o header como Vários enquanto resta mais de um dono', function () {
-    $user = User::factory()->create();
+    // lote multi-cliente exige conta sem cap (Free = própria + 1); trial libera.
+    $user = User::factory()->trialAtivo()->create();
     $imp = seedLoteMisto($user->id, [
         ['emit' => '11111111000191', 'dest' => '22222222000191', 'chave' => str_pad('1', 44, '0')],
         ['emit' => '33333333000191', 'dest' => '44444444000191', 'chave' => str_pad('2', 44, '0')],

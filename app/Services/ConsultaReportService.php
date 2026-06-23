@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\ConsultaLote;
 use App\Models\ConsultaResultado;
+use App\Support\CsvExport;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Collection;
 
@@ -27,25 +28,9 @@ class ConsultaReportService
         // Determinar colunas baseado nos dados disponíveis
         $colunas = $this->getColunasCsv($lote, $resultados);
 
-        $output = fopen('php://temp', 'r+');
+        $linhas = $resultados->map(fn ($r) => $this->formatarLinhaCsv($r, $colunas));
 
-        // BOM para UTF-8
-        fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
-
-        // Header
-        fputcsv($output, $colunas, ';');
-
-        // Dados
-        foreach ($resultados as $resultado) {
-            $linha = $this->formatarLinhaCsv($resultado, $colunas);
-            fputcsv($output, $linha, ';');
-        }
-
-        rewind($output);
-        $csv = stream_get_contents($output);
-        fclose($output);
-
-        return $csv;
+        return CsvExport::build($colunas, $linhas);
     }
 
     /**
@@ -87,16 +72,19 @@ class ConsultaReportService
             ->get();
 
         return $resultados->map(function (ConsultaResultado $resultado) {
-            $participante = $resultado->participante;
+            // Resultado pode ser de escopo participante OU cliente (participante nulo).
+            // Sem este fallback, o acesso a ->documento/->uf de um participante nulo
+            // emitia warnings que vazavam pro stream e corrompiam o CSV/PDF baixado.
+            $alvo = $resultado->participante ?? $resultado->cliente;
             $dados = $resultado->resultado_dados ?? [];
             $scoreData = $resultado->calcularScore();
 
             return [
-                'participante_id' => $participante->id,
-                'documento' => $this->formatarCnpj($participante->documento),
-                'razao_social' => $dados['razao_social'] ?? $participante->razao_social,
-                'nome_fantasia' => $dados['nome_fantasia'] ?? $participante->nome_fantasia,
-                'uf' => $dados['uf'] ?? $participante->uf,
+                'participante_id' => $alvo?->id,
+                'documento' => $this->formatarCnpj($alvo?->documento),
+                'razao_social' => $dados['razao_social'] ?? $alvo?->razao_social,
+                'nome_fantasia' => $dados['nome_fantasia'] ?? $alvo?->nome_fantasia,
+                'uf' => $dados['uf'] ?? $alvo?->uf,
                 'status_consulta' => $resultado->status,
                 'error_message' => $resultado->publicErrorMessage(),
                 'consultado_em' => $resultado->consultado_em?->format('d/m/Y H:i'),

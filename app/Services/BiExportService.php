@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Support\CsvExport;
+
 class BiExportService
 {
     public function __construct(protected BiService $bi) {}
@@ -13,17 +15,7 @@ class BiExportService
 
     public function toCsv(array $colunas, array $linhas): string
     {
-        $out = fopen('php://temp', 'r+');
-        fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF)); // BOM UTF-8
-        fputcsv($out, $colunas, ';');
-        foreach ($linhas as $linha) {
-            fputcsv($out, $linha, ';');
-        }
-        rewind($out);
-        $csv = stream_get_contents($out);
-        fclose($out);
-
-        return $csv;
+        return CsvExport::build($colunas, $linhas);
     }
 
     /**

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Dashboard;
 use App\Http\Controllers\Concerns\RespondeAjax;
 use App\Http\Controllers\Controller;
 use App\Models\Cliente;
+use App\Services\Entitlements\EntitlementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -14,6 +15,8 @@ use Illuminate\Validation\ValidationException;
 class ClienteController extends Controller
 {
     use RespondeAjax;
+
+    public function __construct(private EntitlementService $entitlements = new EntitlementService) {}
 
     public function todosIds(Request $request): JsonResponse
     {
@@ -128,6 +131,24 @@ class ClienteController extends Controller
                 ], 401);
             }
 
+            // Cap de clientes do tier (empresa própria não conta). is_empresa_propria vem do
+            // usuário — só vale como própria se ainda NÃO houver uma; senão é cliente normal
+            // (impede burlar o cap forjando "próprias" extras). Backend nunca confia no front.
+            $querPropria = (bool) ($validated['is_empresa_propria'] ?? false);
+            $jaTemPropria = Cliente::where('user_id', $user->id)->where('is_empresa_propria', true)->exists();
+            $isPropria = $querPropria && ! $jaTemPropria;
+
+            if (! $isPropria && ! $this->entitlements->podeAdicionarCliente($user)) {
+                $limite = $this->entitlements->limiteClientes($user);
+                $msg = "Seu plano permite cadastrar até {$limite} cliente(s) além da sua empresa. Faça upgrade para adicionar mais.";
+
+                if ($this->isAjaxRequest($request)) {
+                    return response()->json(['success' => false, 'message' => $msg], 403);
+                }
+
+                return redirect()->route('app.clientes')->with('error', $msg);
+            }
+
             $documentoLimpo = preg_replace('/\D/', '', $validated['documento']);
 
             if ($isPJ) {
@@ -175,7 +196,7 @@ class ClienteController extends Controller
                 'cnae_principal_descricao' => $isPJ ? ($validated['cnae_principal_descricao'] ?? null) : null,
                 'cnaes_secundarios' => $isPJ ? ($validated['cnaes_secundarios'] ?? null) : null,
                 'qsa' => $isPJ ? ($validated['qsa'] ?? null) : null,
-                'is_empresa_propria' => $validated['is_empresa_propria'] ?? false,
+                'is_empresa_propria' => $isPropria,
                 'ativo' => true,
             ]);
 

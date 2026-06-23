@@ -142,6 +142,48 @@ class ParticipanteFiscalResumoService
     }
 
     /**
+     * Valor total movimentado (compras + vendas) por participante, 1 query,
+     * para filtrar a lista por faixa de valor. Participantes sem nota ficam
+     * ausentes do retorno (tratados como "sem movimentação", fora do filtro).
+     *
+     * @return array<int, float> [participante_id => valor_total]
+     */
+    public function valorMovimentadoPorParticipante(int $userId): array
+    {
+        return DB::table('efd_notas')
+            ->where('user_id', $userId)
+            ->where('origem_arquivo', 'fiscal')
+            ->where('cancelada', false)
+            ->whereNotNull('participante_id')
+            ->groupBy('participante_id')
+            ->selectRaw('participante_id, COALESCE(SUM(valor_total), 0) as valor')
+            ->get()
+            ->mapWithKeys(fn ($r) => [(int) $r->participante_id => (float) $r->valor])
+            ->all();
+    }
+
+    /**
+     * Quantidade de notas (entradas + saídas) por participante, 1 query, para
+     * filtrar a lista por volume. Participantes sem nota ficam ausentes do
+     * retorno (tratados como "sem movimentação", fora do filtro).
+     *
+     * @return array<int, int> [participante_id => qtd_notas]
+     */
+    public function qtdNotasPorParticipante(int $userId): array
+    {
+        return DB::table('efd_notas')
+            ->where('user_id', $userId)
+            ->where('origem_arquivo', 'fiscal')
+            ->where('cancelada', false)
+            ->whereNotNull('participante_id')
+            ->groupBy('participante_id')
+            ->selectRaw('participante_id, COUNT(*) as qtd')
+            ->get()
+            ->mapWithKeys(fn ($r) => [(int) $r->participante_id => (int) $r->qtd])
+            ->all();
+    }
+
+    /**
      * Top 3 CFOPs por participante a partir do C190 consolidado (mais leve que itens).
      *
      * @param  array<int, int>  $ids

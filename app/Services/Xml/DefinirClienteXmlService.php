@@ -7,6 +7,7 @@ use App\Models\EfdNota;
 use App\Models\Participante;
 use App\Models\XmlImportacao;
 use App\Models\XmlNota;
+use App\Services\Entitlements\EntitlementService;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -17,6 +18,8 @@ use Illuminate\Support\Facades\DB;
  */
 class DefinirClienteXmlService
 {
+    public function __construct(private EntitlementService $entitlements = new EntitlementService) {}
+
     /**
      * Candidatos por lado (parte dominante + nº de distintos), para a tela escolher.
      *
@@ -61,18 +64,17 @@ class DefinirClienteXmlService
                     continue;
                 }
 
-                $cliente = Cliente::firstOrCreate(
-                    ['user_id' => $userId, 'documento' => $doc],
-                    [
-                        'tipo_pessoa' => strlen($doc) === 11 ? 'PF' : 'PJ',
-                        'razao_social' => $nota->{$razaoCol},
-                        'nome' => $nota->{$razaoCol},
-                        'uf' => $nota->{$ufCol},
-                        'inscricao_estadual' => $nota->{$ieCol},
-                        'ativo' => true,
-                        'is_empresa_propria' => false,
-                    ]
-                );
+                $cliente = $this->entitlements->firstOrCreateClienteComCap($userId, $doc, [
+                    'tipo_pessoa' => strlen($doc) === 11 ? 'PF' : 'PJ',
+                    'razao_social' => $nota->{$razaoCol},
+                    'nome' => $nota->{$razaoCol},
+                    'uf' => $nota->{$ufCol},
+                    'inscricao_estadual' => $nota->{$ieCol},
+                    'ativo' => true,
+                ]);
+                if ($cliente === null) {
+                    continue; // cap do tier atingido — nota fica sem dono ("decidir depois")
+                }
                 $clienteIds[] = $cliente->id;
                 if ($nota->{$partCol}) {
                     $donoPartIds[] = (int) $nota->{$partCol};
@@ -171,18 +173,17 @@ class DefinirClienteXmlService
 
             $cliente = null;
             foreach ($notas as $nota) {
-                $cliente ??= Cliente::firstOrCreate(
-                    ['user_id' => $userId, 'documento' => $documento],
-                    [
-                        'tipo_pessoa' => strlen($documento) === 11 ? 'PF' : 'PJ',
-                        'razao_social' => $nota->{$razaoCol},
-                        'nome' => $nota->{$razaoCol},
-                        'uf' => $nota->{$ufCol},
-                        'inscricao_estadual' => $nota->{$ieCol},
-                        'ativo' => true,
-                        'is_empresa_propria' => false,
-                    ]
-                );
+                $cliente ??= $this->entitlements->firstOrCreateClienteComCap($userId, $documento, [
+                    'tipo_pessoa' => strlen($documento) === 11 ? 'PF' : 'PJ',
+                    'razao_social' => $nota->{$razaoCol},
+                    'nome' => $nota->{$razaoCol},
+                    'uf' => $nota->{$ufCol},
+                    'inscricao_estadual' => $nota->{$ieCol},
+                    'ativo' => true,
+                ]);
+                if ($cliente === null) {
+                    break; // cap do tier atingido — notas deste doc ficam sem dono
+                }
 
                 if ($nota->{$partCol}) {
                     $donoPartIds[] = (int) $nota->{$partCol};

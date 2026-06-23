@@ -17,6 +17,7 @@ use App\Services\ParecerFiscalService;
 use App\Services\PricingCatalogService;
 use App\Support\CertidaoBadge;
 use App\Support\CndFederal;
+use App\Support\CsvExport;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -161,6 +162,10 @@ class ConsultaController extends Controller
             'uf' => 'nullable|string|size:2',
             'busca' => 'nullable|string|max:100',
             'relacao' => 'nullable|string|in:fornecedor,cliente,ambos,sem_movimentacao',
+            'valor_op' => 'nullable|string|in:min,max',
+            'valor' => 'nullable|numeric|min:0',
+            'qtd_op' => 'nullable|string|in:min,max',
+            'qtd' => 'nullable|integer|min:0',
             'page' => 'nullable|integer|min:1',
             'per_page' => 'nullable|integer|min:10|max:100',
         ]);
@@ -245,6 +250,32 @@ class ConsultaController extends Controller
                     fn (string $papel) => in_array($papel, $alvo, true)
                 )));
             }
+        }
+
+        // Filtro por valor movimentado (R$) — soma de compras + vendas das notas
+        // fiscais. Só considera participantes COM movimentação; quem não tem nota
+        // fica fora do filtro (sem valor a comparar). whereIn [] vira "0=1" (nenhum).
+        if (! empty($validated['valor_op']) && ($validated['valor'] ?? null) !== null) {
+            $valor = (float) $validated['valor'];
+            $op = $validated['valor_op'];
+            $totais = app(\App\Services\Consultas\ParticipanteFiscalResumoService::class)
+                ->valorMovimentadoPorParticipante($user->id);
+            $query->whereIn('id', array_keys(array_filter(
+                $totais,
+                fn (float $v) => $op === 'min' ? $v >= $valor : $v <= $valor
+            )));
+        }
+
+        // Filtro por quantidade de notas — mesma semântica do valor.
+        if (! empty($validated['qtd_op']) && ($validated['qtd'] ?? null) !== null) {
+            $qtd = (int) $validated['qtd'];
+            $op = $validated['qtd_op'];
+            $contagens = app(\App\Services\Consultas\ParticipanteFiscalResumoService::class)
+                ->qtdNotasPorParticipante($user->id);
+            $query->whereIn('id', array_keys(array_filter(
+                $contagens,
+                fn (int $c) => $op === 'min' ? $c >= $qtd : $c <= $qtd
+            )));
         }
 
         $participantes = $query->orderBy('razao_social')
@@ -1073,25 +1104,26 @@ class ConsultaController extends Controller
 
         $formato = strtolower($request->query('formato', 'csv'));
 
-        // Se tem resultados na nova tabela, gerar on-demand
-        if ($lote->hasResultados()) {
-            if ($formato === 'pdf') {
-                $pdf = $this->reportService->gerarPdf($lote);
-                $filename = "consulta_lote_{$lote->id}.pdf";
-
-                return $pdf->download($filename);
-            }
-
-            // CSV
-            $csvContent = $this->reportService->gerarCsv($lote);
-            $filename = "consulta_lote_{$lote->id}.csv";
-
-            return response($csvContent)
-                ->header('Content-Type', 'text/csv; charset=utf-8')
-                ->header('Content-Disposition', 'attachment; filename="'.$filename.'"');
+        // Lote sem nenhum resultado não tem o que exportar. Em vez de uma página de
+        // erro crua (abort 404), volta para o histórico — defesa caso o link seja
+        // acionado direto, já que a view só mostra exportação quando há resultado.
+        if (! $lote->resultados()->exists()) {
+            return redirect()
+                ->route('app.consulta.historico')
+                ->with('export_erro', 'Este lote não possui resultados para exportar.');
         }
 
-        abort(404, 'Relatório não disponível.');
+        if ($formato === 'pdf') {
+            $pdf = $this->reportService->gerarPdf($lote);
+            $filename = "consulta_lote_{$lote->id}.pdf";
+
+            return $pdf->download($filename);
+        }
+
+        // CSV (compatível com Excel: separador ";" + BOM UTF-8)
+        $csvContent = $this->reportService->gerarCsv($lote);
+
+        return CsvExport::stream("consulta_lote_{$lote->id}.csv", $csvContent);
     }
 
     /**

@@ -10,6 +10,7 @@ use App\Models\Participante;
 use App\Models\XmlImportacao;
 use App\Models\XmlNota;
 use App\Services\CreditService;
+use App\Services\Entitlements\EntitlementService;
 use App\Services\Xml\NfeXmlParser;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -34,6 +35,7 @@ class XmlImportacaoController extends Controller
         protected CreditService $creditService,
         protected \App\Services\Xml\ExcluirImportacaoXmlService $excluir,
         protected \App\Services\Xml\DefinirClienteXmlService $definirClienteService,
+        protected EntitlementService $entitlements = new EntitlementService,
     ) {}
 
     /**
@@ -1441,21 +1443,19 @@ class XmlImportacaoController extends Controller
                 try {
                     $clienteId = null;
 
-                    // Se salvar como cliente, criar o registro em clientes primeiro
+                    // Se salvar como cliente, criar o registro em clientes primeiro (cap-checked)
                     if ($cnpjData['salvar_como'] === 'cliente') {
-                        $cliente = Cliente::firstOrCreate(
-                            [
-                                'user_id' => $userId,
-                                'documento' => $cnpj,
-                            ],
-                            [
-                                'tipo_pessoa' => 'PJ',
-                                'razao_social' => $cnpjData['razao_social'] ?? null,
-                                'nome' => $cnpjData['nome_fantasia'] ?? $cnpjData['razao_social'] ?? null,
-                                'ativo' => true,
-                                'is_empresa_propria' => false,
-                            ]
-                        );
+                        $cliente = $this->entitlements->firstOrCreateClienteComCap($userId, $cnpj, [
+                            'tipo_pessoa' => 'PJ',
+                            'razao_social' => $cnpjData['razao_social'] ?? null,
+                            'nome' => $cnpjData['nome_fantasia'] ?? $cnpjData['razao_social'] ?? null,
+                            'ativo' => true,
+                        ]);
+                        if ($cliente === null) {
+                            $erros[] = ['cnpj' => $cnpj, 'erro' => 'Limite de clientes do plano atingido. Faça upgrade para cadastrar mais.'];
+
+                            continue; // pula este CNPJ — cap do tier estourado
+                        }
                         $clienteId = $cliente->id;
                     }
 

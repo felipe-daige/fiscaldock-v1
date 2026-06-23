@@ -11,7 +11,8 @@ class PricingCatalogService
 {
     public const CREDIT_UNIT_PRICE = 0.20;
 
-    public const MINIMUM_DEPOSIT = 50.00;
+    // Piso de depósito no sistema. Alinhado ao mínimo do provedor (InfoSimples ~R$100).
+    public const MINIMUM_DEPOSIT = 100.00;
 
     public const FIRST_PURCHASE_LOCKED_PRODUCTS = ['compliance', 'due_diligence'];
 

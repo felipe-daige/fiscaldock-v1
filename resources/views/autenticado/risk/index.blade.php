@@ -265,10 +265,12 @@
                                 @endif
                             </td>
                             <td class="px-3 py-3 whitespace-nowrap text-right text-xs">
-                                @if($sc->participante_id)
-                                    <a href="/app/score-fiscal/participante/{{ $sc->participante_id }}" data-link class="text-gray-600 hover:text-gray-900 hover:underline mr-3">Detalhes</a>
-                                @endif
-                                <a href="/app/consulta" data-link class="text-gray-600 hover:text-gray-900 hover:underline">Reconsultar</a>
+                                <x-acoes-menu>
+                                    @if($sc->participante_id)
+                                        <x-acoes-item href="/app/score-fiscal/participante/{{ $sc->participante_id }}" data-link>Detalhes</x-acoes-item>
+                                    @endif
+                                    <x-acoes-item href="/app/consulta" data-link>Reconsultar</x-acoes-item>
+                                </x-acoes-menu>
                             </td>
                         </tr>
                         @endforeach
@@ -312,11 +314,13 @@
                             <span class="text-[11px] text-gray-400">· {{ $sc->ultima_consulta_em->format('d/m/Y') }}</span>
                         @endif
                     </div>
-                    <div class="flex items-center gap-4 mt-2 text-xs">
-                        @if($sc->participante_id)
-                            <a href="/app/score-fiscal/participante/{{ $sc->participante_id }}" data-link class="text-gray-600 hover:text-gray-900 hover:underline">Detalhes</a>
-                        @endif
-                        <a href="/app/consulta" data-link class="text-gray-600 hover:text-gray-900 hover:underline">Reconsultar</a>
+                    <div class="mt-2 text-xs">
+                        <x-acoes-menu align="left">
+                            @if($sc->participante_id)
+                                <x-acoes-item href="/app/score-fiscal/participante/{{ $sc->participante_id }}" data-link>Detalhes</x-acoes-item>
+                            @endif
+                            <x-acoes-item href="/app/consulta" data-link>Reconsultar</x-acoes-item>
+                        </x-acoes-menu>
                     </div>
                 </div>
                 @endforeach

@@ -253,6 +253,69 @@
 })();
 </script>
 
+@if(! $emProcessamento)
+{{-- Modal: exportar planilha (tudo em ZIP ou um único CSV) --}}
+<div id="modal-exportar-planilha" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 p-4">
+    <div class="w-full max-w-md rounded-lg bg-white shadow-xl">
+        <div class="border-b border-gray-200 px-5 py-4">
+            <h3 class="text-sm font-bold uppercase tracking-wide text-gray-900">Exportar planilha</h3>
+            <p class="mt-1 text-xs text-gray-500">Baixe tudo de uma vez ou apenas um dataset. CSV abre no Excel/Google Sheets.</p>
+        </div>
+        <div class="px-5 py-4">
+            <a href="/app/importacao/efd/{{ $importacao->id }}/exportar" data-exportar-opcao
+                class="flex items-center justify-between rounded border border-blue-200 bg-blue-50 px-3 py-2.5 hover:bg-blue-100">
+                <span class="text-sm font-semibold text-blue-800">Tudo (ZIP de CSVs)</span>
+                <span class="text-[11px] font-medium text-blue-600">.zip</span>
+            </a>
+            <p class="mt-4 mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Ou um único CSV</p>
+            <div class="space-y-1">
+                @foreach(\App\Services\Efd\EfdPlanilhaExportService::DATASETS as $key => $label)
+                    <a href="/app/importacao/efd/{{ $importacao->id }}/exportar?dataset={{ $key }}" data-exportar-opcao
+                        class="flex items-center justify-between rounded border border-gray-200 px-3 py-2 hover:bg-gray-50">
+                        <span class="text-sm text-gray-700">{{ $label }}</span>
+                        <span class="text-[11px] text-gray-400">.csv</span>
+                    </a>
+                @endforeach
+            </div>
+        </div>
+        <div class="flex justify-end border-t border-gray-200 px-5 py-3">
+            <button type="button" id="exportar-fechar" class="rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50">Fechar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    if (window._exportarPlanilhaInit) return;
+    window._exportarPlanilhaInit = true;
+
+    var modal = document.getElementById('modal-exportar-planilha');
+    if (!modal) return;
+
+    function abrir() { modal.classList.remove('hidden'); modal.classList.add('flex'); }
+    function fechar() { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+
+    function handler(e) {
+        var btn = e.target.closest('[data-exportar-planilha]');
+        if (btn) { e.preventDefault(); abrir(); }
+    }
+    document.addEventListener('click', handler);
+    document.getElementById('exportar-fechar').addEventListener('click', fechar);
+    modal.addEventListener('click', function (e) { if (e.target === modal) fechar(); });
+    // Após disparar o download (browser baixa sem navegar), fecha o modal.
+    modal.querySelectorAll('[data-exportar-opcao]').forEach(function (a) {
+        a.addEventListener('click', function () { setTimeout(fechar, 400); });
+    });
+
+    window._cleanupFunctions = window._cleanupFunctions || {};
+    window._cleanupFunctions.exportarPlanilha = function () {
+        document.removeEventListener('click', handler);
+        window._exportarPlanilhaInit = false;
+    };
+})();
+</script>
+@endif
+
 @if($concluido)
 <script>
 function _efdFormatBRL(valor) {

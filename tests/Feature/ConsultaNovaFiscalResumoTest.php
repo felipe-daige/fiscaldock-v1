@@ -75,3 +75,62 @@ it('filtra participantes por relação (inclusivo: fornecedor inclui ambos)', fu
     expect($idsDe('ambos'))->toEqualCanonicalizing([$ambos]);
     expect($idsDe('sem_movimentacao'))->toEqualCanonicalizing([$semNota]);
 });
+
+it('filtra participantes por valor movimentado (maior/menor), excluindo sem movimentação', function () {
+    $user = User::factory()->create();
+    $emp = DB::table('clientes')->insertGetId(['user_id' => $user->id, 'razao_social' => 'EMP', 'documento' => '00000000000100', 'is_empresa_propria' => true, 'created_at' => now(), 'updated_at' => now()]);
+    $mkPart = fn (string $doc, string $nome) => DB::table('participantes')->insertGetId(['user_id' => $user->id, 'cliente_id' => $emp, 'razao_social' => $nome, 'documento' => $doc, 'origem_tipo' => 'MANUAL', 'created_at' => now(), 'updated_at' => now()]);
+    $baixo = $mkPart('11111111000111', 'BAIXO');
+    $alto = $mkPart('22222222000122', 'ALTO');
+    $semNota = $mkPart('44444444000144', 'SEM NOTA');
+
+    $imp = EfdImportacao::create(['user_id' => $user->id, 'cliente_id' => $emp, 'tipo_efd' => 'EFD ICMS/IPI', 'filename' => 'f.txt', 'status' => 'concluido', 'iniciado_em' => now()]);
+    $n = 0;
+    $mk = function (int $pid, float $valor) use ($user, $emp, $imp, &$n) {
+        $n++;
+        EfdNota::create(['user_id' => $user->id, 'cliente_id' => $emp, 'participante_id' => $pid, 'importacao_id' => $imp->id, 'numero' => $n, 'serie' => '1', 'modelo' => '55', 'origem_arquivo' => 'fiscal', 'tipo_operacao' => 'entrada', 'valor_total' => $valor, 'valor_desconto' => 0, 'cancelada' => false, 'data_emissao' => '2024-03-01']);
+    };
+    $mk($baixo, 100);
+    $mk($alto, 5000);
+
+    $idsDe = function (string $op, string $valor) use ($user) {
+        $resp = actingAs($user)->getJson("/app/consulta/nova/participantes?valor_op={$op}&valor={$valor}")->assertOk()->json();
+
+        return collect($resp['data'])->pluck('id')->all();
+    };
+
+    expect($idsDe('min', '1000'))->toEqualCanonicalizing([$alto]);
+    expect($idsDe('max', '1000'))->toEqualCanonicalizing([$baixo]);
+    // sem_movimentacao nunca entra no filtro de valor
+    expect($idsDe('max', '1000'))->not->toContain($semNota);
+});
+
+it('filtra participantes por quantidade de notas (maior/menor), excluindo sem movimentação', function () {
+    $user = User::factory()->create();
+    $emp = DB::table('clientes')->insertGetId(['user_id' => $user->id, 'razao_social' => 'EMP', 'documento' => '00000000000100', 'is_empresa_propria' => true, 'created_at' => now(), 'updated_at' => now()]);
+    $mkPart = fn (string $doc, string $nome) => DB::table('participantes')->insertGetId(['user_id' => $user->id, 'cliente_id' => $emp, 'razao_social' => $nome, 'documento' => $doc, 'origem_tipo' => 'MANUAL', 'created_at' => now(), 'updated_at' => now()]);
+    $poucas = $mkPart('11111111000111', 'POUCAS');
+    $muitas = $mkPart('22222222000122', 'MUITAS');
+    $semNota = $mkPart('44444444000144', 'SEM NOTA');
+
+    $imp = EfdImportacao::create(['user_id' => $user->id, 'cliente_id' => $emp, 'tipo_efd' => 'EFD ICMS/IPI', 'filename' => 'f.txt', 'status' => 'concluido', 'iniciado_em' => now()]);
+    $n = 0;
+    $mk = function (int $pid) use ($user, $emp, $imp, &$n) {
+        $n++;
+        EfdNota::create(['user_id' => $user->id, 'cliente_id' => $emp, 'participante_id' => $pid, 'importacao_id' => $imp->id, 'numero' => $n, 'serie' => '1', 'modelo' => '55', 'origem_arquivo' => 'fiscal', 'tipo_operacao' => 'entrada', 'valor_total' => 100, 'valor_desconto' => 0, 'cancelada' => false, 'data_emissao' => '2024-03-01']);
+    };
+    $mk($poucas);
+    foreach (range(1, 5) as $_) {
+        $mk($muitas);
+    }
+
+    $idsDe = function (string $op, string $qtd) use ($user) {
+        $resp = actingAs($user)->getJson("/app/consulta/nova/participantes?qtd_op={$op}&qtd={$qtd}")->assertOk()->json();
+
+        return collect($resp['data'])->pluck('id')->all();
+    };
+
+    expect($idsDe('min', '3'))->toEqualCanonicalizing([$muitas]);
+    expect($idsDe('max', '1'))->toEqualCanonicalizing([$poucas]);
+    expect($idsDe('max', '1'))->not->toContain($semNota);
+});

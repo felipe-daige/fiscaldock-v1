@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Cliente;
 use App\Models\EfdNota;
 use App\Services\ResumoFiscalService;
+use App\Support\CsvExport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -123,7 +124,7 @@ class ResumoFiscalController extends Controller
         );
     }
 
-    public function exportar(Request $request, \App\Services\BiExportService $export)
+    public function exportar(Request $request)
     {
         [$userId, $clienteId, $competencia] = $this->validarParams($request);
         $data = $this->service->getARecolherData($userId, $clienteId, $competencia);
@@ -138,12 +139,9 @@ class ResumoFiscalController extends Controller
         ], $data['linhas']);
         $linhas[] = ['Total do mês', number_format($data['total'], 2, ',', '.'), '', '', ''];
 
-        $csv = $export->toCsv($colunas, $linhas);
         $filename = 'fechamento-a-recolher-'.$competencia.'.csv';
 
-        return response()->streamDownload(function () use ($csv) {
-            echo $csv;
-        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+        return CsvExport::download($filename, $colunas, $linhas);
     }
 
     public function cruzamentos(Request $request)

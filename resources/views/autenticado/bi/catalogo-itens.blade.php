@@ -134,33 +134,114 @@
         @endif
 
         {{-- Filtros (padrão /app/clientes) --}}
-        <form method="GET" class="bg-white rounded border border-gray-300 p-3 mb-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div>
-                <label class="block text-[11px] text-gray-500 mb-1">Cliente</label>
-                <select name="cliente_id" class="w-full text-[13px] py-2.5 px-3 border border-gray-300 rounded">
-                    <option value="">Todos</option>
-                    @foreach($clientes as $c)
-                        <option value="{{ $c->id }}" @selected(($filtros['cliente_id'] ?? null) == $c->id)>{{ $c->razao_social }}</option>
-                    @endforeach
-                </select>
+        @php
+            $cfopsSel = $filtros['cfops'] ?? [];
+            $cstsSel = $filtros['csts'] ?? [];
+        @endphp
+        <form method="GET" class="bg-white rounded border border-gray-300 p-3 mb-4 space-y-3">
+            {{-- linha 1: contexto --}}
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                    <label class="block text-[11px] text-gray-500 mb-1">Cliente</label>
+                    <select name="cliente_id" class="w-full text-[13px] py-2.5 px-3 border border-gray-300 rounded">
+                        <option value="">Todos</option>
+                        @foreach($clientes as $c)
+                            <option value="{{ $c->id }}" @selected(($filtros['cliente_id'] ?? null) == $c->id)>{{ $c->razao_social }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[11px] text-gray-500 mb-1">Fonte</label>
+                    <select name="fonte" class="w-full text-[13px] py-2.5 px-3 border border-gray-300 rounded">
+                        <option value="">Ambas</option>
+                        <option value="efd" @selected(($filtros['fonte'] ?? null) === 'efd')>EFD</option>
+                        <option value="xml" @selected(($filtros['fonte'] ?? null) === 'xml')>XML</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[11px] text-gray-500 mb-1">De</label>
+                    <input type="date" name="periodo_de" value="{{ $filtros['periodo_de'] ?? '' }}" class="w-full text-[13px] py-2.5 px-3 border border-gray-300 rounded">
+                </div>
+                <div>
+                    <label class="block text-[11px] text-gray-500 mb-1">Até</label>
+                    <input type="date" name="periodo_ate" value="{{ $filtros['periodo_ate'] ?? '' }}" class="w-full text-[13px] py-2.5 px-3 border border-gray-300 rounded">
+                </div>
             </div>
-            <div>
-                <label class="block text-[11px] text-gray-500 mb-1">Fonte</label>
-                <select name="fonte" class="w-full text-[13px] py-2.5 px-3 border border-gray-300 rounded">
-                    <option value="">Ambas</option>
-                    <option value="efd" @selected(($filtros['fonte'] ?? null) === 'efd')>EFD</option>
-                    <option value="xml" @selected(($filtros['fonte'] ?? null) === 'xml')>XML</option>
-                </select>
+
+            {{-- linha 2: CFOP (largo, c/ descrição) + CST --}}
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                {{-- CFOP --}}
+                <div class="lg:col-span-2 border border-gray-300 rounded">
+                    <div class="flex items-center gap-2 px-2.5 py-2 border-b border-gray-200 bg-gray-50">
+                        <span class="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">CFOP</span>
+                        <span id="cfopCount" class="text-[11px] font-semibold" style="color:#1d4ed8">{{ count($cfopsSel) ? count($cfopsSel).' selecionado'.(count($cfopsSel) > 1 ? 's' : '') : '' }}</span>
+                        <input type="text" oninput="catFiltro.buscar('cfop', this.value)" placeholder="buscar código ou descrição…" class="ml-auto text-[12px] py-1.5 px-2.5 border border-gray-300 rounded w-40 sm:w-64">
+                    </div>
+                    <div id="cfopBox" class="max-h-[220px] overflow-y-auto divide-y divide-gray-100">
+                        @forelse($cfopOpcoes as $cf)
+                            <label data-row data-search="{{ strtolower($cf['codigo'].' '.$cf['descricao']) }}" class="flex items-center gap-2 px-2.5 py-1.5 text-[12px] cursor-pointer hover:bg-gray-50">
+                                <input type="checkbox" name="cfops[]" value="{{ $cf['codigo'] }}" onchange="catFiltro.contar('cfop')" @checked(in_array($cf['codigo'], $cfopsSel, true))>
+                                <span class="font-mono font-semibold text-gray-900">{{ $cf['codigo'] }}</span>
+                                @if($cf['tipo'] !== 'indefinido')
+                                    <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase text-white shrink-0" style="background-color: {{ $cf['tipo'] === 'entrada' ? '#1d4ed8' : '#047857' }}">{{ $cf['tipo'] }}</span>
+                                @endif
+                                <span class="text-gray-600 truncate" title="{{ $cf['descricao'] }}">{{ $cf['descricao'] ?: '—' }}</span>
+                            </label>
+                        @empty
+                            <span class="block px-2.5 py-2 text-[11px] text-gray-400">Sem dados no período/filtro.</span>
+                        @endforelse
+                    </div>
+                    @if(count($cfopOpcoes))
+                        <div class="px-2.5 py-1.5 border-t border-gray-200 bg-gray-50 flex gap-3">
+                            <button type="button" onclick="catFiltro.marcar('cfop', true)" class="text-[11px] text-blue-600 cursor-pointer">Marcar visíveis</button>
+                            <button type="button" onclick="catFiltro.marcar('cfop', false)" class="text-[11px] text-gray-500 cursor-pointer">Limpar seleção</button>
+                        </div>
+                    @endif
+                </div>
+
+                {{-- CST --}}
+                <div class="border border-gray-300 rounded">
+                    <div class="flex items-center gap-2 px-2.5 py-2 border-b border-gray-200 bg-gray-50">
+                        <span class="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">CST</span>
+                        <span id="cstCount" class="text-[11px] font-semibold" style="color:#1d4ed8">{{ count($cstsSel) ? count($cstsSel).' selecionado'.(count($cstsSel) > 1 ? 's' : '') : '' }}</span>
+                        <input type="text" oninput="catFiltro.buscar('cst', this.value)" placeholder="buscar…" class="ml-auto text-[12px] py-1.5 px-2.5 border border-gray-300 rounded w-24">
+                    </div>
+                    <div id="cstBox" class="max-h-[220px] overflow-y-auto divide-y divide-gray-100">
+                        @forelse($facetas['csts'] ?? [] as $ct)
+                            <label data-row data-search="{{ strtolower($ct) }}" class="flex items-center gap-2 px-2.5 py-1.5 text-[12px] cursor-pointer hover:bg-gray-50">
+                                <input type="checkbox" name="csts[]" value="{{ $ct }}" onchange="catFiltro.contar('cst')" @checked(in_array($ct, $cstsSel, true))>
+                                <span class="font-mono font-semibold text-gray-900">{{ $ct }}</span>
+                            </label>
+                        @empty
+                            <span class="block px-2.5 py-2 text-[11px] text-gray-400">Sem dados.</span>
+                        @endforelse
+                    </div>
+                    @if(count($facetas['csts'] ?? []))
+                        <div class="px-2.5 py-1.5 border-t border-gray-200 bg-gray-50 flex gap-3">
+                            <button type="button" onclick="catFiltro.marcar('cst', true)" class="text-[11px] text-blue-600 cursor-pointer">Marcar visíveis</button>
+                            <button type="button" onclick="catFiltro.marcar('cst', false)" class="text-[11px] text-gray-500 cursor-pointer">Limpar seleção</button>
+                        </div>
+                    @endif
+                </div>
             </div>
-            <div>
-                <label class="block text-[11px] text-gray-500 mb-1">De</label>
-                <input type="date" name="periodo_de" value="{{ $filtros['periodo_de'] ?? '' }}" class="w-full text-[13px] py-2.5 px-3 border border-gray-300 rounded">
-            </div>
-            <div>
-                <label class="block text-[11px] text-gray-500 mb-1">Até</label>
-                <input type="date" name="periodo_ate" value="{{ $filtros['periodo_ate'] ?? '' }}" class="w-full text-[13px] py-2.5 px-3 border border-gray-300 rounded">
+
+            {{-- ações --}}
+            <div class="flex items-center gap-2">
+                <button type="submit" class="px-4 py-2 text-[13px] rounded text-white font-semibold cursor-pointer" style="background-color:#1d4ed8">Filtrar</button>
+                @if(array_filter($filtros))
+                    <a href="/app/bi/catalogo-itens" data-link class="px-4 py-2 text-[13px] rounded border border-gray-300 text-gray-600">Limpar tudo</a>
+                @endif
             </div>
         </form>
+
+        {{-- Cabeçalho da tabela + exportações (refletem o filtro atual; sem filtro = todos) --}}
+        <div class="flex items-center justify-between mb-2">
+            <p class="text-[12px] text-gray-500">{{ number_format($itens->count(), 0, ',', '.') }} item(ns) · {{ $fmtMoeda($kpis['valor_movimentado']) }}</p>
+            <x-acoes-menu label="Exportar" align="right">
+                <x-acoes-item href="{{ route('app.bi.catalogo-itens.exportar', request()->query()) }}">Excel (CSV)</x-acoes-item>
+                <x-acoes-item href="{{ route('app.bi.catalogo-itens.exportar-pdf', request()->query()) }}">PDF</x-acoes-item>
+            </x-acoes-menu>
+        </div>
 
         {{-- Tabela --}}
         <div class="bg-white rounded border border-gray-300 overflow-x-auto">
@@ -271,4 +352,35 @@ window.catalogoAlerta = window.catalogoAlerta || (function () {
         },
     };
 })();
+
+// Filtros CFOP/CST: busca incremental, marcar/limpar visíveis e contador de seleção.
+// Opera só sobre elementos do próprio render (sem listeners em document/window) → SPA-safe.
+window.catFiltro = window.catFiltro || (function () {
+    const box = (g) => document.getElementById(g + 'Box');
+    const rows = (g) => box(g) ? Array.from(box(g).querySelectorAll('[data-row]')) : [];
+    function contar(g) {
+        const el = document.getElementById(g + 'Count');
+        if (!el) return;
+        const n = rows(g).filter((r) => r.querySelector('input[type=checkbox]')?.checked).length;
+        el.textContent = n ? `${n} selecionado${n > 1 ? 's' : ''}` : '';
+    }
+    return {
+        contar,
+        buscar(g, q) {
+            q = (q || '').toLowerCase().trim();
+            rows(g).forEach((r) => { r.style.display = (!q || (r.dataset.search || '').includes(q)) ? '' : 'none'; });
+        },
+        // toggla só as linhas visíveis (respeita a busca ativa)
+        marcar(g, val) {
+            rows(g).forEach((r) => {
+                if (r.style.display === 'none') return;
+                const c = r.querySelector('input[type=checkbox]');
+                if (c) c.checked = val;
+            });
+            contar(g);
+        },
+    };
+})();
+catFiltro.contar('cfop');
+catFiltro.contar('cst');
 </script>

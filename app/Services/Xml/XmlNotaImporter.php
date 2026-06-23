@@ -7,6 +7,7 @@ use App\Models\Participante;
 use App\Models\XmlImportacao;
 use App\Models\XmlNota;
 use App\Models\XmlNotaItem;
+use App\Services\Entitlements\EntitlementService;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -16,6 +17,8 @@ use Illuminate\Support\Facades\DB;
  */
 class XmlNotaImporter
 {
+    public function __construct(private EntitlementService $entitlements = new EntitlementService) {}
+
     /**
      * @param  string|null  $ownerDoc  CNPJ do dono FORÇADO (override manual). Vazio/null = modo
      *                                 AUTO: infere o dono pelo cliente cadastrado que casa.
@@ -220,20 +223,17 @@ class XmlNotaImporter
      * Find-or-create do Cliente do lado dono (modo "criar cliente pelo lado"), com os dados
      * da nota. Espelha o find-or-create do participante, mas grava em `clientes`.
      */
-    private function criarClienteDono(int $userId, string $doc, ?string $razao, ?string $uf, ?string $ie): Cliente
+    private function criarClienteDono(int $userId, string $doc, ?string $razao, ?string $uf, ?string $ie): ?Cliente
     {
-        return Cliente::firstOrCreate(
-            ['user_id' => $userId, 'documento' => $doc],
-            [
-                'tipo_pessoa' => strlen($doc) === 11 ? 'PF' : 'PJ',
-                'razao_social' => $razao,
-                'nome' => $razao,
-                'uf' => $uf,
-                'inscricao_estadual' => $ie,
-                'ativo' => true,
-                'is_empresa_propria' => false,
-            ]
-        );
+        // null = cap do tier atingido → o lado dono não vira cliente (nota fica sem dono).
+        return $this->entitlements->firstOrCreateClienteComCap($userId, $doc, [
+            'tipo_pessoa' => strlen($doc) === 11 ? 'PF' : 'PJ',
+            'razao_social' => $razao,
+            'nome' => $razao,
+            'uf' => $uf,
+            'inscricao_estadual' => $ie,
+            'ativo' => true,
+        ]);
     }
 
     /** Cliente do usuário que casa com o documento (id + flag empresa própria), ou null. */

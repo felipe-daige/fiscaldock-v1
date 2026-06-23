@@ -24,7 +24,7 @@ it('exporta a trilha de consentimento em CSV', function () {
     expect($response->headers->get('content-type'))->toContain('text/csv');
     expect($response->headers->get('content-disposition'))->toContain('attachment');
 
-    $csv = $response->getContent();
+    $csv = $response->streamedContent();
     expect($csv)->toContain('termos');
     expect($csv)->toContain('aceite');
     expect($csv)->toContain('1.0');
@@ -35,7 +35,7 @@ it('o CSV só inclui os eventos do próprio titular', function () {
     $outro = User::factory()->create();
     ConsentLog::create(['user_id' => $outro->id, 'tipo' => 'marketing', 'acao' => 'revogacao', 'valor' => false, 'created_at' => now()]);
 
-    $csv = actingAs($user)->get('/app/privacidade/exportar-csv')->assertOk()->getContent();
+    $csv = actingAs($user)->get('/app/privacidade/exportar-csv')->assertOk()->streamedContent();
 
     expect($csv)->not->toContain('revogacao');
 });

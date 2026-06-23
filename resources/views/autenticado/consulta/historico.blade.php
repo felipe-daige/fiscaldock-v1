@@ -194,15 +194,13 @@
                                         @endif
                                     </td>
                                     <td class="px-3 py-3 text-right">
-                                        <div class="flex items-center justify-end gap-3">
-                                            <a href="/app/consulta/lote/{{ $lote->id }}" data-link class="text-xs text-gray-900 hover:text-gray-600 hover:underline">Abrir</a>
-                                            @if($lote->isFinalizado())
-                                                <a href="/app/consulta/lote/{{ $lote->id }}/baixar?formato=csv" class="text-xs text-gray-900 hover:text-gray-600 hover:underline">CSV</a>
-                                                @if($lote->hasResultados())
-                                                    <a href="/app/consulta/lote/{{ $lote->id }}/baixar?formato=pdf" class="text-xs text-gray-900 hover:text-gray-600 hover:underline">PDF</a>
-                                                @endif
+                                        <x-acoes-menu>
+                                            <x-acoes-item href="/app/consulta/lote/{{ $lote->id }}" data-link>Abrir</x-acoes-item>
+                                            @if($lote->isFinalizado() && $lote->hasResultados())
+                                                <x-acoes-item href="/app/consulta/lote/{{ $lote->id }}/baixar?formato=csv">Excel (CSV)</x-acoes-item>
+                                                <x-acoes-item href="/app/consulta/lote/{{ $lote->id }}/baixar?formato=pdf">PDF</x-acoes-item>
                                             @endif
-                                        </div>
+                                        </x-acoes-menu>
                                     </td>
                                 </tr>
                             @endforeach
@@ -246,15 +244,13 @@
                                 </div>
                                 <div>
                                     <p class="text-[10px] text-gray-400 uppercase">Ações</p>
-                                    <div class="flex items-center gap-3">
-                                        <a href="/app/consulta/lote/{{ $lote->id }}" data-link class="text-xs text-gray-600 hover:text-gray-900 hover:underline">Abrir</a>
-                                        @if($lote->isFinalizado())
-                                            <a href="/app/consulta/lote/{{ $lote->id }}/baixar?formato=csv" class="text-xs text-gray-600 hover:text-gray-900 hover:underline">CSV</a>
-                                            @if($lote->hasResultados())
-                                                <a href="/app/consulta/lote/{{ $lote->id }}/baixar?formato=pdf" class="text-xs text-gray-600 hover:text-gray-900 hover:underline">PDF</a>
-                                            @endif
+                                    <x-acoes-menu align="left">
+                                        <x-acoes-item href="/app/consulta/lote/{{ $lote->id }}" data-link>Abrir</x-acoes-item>
+                                        @if($lote->isFinalizado() && $lote->hasResultados())
+                                            <x-acoes-item href="/app/consulta/lote/{{ $lote->id }}/baixar?formato=csv">Excel (CSV)</x-acoes-item>
+                                            <x-acoes-item href="/app/consulta/lote/{{ $lote->id }}/baixar?formato=pdf">PDF</x-acoes-item>
                                         @endif
-                                    </div>
+                                    </x-acoes-menu>
                                 </div>
                             </div>
                             @if($lote->isErro())

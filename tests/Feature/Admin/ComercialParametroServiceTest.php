@@ -60,7 +60,7 @@ it('efetivos() expõe default, override e valor efetivo por parâmetro', functio
 
     $efetivos = $service->efetivos();
 
-    expect($efetivos['minimum_deposit']['default'])->toBe(50.00);
+    expect($efetivos['minimum_deposit']['default'])->toBe(100.00);
     expect($efetivos['minimum_deposit']['override'])->toBe(80.00);
     expect($efetivos['minimum_deposit']['efetivo'])->toBe(80.00);
     expect($efetivos['credit_unit_price']['override'])->toBeNull();

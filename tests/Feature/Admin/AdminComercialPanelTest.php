@@ -48,7 +48,7 @@ it('admin reseta o override e volta ao padrão', function () {
         ->assertRedirect();
 
     $this->assertDatabaseMissing('comercial_parametros', ['chave' => 'minimum_deposit']);
-    expect((new PricingCatalogService)->getMinimumDeposit())->toBe(50.00);
+    expect((new PricingCatalogService)->getMinimumDeposit())->toBe(100.00);
 });
 
 it('404 para chave fora do registro', function () {

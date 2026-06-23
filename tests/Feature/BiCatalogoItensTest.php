@@ -174,6 +174,126 @@ it('descartar exige autenticação', function () {
         ->assertStatus(401);
 });
 
+function biEfdItemCfop(int $userId, int $clienteId, string $chave, string $codItem, int $cfop): void
+{
+    $imp = EfdImportacao::create(['user_id' => $userId, 'cliente_id' => $clienteId, 'tipo_efd' => 'EFD ICMS/IPI', 'filename' => 'i.txt', 'status' => 'concluido', 'iniciado_em' => now()]);
+    $nota = EfdNota::create([
+        'user_id' => $userId, 'cliente_id' => $clienteId, 'importacao_id' => $imp->id, 'numero' => 1, 'serie' => '1',
+        'data_emissao' => '2024-01-15', 'valor_desconto' => 0, 'cancelada' => false, 'chave_acesso' => $chave,
+        'modelo' => '55', 'tipo_operacao' => 'saida', 'origem_arquivo' => 'fiscal', 'valor_total' => 100.0,
+    ]);
+    DB::table('efd_notas_itens')->insert([
+        'efd_nota_id' => $nota->id, 'user_id' => $userId, 'numero_item' => 1, 'codigo_item' => $codItem,
+        'descricao' => 'item efd', 'quantidade' => 1, 'valor_total' => 100.0, 'cfop' => $cfop, 'cst_icms' => '00', 'aliquota_icms' => 18,
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+}
+
+it('filtra a tabela de itens por CFOP via query (1 ou mais)', function () {
+    [$user, $clienteId] = seedBiUser();
+    // ambos com catálogo: isola o filtro à tabela de itens (fora dos painéis de alerta)
+    biCatalogo($user->id, $clienteId, 'KEEPME', '11112222');
+    biCatalogo($user->id, $clienteId, 'DROPME', '11112222');
+    biEfdItemCfop($user->id, $clienteId, str_pad('A', 44, '0', STR_PAD_LEFT), 'KEEPME', 5102);
+    biEfdItemCfop($user->id, $clienteId, str_pad('B', 44, '0', STR_PAD_LEFT), 'DROPME', 6102);
+
+    $html = actingAs($user)->get('/app/bi/catalogo-itens?cfops[]=5102')->assertOk()->getContent();
+
+    expect($html)->toContain('KEEPME');
+    expect($html)->not->toContain('DROPME');
+});
+
+it('expõe os filtros de CFOP e CST na tela', function () {
+    [$user, $clienteId] = seedBiUser();
+    biCatalogo($user->id, $clienteId, 'P', '11112222');
+    biEfdItemCfop($user->id, $clienteId, str_pad('A', 44, '0', STR_PAD_LEFT), 'P', 5102);
+
+    $html = actingAs($user)->get('/app/bi/catalogo-itens')->assertOk()->getContent();
+
+    expect($html)->toContain('name="cfops[]"');
+    expect($html)->toContain('name="csts[]"');
+});
+
+it('mostra a descrição CONFAZ de cada CFOP nas opções do filtro', function () {
+    [$user, $clienteId] = seedBiUser();
+    biCatalogo($user->id, $clienteId, 'P', '11112222');
+    biEfdItemCfop($user->id, $clienteId, str_pad('A', 44, '0', STR_PAD_LEFT), 'P', 5102);
+
+    $html = actingAs($user)->get('/app/bi/catalogo-itens')->assertOk()->getContent();
+
+    expect($html)->toContain('5102');
+    expect($html)->toContain('Venda de mercadoria adquirida'); // descrição do CFOP 5102
+});
+
+function biTrialUserCliente(): array
+{
+    $user = User::factory()->trialAtivo()->create(['credits' => 100]);
+    $clienteId = DB::table('clientes')->insertGetId([
+        'user_id' => $user->id, 'razao_social' => 'EMPRESA', 'documento' => '00000000000100',
+        'is_empresa_propria' => true, 'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    return [$user, (int) $clienteId];
+}
+
+it('exporta CSV (200 text/csv) respeitando o filtro de CFOP', function () {
+    [$user, $clienteId] = biTrialUserCliente();
+    biCatalogo($user->id, $clienteId, 'KEEPCSV', '11112222');
+    biCatalogo($user->id, $clienteId, 'DROPCSV', '11112222');
+    biEfdItemCfop($user->id, $clienteId, str_pad('A', 44, '0', STR_PAD_LEFT), 'KEEPCSV', 5102);
+    biEfdItemCfop($user->id, $clienteId, str_pad('B', 44, '0', STR_PAD_LEFT), 'DROPCSV', 6102);
+
+    $r = actingAs($user)->get('/app/bi/catalogo-itens/exportar?cfops[]=5102')->assertOk();
+
+    expect($r->headers->get('content-type'))->toContain('text/csv');
+    expect($r->headers->get('content-disposition'))->toContain('.csv');
+    $body = $r->streamedContent();
+    expect($body)->toContain('KEEPCSV');
+    expect($body)->not->toContain('DROPCSV');
+});
+
+it('exporta CSV com TODOS os itens quando não há filtro', function () {
+    [$user, $clienteId] = biTrialUserCliente();
+    biEfdItemCfop($user->id, $clienteId, str_pad('A', 44, '0', STR_PAD_LEFT), 'ITEM1', 5102);
+    biEfdItemCfop($user->id, $clienteId, str_pad('B', 44, '0', STR_PAD_LEFT), 'ITEM2', 6102);
+
+    $body = actingAs($user)->get('/app/bi/catalogo-itens/exportar')->assertOk()->streamedContent();
+
+    expect($body)->toContain('ITEM1');
+    expect($body)->toContain('ITEM2');
+});
+
+it('exporta PDF (200 application/pdf) respeitando o filtro', function () {
+    [$user, $clienteId] = biTrialUserCliente();
+    biCatalogo($user->id, $clienteId, 'PDFKEEP', '11112222');
+    biCatalogo($user->id, $clienteId, 'PDFDROP', '11112222');
+    biEfdItemCfop($user->id, $clienteId, str_pad('A', 44, '0', STR_PAD_LEFT), 'PDFKEEP', 5102);
+    biEfdItemCfop($user->id, $clienteId, str_pad('B', 44, '0', STR_PAD_LEFT), 'PDFDROP', 6102);
+
+    $r = actingAs($user)->get('/app/bi/catalogo-itens/exportar-pdf?cfops[]=5102')->assertOk();
+
+    expect($r->headers->get('content-type'))->toContain('application/pdf');
+    expect(substr((string) $r->getContent(), 0, 4))->toBe('%PDF');
+});
+
+it('mostra os botões de exportar CSV e PDF na tela', function () {
+    [$user, $clienteId] = biTrialUserCliente();
+    biEfdItemCfop($user->id, $clienteId, str_pad('A', 44, '0', STR_PAD_LEFT), 'X', 5102);
+
+    $html = actingAs($user)->get('/app/bi/catalogo-itens')->assertOk()->getContent();
+
+    expect($html)->toContain('catalogo-itens/exportar');
+    expect($html)->toContain('catalogo-itens/exportar-pdf');
+});
+
+it('exportar é barrado para Free puro (403)', function () {
+    $this->seed(\Database\Seeders\SubscriptionPlanSeeder::class);
+    $user = User::factory()->create();
+
+    actingAs($user)->get('/app/bi/catalogo-itens/exportar')->assertStatus(403);
+    actingAs($user)->get('/app/bi/catalogo-itens/exportar-pdf')->assertStatus(403);
+});
+
 it('mostra a coluna Arquivo de origem com link para a importação na tabela de itens', function () {
     [$user, $clienteId] = seedBiUser();
     biEfdItem($user->id, $clienteId, str_pad('A', 44, '0', STR_PAD_LEFT), 'SKUL', 100.0);

@@ -176,23 +176,15 @@
                                         <span class="inline-block max-w-full truncate px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white align-middle" style="background-color: {{ $statusBadge['hex'] }}">{{ $statusBadge['label'] }}</span>
                                     </td>
                                     <td class="pl-2 pr-3 py-3 text-right whitespace-nowrap">
-                                        <a href="{{ $href }}" data-link class="text-xs text-blue-600 hover:text-blue-800 hover:underline">Abrir</a>
                                         @php $proc = in_array($imp['status'] ?? '', ['processando', 'pendente'], true); @endphp
-                                        @if($tipo === 'efd')
-                                            <button type="button"
-                                                @if($proc) disabled title="Aguarde a conclusão do processamento"
-                                                @else data-excluir-importacao="{{ $id }}" data-filename="{{ $filename }}" title="Excluir importação" @endif
-                                                class="ml-3 text-xs {{ $proc ? 'text-gray-300 cursor-not-allowed' : 'text-red-600 hover:text-red-800' }}">
-                                                Excluir
-                                            </button>
-                                        @elseif($tipo === 'xml')
-                                            <button type="button"
-                                                @if($proc) disabled title="Aguarde a conclusão do processamento"
-                                                @else data-excluir-xml="{{ $id }}" data-filename="{{ $filename }}" title="Excluir importação" @endif
-                                                class="ml-3 text-xs {{ $proc ? 'text-gray-300 cursor-not-allowed' : 'text-red-600 hover:text-red-800' }}">
-                                                Excluir
-                                            </button>
-                                        @endif
+                                        <x-acoes-menu>
+                                            <x-acoes-item href="{{ $href }}" data-link>Abrir</x-acoes-item>
+                                            @if(! $proc && $tipo === 'efd')
+                                                <x-acoes-item variant="danger" data-excluir-importacao="{{ $id }}" data-filename="{{ $filename }}">Excluir</x-acoes-item>
+                                            @elseif(! $proc && $tipo === 'xml')
+                                                <x-acoes-item variant="danger" data-excluir-xml="{{ $id }}" data-filename="{{ $filename }}">Excluir</x-acoes-item>
+                                            @endif
+                                        </x-acoes-menu>
                                     </td>
                                 </tr>
                             @endforeach
@@ -274,21 +266,16 @@
                                 <span class="block text-[11px] text-gray-500 mt-0.5">{{ $competencia }}</span>
                             @endif
                             @php $procMob = in_array($imp['status'] ?? '', ['processando', 'pendente'], true); @endphp
-                            @if($tipo === 'efd' || $tipo === 'xml')
-                                @if($procMob)
-                                    <button type="button" disabled title="Aguarde a conclusão do processamento"
-                                        class="mt-1 text-xs text-gray-300 cursor-not-allowed">
-                                        Excluir
-                                    </button>
-                                @else
-                                    <button type="button"
-                                        @if($tipo === 'efd') data-excluir-importacao="{{ $id }}" @else data-excluir-xml="{{ $id }}" @endif
-                                        data-filename="{{ $filename }}" title="Excluir importação"
-                                        class="mt-1 text-xs text-red-600 hover:text-red-800">
-                                        Excluir
-                                    </button>
-                                @endif
-                            @endif
+                            <div class="mt-2">
+                                <x-acoes-menu align="left">
+                                    <x-acoes-item href="{{ $href }}" data-link>Abrir</x-acoes-item>
+                                    @if(! $procMob && $tipo === 'efd')
+                                        <x-acoes-item variant="danger" data-excluir-importacao="{{ $id }}" data-filename="{{ $filename }}">Excluir</x-acoes-item>
+                                    @elseif(! $procMob && $tipo === 'xml')
+                                        <x-acoes-item variant="danger" data-excluir-xml="{{ $id }}" data-filename="{{ $filename }}">Excluir</x-acoes-item>
+                                    @endif
+                                </x-acoes-menu>
+                            </div>
                             <div class="mt-2 grid grid-cols-2 gap-3">
                                 <div>
                                     <p class="text-[10px] text-gray-400 uppercase">Cliente</p>

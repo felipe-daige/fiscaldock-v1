@@ -37,6 +37,15 @@
             <a href="/app/importacao/efd" data-link class="px-3 py-1.5 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 rounded text-xs font-medium">Nova importação</a>
         @endif
         @if(! $emProcessamento)
+            <button type="button" data-exportar-planilha
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-blue-300 text-blue-700 hover:bg-blue-50 rounded text-xs font-medium">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+                </svg>
+                Exportar planilha
+            </button>
+        @endif
+        @if(! $emProcessamento)
             <button type="button"
                 data-excluir-importacao="{{ $importacao->id }}"
                 data-filename="{{ $importacao->filename }}"

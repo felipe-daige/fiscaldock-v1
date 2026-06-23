@@ -2,6 +2,7 @@
 
 namespace App\Services\Entitlements;
 
+use App\Models\Cliente;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 
@@ -147,6 +148,60 @@ class EntitlementService
         $limite = $this->limiteCnpjsMonitorados($user);
 
         return $limite === null || $ativos < $limite;
+    }
+
+    /**
+     * Teto de clientes cadastrados do tier (NÃO conta a empresa própria). null = ilimitado
+     * (inclui trial ativo). Espelha limiteCnpjsMonitorados — política "trial libera tudo".
+     */
+    public function limiteClientes(User $user): ?int
+    {
+        if ($user->hasActiveTrial()) {
+            return null;
+        }
+
+        return $this->limit($user, 'limite_clientes');
+    }
+
+    /** Clientes que contam pro cap (exclui a empresa própria, que é auto-criada). */
+    public function clientesAtuais(User $user): int
+    {
+        return Cliente::where('user_id', $user->id)
+            ->where('is_empresa_propria', false)
+            ->count();
+    }
+
+    /** Pode adicionar mais `$novos` cliente(s) não-própria sem estourar o teto do tier? */
+    public function podeAdicionarCliente(User $user, int $novos = 1): bool
+    {
+        $limite = $this->limiteClientes($user);
+
+        return $limite === null || $this->clientesAtuais($user) + $novos <= $limite;
+    }
+
+    /**
+     * firstOrCreate de cliente respeitando o cap do tier. Chokepoint dos fluxos que
+     * nascem cliente automaticamente (import XML, "decidir depois", salvar CNPJs):
+     * vincula a um existente (não conta), cria um novo se couber, ou devolve null quando
+     * o teto já foi atingido — deixando a nota sem dono (estado "decidir depois" válido).
+     */
+    public function firstOrCreateClienteComCap(int $userId, string $documento, array $atributos = []): ?Cliente
+    {
+        $existente = Cliente::where('user_id', $userId)->where('documento', $documento)->first();
+        if ($existente !== null) {
+            return $existente;
+        }
+
+        $user = User::find($userId);
+        if ($user === null || ! $this->podeAdicionarCliente($user)) {
+            return null;
+        }
+
+        return Cliente::create(array_merge($atributos, [
+            'user_id' => $userId,
+            'documento' => $documento,
+            'is_empresa_propria' => false,
+        ]));
     }
 
     // ---- Fase 5.1: gating de frequência e profundidade do auto-monitor por tier ----

@@ -200,7 +200,9 @@ return [
         'cndt' => (int) env('CONSULTA_CREDITOS_CNDT', 2),
         'crf_fgts' => (int) env('CONSULTA_CREDITOS_CRF_FGTS', 2),
         'cnd_estadual' => (int) env('CONSULTA_CREDITOS_CND_ESTADUAL', 2),
-        'sintegra' => (int) env('CONSULTA_CREDITOS_SINTEGRA', 1),
+        // SINTEGRA: 2 créditos (R$0,40) cobre o custo InfoSimples R$0,27 com margem ~48%.
+        // Antes 1 crédito (R$0,20) dava prejuízo de R$0,07/chamada.
+        'sintegra' => (int) env('CONSULTA_CREDITOS_SINTEGRA', 2),
         'cgu_cnc' => (int) env('CONSULTA_CREDITOS_CGU_CNC', 2),
         'cnj_improbidade' => (int) env('CONSULTA_CREDITOS_CNJ_IMPROBIDADE', 2),
         'cnd_municipal' => (int) env('CONSULTA_CREDITOS_CND_MUNICIPAL', 2),

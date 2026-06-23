@@ -189,6 +189,19 @@
             </div>
         </div>
 
+        {{-- Barra de ações em lote (aparece quando há seleção) --}}
+        <div id="alertas-bulk-bar" class="hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-300 shadow-lg px-4 py-3">
+            <div class="max-w-5xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <span class="text-sm text-gray-700"><span id="alertas-bulk-count" class="font-semibold">0</span> selecionado(s)</span>
+                <div class="flex items-center gap-2">
+                    <button data-bulk="resolvido" class="alerta-bulk-action inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white rounded" style="background-color:#047857">Resolver</button>
+                    <button data-bulk="visto" class="alerta-bulk-action inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-gray-800 rounded hover:bg-gray-700">Marcar visto</button>
+                    <button data-bulk="ignorado" class="alerta-bulk-action inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50">Ignorar</button>
+                    <button id="alertas-bulk-clear" class="px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-800">Limpar</button>
+                </div>
+            </div>
+        </div>
+
         {{-- Alert List --}}
         <div id="alertas-lista" class="">
             {{-- Skeleton loading --}}
@@ -485,6 +498,7 @@
         var listaEl = document.getElementById('alertas-lista');
         if (!listaEl) return;
 
+        limparSelecaoLote(); // reset seleção a cada carga (ids podem sair da lista)
         listaEl.innerHTML = renderSkeleton();
 
         var params = new URLSearchParams();
@@ -522,6 +536,7 @@
             renderPaginacao(data);
             setupAlertaActions();
             setupExpandToggle();
+            setupBulkSelection();
         } catch (e) {
             listaEl.innerHTML = '<div class="bg-white rounded border border-gray-300 p-6 text-center text-sm text-gray-500">Erro ao carregar alertas. Tente novamente.</div>';
         }
@@ -851,6 +866,7 @@
         html += '<div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-3">';
         html += '<div class="min-w-0">';
         html += '<div class="flex items-center gap-2 mb-1">';
+        html += '<input type="checkbox" class="alerta-bulk-check w-4 h-4 flex-shrink-0 accent-gray-700 cursor-pointer" data-id="' + alerta.id + '" onclick="event.stopPropagation()" title="Selecionar">';
         html += severidadeDot(alerta.severidade);
         html += '<span class="text-sm font-medium text-gray-900">' + escapeHtml(formatTipoLabel(alerta.tipo)) + '</span>';
         html += severidadeBadge(alerta.severidade);
@@ -1505,6 +1521,72 @@
         });
     }
 
+    // ─── Bulk selection (ações em lote) ───────────────────────
+    var selectedAlertaIds = {};
+
+    function limparSelecaoLote() {
+        selectedAlertaIds = {};
+        var bar = document.getElementById('alertas-bulk-bar');
+        if (bar) bar.classList.add('hidden');
+    }
+
+    function atualizarBarraLote() {
+        var ids = Object.keys(selectedAlertaIds);
+        var countEl = document.getElementById('alertas-bulk-count');
+        var bar = document.getElementById('alertas-bulk-bar');
+        if (countEl) countEl.textContent = ids.length;
+        if (bar) bar.classList.toggle('hidden', ids.length === 0);
+    }
+
+    function setupBulkSelection() {
+        document.querySelectorAll('.alerta-bulk-check').forEach(function(cb) {
+            cb.checked = !!selectedAlertaIds[cb.getAttribute('data-id')];
+            cb.addEventListener('change', function() {
+                var id = this.getAttribute('data-id');
+                if (this.checked) selectedAlertaIds[id] = true;
+                else delete selectedAlertaIds[id];
+                atualizarBarraLote();
+            });
+        });
+        atualizarBarraLote();
+    }
+
+    async function aplicarStatusLote(status) {
+        var ids = Object.keys(selectedAlertaIds).map(Number);
+        if (ids.length === 0) return;
+        var notas = null;
+        if (status === 'ignorado') {
+            var motivo = window.prompt('Motivo para ignorar ' + ids.length + ' alerta(s) (opcional). Cancele para abortar:');
+            if (motivo === null) return;
+            notas = motivo.trim() || null;
+        }
+        var payload = { ids: ids, status: status };
+        if (notas) payload.notas = notas;
+        try {
+            var res = await postJson('/app/alertas/status-lote', payload);
+            if (res && res.resumo) { resumoData = res.resumo; renderKpis(resumoData); }
+            limparSelecaoLote();
+            loadAlertas(paginaAtual);
+        } catch (e) {
+            alert('Erro ao aplicar ação em lote. Tente novamente.');
+        }
+    }
+
+    function setupBulkBarButtons() {
+        document.querySelectorAll('.alerta-bulk-action').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                aplicarStatusLote(this.getAttribute('data-bulk'));
+            });
+        });
+        var clearBtn = document.getElementById('alertas-bulk-clear');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', function() {
+                document.querySelectorAll('.alerta-bulk-check').forEach(function(cb){ cb.checked = false; });
+                limparSelecaoLote();
+            });
+        }
+    }
+
     function setupFiltros() {
         var btnFiltrar = document.getElementById('btn-filtrar-alertas');
         if (btnFiltrar) {
@@ -1597,6 +1679,7 @@
     setupTabs();
     setupKpiClicks();
     setupRecalcular();
+    setupBulkBarButtons();
 
     // Register cleanup for SPA navigation
     window._cleanupFunctions = window._cleanupFunctions || {};

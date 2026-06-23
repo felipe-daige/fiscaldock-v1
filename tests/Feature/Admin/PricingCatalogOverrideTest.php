@@ -10,7 +10,7 @@ it('sem override, os valores são idênticos aos atuais (garantia anti-regressã
     $pricing = new PricingCatalogService;
 
     expect($pricing->creditUnitPrice())->toBe(0.20);
-    expect($pricing->getMinimumDeposit())->toBe(50.00);
+    expect($pricing->getMinimumDeposit())->toBe(100.00);
 
     $tiers = collect($pricing->getTiers())->keyBy('slug');
     expect($tiers['base']['min_paid_credits'])->toBe(0);

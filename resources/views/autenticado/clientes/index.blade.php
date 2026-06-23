@@ -291,18 +291,15 @@
                                             </div>
                                         </td>
                                         <td class="px-3 py-3 text-right">
-                                            <button
-                                                type="button"
-                                                class="acoes-btn p-2 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-                                                data-id="{{ $cliente->id }}"
-                                                data-nome="{{ $cliente->razao_social ?? $cliente->nome ?? '' }}"
-                                                data-documento="{{ $cliente->documento_formatado }}"
-                                                data-empresa-propria="{{ $cliente->is_empresa_propria ? '1' : '0' }}"
-                                            >
-                                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                                    <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path>
-                                                </svg>
-                                            </button>
+                                            <x-acoes-menu trigger="kebab">
+                                                <x-acoes-item href="/app/cliente/{{ $cliente->id }}/editar" data-link>Editar</x-acoes-item>
+                                                @unless($cliente->is_empresa_propria)
+                                                    <x-acoes-item variant="danger"
+                                                        data-excluir-cliente="{{ $cliente->id }}"
+                                                        data-nome="{{ $cliente->razao_social ?? $cliente->nome ?? '' }}"
+                                                        data-documento="{{ $cliente->documento_formatado }}">Excluir</x-acoes-item>
+                                                @endunless
+                                            </x-acoes-menu>
                                         </td>
                                     </tr>
                                 @endforeach
@@ -371,18 +368,17 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <button
-                                        type="button"
-                                        class="acoes-btn p-2 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors flex-shrink-0"
-                                        data-id="{{ $cliente->id }}"
-                                        data-nome="{{ $cliente->razao_social ?? $cliente->nome ?? '' }}"
-                                        data-documento="{{ $cliente->documento_formatado }}"
-                                        data-empresa-propria="{{ $cliente->is_empresa_propria ? '1' : '0' }}"
-                                    >
-                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path>
-                                        </svg>
-                                    </button>
+                                    <div class="flex-shrink-0">
+                                        <x-acoes-menu trigger="kebab">
+                                            <x-acoes-item href="/app/cliente/{{ $cliente->id }}/editar" data-link>Editar</x-acoes-item>
+                                            @unless($cliente->is_empresa_propria)
+                                                <x-acoes-item variant="danger"
+                                                    data-excluir-cliente="{{ $cliente->id }}"
+                                                    data-nome="{{ $cliente->razao_social ?? $cliente->nome ?? '' }}"
+                                                    data-documento="{{ $cliente->documento_formatado }}">Excluir</x-acoes-item>
+                                            @endunless
+                                        </x-acoes-menu>
+                                    </div>
                                 </div>
                             </div>
                             <div class="divide-y divide-gray-100">
@@ -456,25 +452,6 @@
     </div>
 </div>
 
-<div id="dropdown-acoes" class="hidden fixed z-[9999] bg-white rounded-xl shadow-lg ring-1 ring-gray-200 w-56 py-1">
-    <div class="px-3 py-2 border-b border-gray-100">
-        <p class="text-sm font-semibold text-gray-900 truncate" id="dropdown-acoes-nome"></p>
-        <p class="text-xs text-gray-500 font-mono whitespace-nowrap tabular-nums" id="dropdown-acoes-documento"></p>
-    </div>
-    <a id="dropdown-acoes-editar" href="#" class="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors" data-link>
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-        </svg>
-        Editar
-    </a>
-    <button type="button" id="dropdown-acoes-excluir" class="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-        </svg>
-        Excluir
-    </button>
-</div>
-
 <div id="modal-excluir" class="hidden fixed inset-0 z-50 overflow-y-auto">
     <div class="flex items-center justify-center min-h-screen px-4">
         <div class="fixed inset-0 bg-black/50 transition-opacity" id="modal-excluir-overlay"></div>
@@ -538,15 +515,6 @@
 
         var clientesSelecionados = carregarSelecao();
         var selectAll = document.getElementById('select-all-clientes');
-        var dropdownAcoes = document.getElementById('dropdown-acoes');
-        var dropdownAcoesNome = document.getElementById('dropdown-acoes-nome');
-        var dropdownAcoesDocumento = document.getElementById('dropdown-acoes-documento');
-        var dropdownAcoesEditar = document.getElementById('dropdown-acoes-editar');
-        var dropdownAcoesExcluir = document.getElementById('dropdown-acoes-excluir');
-        var acaoClienteId = null;
-        var acaoClienteNome = null;
-        var acaoClienteDocumento = null;
-        var dropdownBtnAtual = null;
         var btnViewList = document.getElementById('btn-view-list-clientes');
         var btnViewCards = document.getElementById('btn-view-cards-clientes');
         var btnSelecionarTodos = document.getElementById('btn-selecionar-todos-clientes');
@@ -732,78 +700,18 @@
         sincronizarCheckboxes();
         atualizarBarraAcoes();
 
-        function fecharDropdownAcoes() {
-            if (dropdownAcoes) dropdownAcoes.classList.add('hidden');
-            dropdownBtnAtual = null;
+        // Abrir/fechar/posicionar do menu fica por conta do componente padrão de ações.
+        // Aqui só escutamos o clique no item "Excluir" — delegado em document, sobrevive aos
+        // swaps do SPA (cleanup registrado abaixo).
+        function _clientesOnExcluirClick(event) {
+            var btn = event.target.closest('[data-excluir-cliente]');
+            if (!btn) return;
+            abrirModalExclusao(btn.dataset.excluirCliente, btn.dataset.nome, btn.dataset.documento);
         }
-
-        function posicionarDropdown(btnElement) {
-            if (!dropdownAcoes || !btnElement) return;
-            dropdownAcoes.style.visibility = 'hidden';
-            dropdownAcoes.classList.remove('hidden');
-            var dropdownHeight = dropdownAcoes.offsetHeight;
-            var dropdownWidth = dropdownAcoes.offsetWidth;
-            dropdownAcoes.classList.add('hidden');
-            dropdownAcoes.style.visibility = '';
-
-            var rect = btnElement.getBoundingClientRect();
-            var left = Math.max(8, rect.right - dropdownWidth);
-            var top = (window.innerHeight - rect.bottom >= dropdownHeight + 4) ? rect.bottom + 4 : rect.top - dropdownHeight - 4;
-            dropdownAcoes.style.top = top + 'px';
-            dropdownAcoes.style.left = left + 'px';
-        }
-
-        function abrirDropdownAcoes(btnElement) {
-            if (!dropdownAcoes) return;
-            if (!dropdownAcoes.classList.contains('hidden') && dropdownBtnAtual === btnElement) {
-                fecharDropdownAcoes();
-                return;
-            }
-
-            acaoClienteId = btnElement.dataset.id;
-            acaoClienteNome = btnElement.dataset.nome;
-            acaoClienteDocumento = btnElement.dataset.documento;
-            dropdownBtnAtual = btnElement;
-
-            if (dropdownAcoesNome) dropdownAcoesNome.textContent = acaoClienteNome || 'Sem nome';
-            if (dropdownAcoesDocumento) dropdownAcoesDocumento.textContent = acaoClienteDocumento || '';
-            if (dropdownAcoesEditar) dropdownAcoesEditar.href = '/app/cliente/' + acaoClienteId + '/editar';
-
-            // Empresa própria não pode ser excluída — esconde a opção de exclusão.
-            if (dropdownAcoesExcluir) {
-                dropdownAcoesExcluir.classList.toggle('hidden', btnElement.dataset.empresaPropria === '1');
-            }
-
-            posicionarDropdown(btnElement);
-            dropdownAcoes.classList.remove('hidden');
-        }
-
-        container.addEventListener('click', function(event) {
-            var acaoBtn = event.target.closest('.acoes-btn');
-            if (acaoBtn) {
-                event.preventDefault();
-                event.stopPropagation();
-                abrirDropdownAcoes(acaoBtn);
-                return;
-            }
-        });
-
-        function _clientesOnDocClick(event) {
-            if (dropdownAcoes && !dropdownAcoes.classList.contains('hidden') && !dropdownAcoes.contains(event.target)) {
-                fecharDropdownAcoes();
-            }
-        }
-        function _clientesOnDocKeydown(event) {
-            if (event.key === 'Escape') fecharDropdownAcoes();
-        }
-        document.addEventListener('click', _clientesOnDocClick);
-        document.addEventListener('keydown', _clientesOnDocKeydown);
-        // SPA: remover estes listeners de document ao navegar (spa.js → limparRecursos),
-        // senão acumulam a cada visita (closures presas ao DOM já trocado pelo SPA).
+        document.addEventListener('click', _clientesOnExcluirClick);
         if (!window._cleanupFunctions) window._cleanupFunctions = {};
         window._cleanupFunctions.clientes = function () {
-            document.removeEventListener('click', _clientesOnDocClick);
-            document.removeEventListener('keydown', _clientesOnDocKeydown);
+            document.removeEventListener('click', _clientesOnExcluirClick);
         };
 
         var modalExcluir = document.getElementById('modal-excluir');
@@ -824,13 +732,6 @@
         function fecharModalExclusao() {
             clienteIdParaExcluir = null;
             if (modalExcluir) modalExcluir.classList.add('hidden');
-        }
-
-        if (dropdownAcoesExcluir) {
-            dropdownAcoesExcluir.addEventListener('click', function() {
-                abrirModalExclusao(acaoClienteId, acaoClienteNome, acaoClienteDocumento);
-                fecharDropdownAcoes();
-            });
         }
 
         if (btnCancelarExclusao) btnCancelarExclusao.addEventListener('click', fecharModalExclusao);

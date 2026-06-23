@@ -31,6 +31,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body class="{{ $themeClass ?? 'bg-surface text-slate-900 font-sans antialiased' }}">
+    @include('autenticado.layouts.partials.impersonacao-banner')
     <div class="min-h-screen flex">
         @include('autenticado.partials.sidebar')
 

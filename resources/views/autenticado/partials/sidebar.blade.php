@@ -193,6 +193,37 @@
     </x-sidebar.section>
 
     <x-slot:footer>
+        @php
+            $__u = auth()->user();
+            $__trialOn = $__u && $__u->trial_used && $__u->trial_expires_at && now()->lt($__u->trial_expires_at);
+        @endphp
+        @if($__trialOn)
+            @php
+                $__dias = max(0, (int) ceil(now()->diffInDays($__u->trial_expires_at)));
+                $__diasTotal = max(1, (int) config('trial.validade_dias'));
+                $__pct = max(4, min(100, (int) round($__dias / $__diasTotal * 100)));
+                $__creditos = (int) $__u->trial_credits_remaining;
+            @endphp
+            <a href="/app/planos" data-link data-trial-widget class="block rounded-xl mb-3 overflow-hidden"
+               style="background:linear-gradient(135deg,#1e3a8a 0%,#3730a3 100%); color:#fff; box-shadow:0 4px 14px rgba(30,58,138,.28);">
+                <div class="p-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[10px] font-bold uppercase" style="letter-spacing:.06em;">Trial ativo</span>
+                        <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded" style="background-color:rgba(255,255,255,.14); color:#eff6ff;">{{ number_format($__creditos, 0, ',', '.') }} créditos</span>
+                    </div>
+                    <div class="flex items-baseline gap-1.5 mt-2.5">
+                        <span class="text-[22px] font-bold leading-none">{{ $__dias }}</span>
+                        <span class="text-[11px]" style="color:#dbeafe;">{{ $__dias === 1 ? 'dia restante' : 'dias restantes' }}</span>
+                    </div>
+                    <div class="mt-2 rounded-full overflow-hidden" style="height:4px;background-color:rgba(255,255,255,.18);">
+                        <div style="height:100%;width:{{ $__pct }}%;background-color:#60a5fa;border-radius:9999px;"></div>
+                    </div>
+                    <p class="text-[11px] mt-2.5 font-semibold inline-flex items-center gap-1" style="color:#bfdbfe;">Ver planos
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    </p>
+                </div>
+            </a>
+        @endif
         <div class="sidebar__user">
             <details class="group/user-details sidebar__user-panel flex flex-col-reverse marker:content-none [&::-webkit-details-marker]:hidden">
                 <summary class="sidebar__user-trigger outline-none select-none">

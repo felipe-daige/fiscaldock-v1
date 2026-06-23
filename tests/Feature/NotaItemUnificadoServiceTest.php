@@ -50,6 +50,21 @@ function xmlNotaComItem(int $userId, int $clienteId, string $chave, string $codI
     ]);
 }
 
+function efdItemComCst(int $userId, int $clienteId, string $codItem, string $cst, int $cfop = 5102): void
+{
+    $imp = EfdImportacao::create(['user_id' => $userId, 'cliente_id' => $clienteId, 'tipo_efd' => 'EFD ICMS/IPI', 'filename' => 'i.txt', 'status' => 'concluido', 'iniciado_em' => now()]);
+    $nota = EfdNota::create([
+        'user_id' => $userId, 'cliente_id' => $clienteId, 'importacao_id' => $imp->id, 'numero' => 1, 'serie' => '1',
+        'data_emissao' => '2024-01-15', 'valor_desconto' => 0, 'cancelada' => false, 'chave_acesso' => str_pad($codItem, 44, '0', STR_PAD_LEFT),
+        'modelo' => '55', 'tipo_operacao' => 'saida', 'origem_arquivo' => 'fiscal', 'valor_total' => 100.0,
+    ]);
+    DB::table('efd_notas_itens')->insert([
+        'efd_nota_id' => $nota->id, 'user_id' => $userId, 'numero_item' => 1, 'codigo_item' => $codItem,
+        'descricao' => 'item efd', 'quantidade' => 1, 'valor_total' => 100.0, 'cfop' => $cfop, 'cst_icms' => $cst, 'aliquota_icms' => 18,
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+}
+
 function catalogoItem(int $userId, int $clienteId, string $codItem, string $ncm = '99887766', float $aliq = 18): void
 {
     $impId = DB::table('efd_importacoes')->insertGetId([
@@ -335,6 +350,56 @@ it('itensAgregados traz as importações de origem do item (id, fonte e label p/
     expect($itens['SKUI']['importacoes'][0]['fonte'])->toBe('efd');
     expect($itens['SKUI']['importacoes'][0]['id'])->toBeGreaterThan(0);
     expect($itens['SKUI']['importacoes'][0]['label'])->toContain('EFD');
+});
+
+it('filtra por cfop (lista, 1 ou mais)', function () {
+    [$user, $clienteId] = seedCatalogoUser();
+    efdNotaComItem($user->id, $clienteId, str_pad('A', 44, '0', STR_PAD_LEFT), 'CF5102', 100.0, 18, 'fiscal', 5102);
+    efdNotaComItem($user->id, $clienteId, str_pad('B', 44, '0', STR_PAD_LEFT), 'CF6102', 100.0, 18, 'fiscal', 6102);
+    efdNotaComItem($user->id, $clienteId, str_pad('C', 44, '0', STR_PAD_LEFT), 'CF5405', 100.0, 18, 'fiscal', 5405);
+
+    $svc = app(NotaItemUnificadoService::class);
+
+    expect($svc->itensAgregados($user->id, ['cfops' => ['5102']])->pluck('codigo_item')->all())->toBe(['CF5102']);
+    expect($svc->itensAgregados($user->id, ['cfops' => ['5102', '5405']])->pluck('codigo_item')->sort()->values()->all())
+        ->toBe(['CF5102', 'CF5405']);
+    // lista vazia = sem filtro
+    expect($svc->itensAgregados($user->id, ['cfops' => []])->count())->toBe(3);
+});
+
+it('filtra por cst_icms (lista, 1 ou mais)', function () {
+    [$user, $clienteId] = seedCatalogoUser();
+    efdItemComCst($user->id, $clienteId, 'CST00', '00');
+    efdItemComCst($user->id, $clienteId, 'CST60', '60');
+    efdItemComCst($user->id, $clienteId, 'CST20', '20');
+
+    $svc = app(NotaItemUnificadoService::class);
+
+    expect($svc->itensAgregados($user->id, ['csts' => ['00']])->pluck('codigo_item')->all())->toBe(['CST00']);
+    expect($svc->itensAgregados($user->id, ['csts' => ['00', '60']])->pluck('codigo_item')->sort()->values()->all())
+        ->toBe(['CST00', 'CST60']);
+});
+
+it('combina cfop + cst (interseção)', function () {
+    [$user, $clienteId] = seedCatalogoUser();
+    efdItemComCst($user->id, $clienteId, 'A', '00', 5102);
+    efdItemComCst($user->id, $clienteId, 'B', '00', 6102);
+    efdItemComCst($user->id, $clienteId, 'C', '60', 5102);
+
+    $svc = app(NotaItemUnificadoService::class);
+    expect($svc->itensAgregados($user->id, ['cfops' => ['5102'], 'csts' => ['00']])->pluck('codigo_item')->all())
+        ->toBe(['A']);
+});
+
+it('facetas retorna cfops e csts distintos do universo do usuário', function () {
+    [$user, $clienteId] = seedCatalogoUser();
+    efdItemComCst($user->id, $clienteId, 'X1', '00', 5102);
+    efdItemComCst($user->id, $clienteId, 'X2', '60', 6102);
+
+    $f = app(NotaItemUnificadoService::class)->facetas($user->id);
+
+    expect($f['cfops'])->toContain('5102')->toContain('6102');
+    expect($f['csts'])->toContain('00')->toContain('60');
 });
 
 it('itensSemCatalogo lista item movimentado sem 0200 com a referência da importação', function () {

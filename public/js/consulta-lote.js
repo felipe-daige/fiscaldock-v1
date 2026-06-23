@@ -61,7 +61,11 @@
             situacao_cadastral: '',
             uf: '',
             busca: '',
-            relacao: ''
+            relacao: '',
+            valor_op: 'min',
+            valor: '',
+            qtd_op: 'min',
+            qtd: ''
         },
         clientesFilters: {
             busca: '',
@@ -155,6 +159,10 @@
             filtroCliente: document.getElementById('filtro-cliente'),
             filtroGrupo: document.getElementById('filtro-grupo'),
             filtroRelacao: document.getElementById('filtro-relacao'),
+            filtroValorOp: document.getElementById('filtro-valor-op'),
+            filtroValor: document.getElementById('filtro-valor'),
+            filtroQtdOp: document.getElementById('filtro-qtd-op'),
+            filtroQtd: document.getElementById('filtro-qtd'),
             btnLimparFiltrosParticipantes: document.getElementById('btn-limpar-filtros-participantes'),
 
             // Abas
@@ -255,6 +263,10 @@
         if (elements.filtroCliente) elements.filtroCliente.addEventListener('change', onFilterChange);
         if (elements.filtroGrupo) elements.filtroGrupo.addEventListener('change', onFilterChange);
         if (elements.filtroRelacao) elements.filtroRelacao.addEventListener('change', onFilterChange);
+        if (elements.filtroValorOp) elements.filtroValorOp.addEventListener('change', onFilterChange);
+        if (elements.filtroValor) elements.filtroValor.addEventListener('input', debounce(onFilterChange, 400));
+        if (elements.filtroQtdOp) elements.filtroQtdOp.addEventListener('change', onFilterChange);
+        if (elements.filtroQtd) elements.filtroQtd.addEventListener('input', debounce(onFilterChange, 400));
         if (elements.btnLimparFiltrosParticipantes) {
             elements.btnLimparFiltrosParticipantes.addEventListener('click', resetParticipantesFilters);
         }
@@ -399,6 +411,14 @@
         if (state.filters.uf) params.append('uf', state.filters.uf);
         if (state.filters.busca) params.append('busca', state.filters.busca);
         if (state.filters.relacao) params.append('relacao', state.filters.relacao);
+        if (state.filters.valor !== '') {
+            params.append('valor_op', state.filters.valor_op);
+            params.append('valor', state.filters.valor);
+        }
+        if (state.filters.qtd !== '') {
+            params.append('qtd_op', state.filters.qtd_op);
+            params.append('qtd', state.filters.qtd);
+        }
 
         try {
             const response = await fetch(`${window.consultaData.routes.getParticipantes}?${params}`, {
@@ -594,6 +614,10 @@
         state.filters.cliente_id = elements.filtroCliente?.value || '';
         state.filters.grupo_id = elements.filtroGrupo?.value || '';
         state.filters.relacao = elements.filtroRelacao?.value || '';
+        state.filters.valor_op = elements.filtroValorOp?.value || 'min';
+        state.filters.valor = elements.filtroValor?.value || '';
+        state.filters.qtd_op = elements.filtroQtdOp?.value || 'min';
+        state.filters.qtd = elements.filtroQtd?.value || '';
         state.filterContext = null;
         if (elements.participantesContext) {
             elements.participantesContext.classList.add('hidden');
@@ -682,6 +706,14 @@
                 if (state.filters.uf) params.append('uf', state.filters.uf);
                 if (state.filters.busca) params.append('busca', state.filters.busca);
                 if (state.filters.relacao) params.append('relacao', state.filters.relacao);
+                if (state.filters.valor !== '') {
+                    params.append('valor_op', state.filters.valor_op);
+                    params.append('valor', state.filters.valor);
+                }
+                if (state.filters.qtd !== '') {
+                    params.append('qtd_op', state.filters.qtd_op);
+                    params.append('qtd', state.filters.qtd);
+                }
 
                 const response = await fetch(`${window.consultaData.routes.getParticipantes}?${params}`, {
                     headers: {
@@ -3421,7 +3453,11 @@
             situacao_cadastral: '',
             uf: '',
             busca: '',
-            relacao: ''
+            relacao: '',
+            valor_op: 'min',
+            valor: '',
+            qtd_op: 'min',
+            qtd: ''
         };
         state.filterContext = null;
         state.currentPage = 1;
@@ -3434,6 +3470,10 @@
         if (elements.filtroCliente) elements.filtroCliente.value = '';
         if (elements.filtroGrupo) elements.filtroGrupo.value = '';
         if (elements.filtroRelacao) elements.filtroRelacao.value = '';
+        if (elements.filtroValorOp) elements.filtroValorOp.value = 'min';
+        if (elements.filtroValor) elements.filtroValor.value = '';
+        if (elements.filtroQtdOp) elements.filtroQtdOp.value = 'min';
+        if (elements.filtroQtd) elements.filtroQtd.value = '';
         if (elements.participantesContext) elements.participantesContext.classList.add('hidden');
 
         loadParticipantes();

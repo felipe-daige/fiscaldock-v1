@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\AccountSubscription;
+use App\Models\Cliente;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Services\Entitlements\EntitlementService;
@@ -121,4 +122,89 @@ it('permits(): plano pago libera conforme a capability', function () {
     expect($this->svc->permits($user, 'clearance_lote'))->toBeTrue();
     expect($this->svc->permits($user, 'export'))->toBeTrue();
     expect($this->svc->permits($user, 'score_historico'))->toBeFalse();
+});
+
+// ---- cap de clientes (empresa própria + N do tier) ----
+
+function criarCliente(User $user, string $doc, bool $propria = false): Cliente
+{
+    return Cliente::create([
+        'user_id' => $user->id,
+        'documento' => $doc,
+        'tipo_pessoa' => 'PJ',
+        'razao_social' => 'Empresa '.$doc,
+        'is_empresa_propria' => $propria,
+        'ativo' => true,
+    ]);
+}
+
+it('limiteClientes: Free puro = 1, tiers do plano, trial libera (null)', function () {
+    $free = User::factory()->create();
+    expect($this->svc->limiteClientes($free))->toBe(1);
+
+    $ess = User::factory()->create();
+    assinar($ess, 'essencial');
+    expect($this->svc->limiteClientes($ess))->toBe(15);
+
+    $ent = User::factory()->create();
+    assinar($ent, 'enterprise');
+    expect($this->svc->limiteClientes($ent))->toBeNull();
+
+    $trial = User::factory()->create();
+    ativarTrial($trial);
+    expect($this->svc->limiteClientes($trial))->toBeNull();
+});
+
+it('clientesAtuais ignora a empresa própria', function () {
+    $user = User::factory()->create();
+    criarCliente($user, '11111111000191', propria: true);
+    criarCliente($user, '22222222000191');
+    expect($this->svc->clientesAtuais($user))->toBe(1);
+});
+
+it('podeAdicionarCliente: Free trava em empresa própria + 1', function () {
+    $user = User::factory()->create(); // Free puro, limite 1
+    criarCliente($user, '11111111000191', propria: true);
+    // própria não conta → ainda pode adicionar o +1
+    expect($this->svc->podeAdicionarCliente($user))->toBeTrue();
+
+    criarCliente($user, '22222222000191');
+    // já tem o +1 → estourou
+    expect($this->svc->podeAdicionarCliente($user))->toBeFalse();
+});
+
+it('podeAdicionarCliente: trial ativo nunca trava', function () {
+    $user = User::factory()->create();
+    ativarTrial($user);
+    foreach (['33333333000191', '44444444000191', '55555555000191'] as $doc) {
+        criarCliente($user, $doc);
+    }
+    expect($this->svc->podeAdicionarCliente($user))->toBeTrue();
+});
+
+it('firstOrCreateClienteComCap: vincula existente, cria se cabe, null se estoura', function () {
+    $user = User::factory()->create(); // Free, cap 1
+    criarCliente($user, '11111111000191', propria: true);
+
+    // cria o +1 (cabe)
+    $c1 = $this->svc->firstOrCreateClienteComCap($user->id, '22222222000191', ['tipo_pessoa' => 'PJ', 'razao_social' => 'A', 'ativo' => true]);
+    expect($c1)->not->toBeNull();
+    expect($c1->is_empresa_propria)->toBeFalse();
+
+    // estourou → null, nada criado
+    $c2 = $this->svc->firstOrCreateClienteComCap($user->id, '33333333000191', ['tipo_pessoa' => 'PJ']);
+    expect($c2)->toBeNull();
+    expect(Cliente::where('user_id', $user->id)->where('documento', '33333333000191')->exists())->toBeFalse();
+
+    // vincular um existente sempre funciona (não conta como novo)
+    $again = $this->svc->firstOrCreateClienteComCap($user->id, '22222222000191', []);
+    expect($again->id)->toBe($c1->id);
+});
+
+it('firstOrCreateClienteComCap: trial cria à vontade', function () {
+    $user = User::factory()->create();
+    ativarTrial($user);
+    foreach (['22222222000191', '33333333000191', '44444444000191'] as $d) {
+        expect($this->svc->firstOrCreateClienteComCap($user->id, $d, ['tipo_pessoa' => 'PJ']))->not->toBeNull();
+    }
 });

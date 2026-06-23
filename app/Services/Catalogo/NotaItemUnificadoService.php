@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\DB;
 class NotaItemUnificadoService
 {
     /**
-     * @param  array{periodo_de?:string,periodo_ate?:string,cliente_id?:int,fonte?:string}  $filtros
+     * @param  array{periodo_de?:string,periodo_ate?:string,cliente_id?:int,fonte?:string,cfops?:list<string>,csts?:list<string>}  $filtros
      * @return Collection<int,array<string,mixed>>
      */
     public function itensAgregados(int $userId, array $filtros = []): Collection
@@ -38,6 +38,14 @@ class NotaItemUnificadoService
             $bind['ate'] = $filtros['periodo_ate'];
             $efdWhere .= ' AND n.data_emissao <= :ate';
             $xmlWhere .= ' AND xn.data_emissao <= :ate';
+        }
+        if (($cfopPh = $this->placeholders($filtros['cfops'] ?? [], 'cfop', $bind)) !== '') {
+            $efdWhere .= " AND ni.cfop::text IN ({$cfopPh})";
+            $xmlWhere .= " AND xi.cfop::text IN ({$cfopPh})";
+        }
+        if (($cstPh = $this->placeholders($filtros['csts'] ?? [], 'cst', $bind)) !== '') {
+            $efdWhere .= " AND ni.cst_icms IN ({$cstPh})";
+            $xmlWhere .= " AND xi.cst_icms IN ({$cstPh})";
         }
 
         $efdSelect = "
@@ -117,7 +125,7 @@ class NotaItemUnificadoService
      * Importação(ões) de origem por codigo_item (para link ao documento de origem na tabela de itens).
      * Mesma dedup EFD×XML por chave de itensAgregados; respeita os filtros cliente/período/fonte.
      *
-     * @param  array{periodo_de?:string,periodo_ate?:string,cliente_id?:int,fonte?:string}  $filtros
+     * @param  array{periodo_de?:string,periodo_ate?:string,cliente_id?:int,fonte?:string,cfops?:list<string>,csts?:list<string>}  $filtros
      * @return array<string, array<int, array{fonte:string,id:int,label:string}>>
      */
     public function importacoesPorItem(int $userId, array $filtros = []): array
@@ -139,6 +147,14 @@ class NotaItemUnificadoService
             $bind['ate'] = $filtros['periodo_ate'];
             $efdWhere .= ' AND n.data_emissao <= :ate';
             $xmlWhere .= ' AND xn.data_emissao <= :ate';
+        }
+        if (($cfopPh = $this->placeholders($filtros['cfops'] ?? [], 'cfop', $bind)) !== '') {
+            $efdWhere .= " AND ni.cfop::text IN ({$cfopPh})";
+            $xmlWhere .= " AND xi.cfop::text IN ({$cfopPh})";
+        }
+        if (($cstPh = $this->placeholders($filtros['csts'] ?? [], 'cst', $bind)) !== '') {
+            $efdWhere .= " AND ni.cst_icms IN ({$cstPh})";
+            $xmlWhere .= " AND xi.cst_icms IN ({$cstPh})";
         }
 
         $efdSel = "
@@ -318,6 +334,90 @@ class NotaItemUnificadoService
             'importacoes' => $r->importacoes,
             'ocorrencias' => (int) $r->ocorrencias,
         ]);
+    }
+
+    /**
+     * CFOPs e CSTs distintos no universo de movimento do usuário — opções para os filtros da UI.
+     * Respeita cliente/período/fonte (mas NÃO cfop/cst, para o conjunto de opções ficar completo).
+     *
+     * @param  array{periodo_de?:string,periodo_ate?:string,cliente_id?:int,fonte?:string}  $filtros
+     * @return array{cfops: list<string>, csts: list<string>}
+     */
+    public function facetas(int $userId, array $filtros = []): array
+    {
+        $bind = ['uid' => $userId];
+        $efdWhere = '';
+        $xmlWhere = '';
+        if (! empty($filtros['cliente_id'])) {
+            $bind['cli'] = (int) $filtros['cliente_id'];
+            $efdWhere .= ' AND n.cliente_id = :cli';
+            $xmlWhere .= ' AND xn.cliente_id = :cli';
+        }
+        if (! empty($filtros['periodo_de'])) {
+            $bind['de'] = $filtros['periodo_de'];
+            $efdWhere .= ' AND n.data_emissao >= :de';
+            $xmlWhere .= ' AND xn.data_emissao >= :de';
+        }
+        if (! empty($filtros['periodo_ate'])) {
+            $bind['ate'] = $filtros['periodo_ate'];
+            $efdWhere .= ' AND n.data_emissao <= :ate';
+            $xmlWhere .= ' AND xn.data_emissao <= :ate';
+        }
+
+        $efdSel = "
+            SELECT DISTINCT ni.cfop::text AS cfop, ni.cst_icms AS cst
+            FROM efd_notas_itens ni
+            JOIN efd_notas n ON n.id = ni.efd_nota_id AND n.cancelada = false
+            WHERE ni.user_id = :uid{$efdWhere}";
+
+        $xmlSel = "
+            SELECT DISTINCT xi.cfop::text AS cfop, xi.cst_icms AS cst
+            FROM xml_notas_itens xi
+            JOIN xml_notas xn ON xn.id = xi.xml_nota_id
+            WHERE xi.user_id = :uid
+              AND NOT EXISTS (SELECT 1 FROM efd_notas en WHERE en.user_id = :uid AND en.chave_acesso = xn.chave_acesso)
+              {$xmlWhere}";
+
+        $fonte = $filtros['fonte'] ?? 'ambas';
+        $src = match ($fonte) {
+            'efd' => $efdSel,
+            'xml' => $xmlSel,
+            default => $efdSel.' UNION '.$xmlSel,
+        };
+
+        $rows = DB::select("SELECT DISTINCT cfop, cst FROM ({$src}) s", $bind);
+
+        $pick = fn (string $field) => collect($rows)->pluck($field)
+            ->map(fn ($v) => $v !== null ? trim((string) $v) : '')
+            ->filter(fn ($v) => $v !== '')
+            ->unique()->sort()->values()->all();
+
+        return ['cfops' => $pick('cfop'), 'csts' => $pick('cst')];
+    }
+
+    /**
+     * Monta a lista de placeholders nomeados para um IN(...) e registra os valores (saneados,
+     * sem repetição) em $bind. Retorna '' quando não há nada para filtrar.
+     *
+     * @param  array<int,mixed>  $values
+     */
+    private function placeholders(array $values, string $prefix, array &$bind): string
+    {
+        $values = array_values(array_unique(array_filter(
+            array_map(fn ($v) => trim((string) $v), $values),
+            fn ($v) => $v !== '',
+        )));
+        if ($values === []) {
+            return '';
+        }
+
+        $ph = [];
+        foreach ($values as $i => $v) {
+            $bind[$prefix.$i] = $v;
+            $ph[] = ':'.$prefix.$i;
+        }
+
+        return implode(',', $ph);
     }
 
     /** 'efd,xml' / 'xml,efd' → 'ambas'; senão a fonte única. */

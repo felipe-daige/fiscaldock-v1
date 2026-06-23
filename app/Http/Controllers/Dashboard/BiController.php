@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\RespondeAjax;
 use App\Http\Controllers\Controller;
 use App\Models\Cliente;
 use App\Services\BiService;
+use App\Support\CsvExport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -309,14 +310,9 @@ class BiController extends Controller
             abort(404, 'Aba sem exportação disponível');
         }
 
-        $csv = $this->biExport->toCsv($ds['colunas'], $ds['linhas']);
         $filename = 'bi-'.$aba.'-'.now()->format('Ymd').'.csv';
 
-        return response()->streamDownload(function () use ($csv) {
-            echo $csv;
-        }, $filename, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-        ]);
+        return CsvExport::download($filename, $ds['colunas'], $ds['linhas']);
     }
 
     /**

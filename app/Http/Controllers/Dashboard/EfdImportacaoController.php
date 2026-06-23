@@ -11,6 +11,7 @@ use App\Models\Participante;
 use App\Models\XmlImportacao;
 use App\Services\CreditService;
 use App\Services\EfdProgressoBuilder;
+use App\Services\Entitlements\EntitlementService;
 use App\Services\SpedDetectorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -33,6 +34,8 @@ class EfdImportacaoController extends Controller
         protected SpedDetectorService $spedDetector,
         protected \App\Services\Efd\EfdImportacaoDuplicidadeService $duplicidade,
         protected \App\Services\Efd\ExcluirImportacaoService $excluir,
+        protected EntitlementService $entitlements = new EntitlementService,
+        protected \App\Services\Efd\EfdPlanilhaExportService $planilhaExport = new \App\Services\Efd\EfdPlanilhaExportService,
     ) {}
 
     /**
@@ -142,6 +145,43 @@ class EfdImportacaoController extends Controller
         }
 
         return view(self::AUTH_LAYOUT_VIEW, array_merge(['initialView' => $view], $data));
+    }
+
+    /**
+     * Exporta tudo que foi extraído da importação como ZIP de CSVs (planilha).
+     */
+    public function exportar(Request $request, $id)
+    {
+        if (! Auth::check()) {
+            return $this->redirectToLogin($request);
+        }
+
+        $userId = (int) Auth::id();
+
+        $importacao = EfdImportacao::where('id', $id)
+            ->where('user_id', $userId)
+            ->firstOrFail();
+
+        $dataset = (string) $request->query('dataset', '');
+
+        // CSV único de um dataset específico (whitelist server-side — nunca confiar no frontend).
+        if ($dataset !== '' && $dataset !== 'tudo') {
+            abort_unless(array_key_exists($dataset, \App\Services\Efd\EfdPlanilhaExportService::DATASETS), 404);
+
+            $csv = $this->planilhaExport->csvDataset($importacao, $userId, $dataset);
+            $nome = $this->planilhaExport->nomeCsv($importacao, $dataset);
+
+            return \App\Support\CsvExport::stream($nome, $csv);
+        }
+
+        // Tudo: ZIP de CSVs.
+        $zipPath = $this->planilhaExport->zipPath($importacao, $userId);
+        $nome = $this->planilhaExport->nomeZip($importacao);
+
+        return response()->streamDownload(function () use ($zipPath) {
+            readfile($zipPath);
+            @unlink($zipPath);
+        }, $nome, ['Content-Type' => 'application/zip']);
     }
 
     /**
@@ -386,6 +426,35 @@ class EfdImportacaoController extends Controller
                 'success' => false,
                 'error' => 'Serviço de importação não configurado. Verifique as variáveis de ambiente.',
             ], Response::HTTP_SERVICE_UNAVAILABLE);
+        }
+
+        // EFD sem cliente vinculado: o CNPJ do arquivo É a empresa-sujeito. Resolvido
+        // APÓS o dedup (que escopa pelo cliente_id do request) pra não mudar o contrato
+        // de duplicidade. Vincula ao cliente existente ou registra um novo (cap-checked)
+        // — modelo "acesso = CNPJs distintos": CNPJ novo = +1 cliente. Nunca confia no front.
+        if (! $clienteId && $cabecalho['cnpj']) {
+            $existente = Cliente::where('user_id', $user->id)
+                ->where('documento', $cabecalho['cnpj'])
+                ->first();
+
+            if ($existente) {
+                $clienteId = $existente->id;
+            } elseif (! $this->entitlements->podeAdicionarCliente($user)) {
+                $limite = $this->entitlements->limiteClientes($user);
+
+                return response()->json([
+                    'success' => false,
+                    'error' => "Seu plano permite até {$limite} cliente(s) além da sua empresa. Este SPED é de um CNPJ ainda não cadastrado — faça upgrade para importá-lo.",
+                ], Response::HTTP_FORBIDDEN);
+            } else {
+                $clienteId = Cliente::create([
+                    'user_id' => $user->id,
+                    'tipo_pessoa' => 'PJ',
+                    'documento' => $cabecalho['cnpj'],
+                    'is_empresa_propria' => false,
+                    'ativo' => true,
+                ])->id;
+            }
         }
 
         // Criar registro de importação antes de enviar ao n8n

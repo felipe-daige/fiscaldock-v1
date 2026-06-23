@@ -390,14 +390,11 @@
                                     </div>
                                 </td>
                                 <td class="px-3 py-3 text-right align-middle">
-                                    <button type="button" class="acoes-btn p-2 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-                                        data-id="{{ $part->id }}"
-                                        data-nome="{{ $part->razao_social }}"
-                                        data-cnpj="{{ $part->cnpj_formatado }}">
-                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path>
-                                        </svg>
-                                    </button>
+                                    <x-acoes-menu trigger="kebab">
+                                        <x-acoes-item href="/app/participante/{{ $part->id }}?return_to={{ urlencode(request()->fullUrl()) }}" data-link>Ver detalhes</x-acoes-item>
+                                        <x-acoes-item href="/app/participante/{{ $part->id }}/editar" data-link>Editar</x-acoes-item>
+                                        <x-acoes-item variant="danger" data-excluir-participante="{{ $part->id }}" data-cnpj="{{ $part->cnpj_formatado }}" data-nome="{{ $part->razao_social }}">Excluir</x-acoes-item>
+                                    </x-acoes-menu>
                                 </td>
                             </tr>
                         @empty
@@ -497,15 +494,13 @@
                                 @endif
                             </div>
                         </div>
-                        <button type="button" class="acoes-btn flex-shrink-0 p-2 -mr-1 -mt-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-                            data-id="{{ $part->id }}"
-                            data-nome="{{ $part->razao_social }}"
-                            data-cnpj="{{ $part->cnpj_formatado }}"
-                            aria-label="Ações de {{ $part->razao_social ?? $part->cnpj_formatado }}">
-                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path>
-                            </svg>
-                        </button>
+                        <div class="flex-shrink-0 -mr-1 -mt-1">
+                            <x-acoes-menu trigger="kebab">
+                                <x-acoes-item href="/app/participante/{{ $part->id }}?return_to={{ urlencode(request()->fullUrl()) }}" data-link>Ver detalhes</x-acoes-item>
+                                <x-acoes-item href="/app/participante/{{ $part->id }}/editar" data-link>Editar</x-acoes-item>
+                                <x-acoes-item variant="danger" data-excluir-participante="{{ $part->id }}" data-cnpj="{{ $part->cnpj_formatado }}" data-nome="{{ $part->razao_social }}">Excluir</x-acoes-item>
+                            </x-acoes-menu>
+                        </div>
                     </div>
                     <div class="border-t border-gray-100 pt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <div class="min-w-0">
@@ -563,38 +558,6 @@
 </div>
 
 {{-- Modais (fora do container para overlay correto) --}}
-
-{{-- Dropdown de acoes do participante (menu kebab) --}}
-<div id="dropdown-acoes" class="hidden fixed z-[9999] bg-white rounded border border-gray-300 w-56 py-1">
-    <div class="px-3 py-2 border-b border-gray-100">
-        <p class="text-sm font-semibold text-gray-900 truncate" id="dropdown-acoes-nome"></p>
-        <p class="text-xs text-gray-500 font-mono whitespace-nowrap tabular-nums" id="dropdown-acoes-cnpj"></p>
-    </div>
-    <a id="dropdown-acoes-ver" href="#"
-       class="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-       data-link>
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-        </svg>
-        Ver detalhes
-    </a>
-    <a id="dropdown-acoes-editar" href="#"
-       class="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-       data-link>
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-        </svg>
-        Editar
-    </a>
-    <button type="button" id="dropdown-acoes-excluir"
-        class="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors" style="color: #b91c1c">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-        </svg>
-        Excluir
-    </button>
-</div>
 
 {{-- Modal de confirmacao de exclusao --}}
 <div id="modal-excluir-participante" class="hidden fixed inset-0 z-50 overflow-y-auto">
@@ -1076,98 +1039,18 @@
             participanteIdParaExcluir = null;
         }
 
-        // === Dropdown de acoes (kebab menu) ===
-        var dropdownAcoes = document.getElementById('dropdown-acoes');
-        var dropdownAcoesNome = document.getElementById('dropdown-acoes-nome');
-        var dropdownAcoesCnpj = document.getElementById('dropdown-acoes-cnpj');
-        var dropdownAcoesVer = document.getElementById('dropdown-acoes-ver');
-        var dropdownAcoesEditar = document.getElementById('dropdown-acoes-editar');
-        var dropdownAcoesExcluir = document.getElementById('dropdown-acoes-excluir');
-        var acaoParticipanteId = null;
-        var dropdownBtnAtual = null;
-
-        function posicionarDropdown(btnElement) {
-            if (!dropdownAcoes || !btnElement) return;
-            dropdownAcoes.style.visibility = 'hidden';
-            dropdownAcoes.classList.remove('hidden');
-            var dropdownHeight = dropdownAcoes.offsetHeight;
-            var dropdownWidth = dropdownAcoes.offsetWidth;
-            dropdownAcoes.classList.add('hidden');
-            dropdownAcoes.style.visibility = '';
-
-            var rect = btnElement.getBoundingClientRect();
-            var spaceBelow = window.innerHeight - rect.bottom;
-            var spaceAbove = rect.top;
-
-            var left = rect.right - dropdownWidth;
-            if (left < 8) left = 8;
-
-            var top;
-            if (spaceBelow >= dropdownHeight + 4) {
-                top = rect.bottom + 4;
-            } else if (spaceAbove >= dropdownHeight + 4) {
-                top = rect.top - dropdownHeight - 4;
-            } else {
-                top = rect.bottom + 4;
-            }
-
-            dropdownAcoes.style.top = top + 'px';
-            dropdownAcoes.style.left = left + 'px';
+        // Abrir/fechar/posicionar do menu de ações fica por conta do componente padrão de ações.
+        // Aqui só escutamos o clique no item "Excluir" — delegado em document, sobrevive aos swaps
+        // do SPA (cleanup abaixo, junto do listener de resize da troca lista/cards).
+        function _piOnExcluirClick(e) {
+            var btn = e.target.closest('[data-excluir-participante]');
+            if (!btn) return;
+            abrirModalExclusao(btn.dataset.excluirParticipante, btn.dataset.cnpj, btn.dataset.nome);
         }
-
-        function abrirDropdownAcoes(btnElement, id, nome, cnpj) {
-            if (!dropdownAcoes.classList.contains('hidden') && dropdownBtnAtual === btnElement) {
-                fecharDropdownAcoes();
-                return;
-            }
-            var returnTo = encodeURIComponent(window.location.pathname + window.location.search);
-            acaoParticipanteId = id;
-            dropdownBtnAtual = btnElement;
-            if (dropdownAcoesNome) dropdownAcoesNome.textContent = nome || 'Sem razao social';
-            if (dropdownAcoesCnpj) dropdownAcoesCnpj.textContent = cnpj || '';
-            if (dropdownAcoesVer) dropdownAcoesVer.href = '/app/participante/' + id + '?return_to=' + returnTo;
-            if (dropdownAcoesEditar) dropdownAcoesEditar.href = '/app/participante/' + id + '/editar';
-            posicionarDropdown(btnElement);
-            dropdownAcoes.classList.remove('hidden');
-        }
-
-        function fecharDropdownAcoes() {
-            if (dropdownAcoes) dropdownAcoes.classList.add('hidden');
-            dropdownBtnAtual = null;
-        }
-
-        container.addEventListener('click', function(e) {
-            var acaoBtn = e.target.closest('.acoes-btn');
-            if (acaoBtn) {
-                e.stopPropagation();
-                abrirDropdownAcoes(acaoBtn, acaoBtn.dataset.id, acaoBtn.dataset.nome, acaoBtn.dataset.cnpj);
-            }
-        });
-
-        function _piOnDocClick(e) {
-            if (dropdownAcoes && !dropdownAcoes.classList.contains('hidden') && !dropdownAcoes.contains(e.target)) {
-                fecharDropdownAcoes();
-            }
-        }
-        function _piOnDocKeydown(e) {
-            if (e.key === 'Escape' && dropdownAcoes && !dropdownAcoes.classList.contains('hidden')) {
-                fecharDropdownAcoes();
-            }
-        }
-        function _piOnScroll() {
-            if (dropdownAcoes && !dropdownAcoes.classList.contains('hidden')) {
-                fecharDropdownAcoes();
-            }
-        }
-        document.addEventListener('click', _piOnDocClick);
-        document.addEventListener('keydown', _piOnDocKeydown);
-        window.addEventListener('scroll', _piOnScroll, true);
-        // SPA: remover do document/window ao navegar (spa.js → limparRecursos) p/ não acumular.
+        document.addEventListener('click', _piOnExcluirClick);
         if (!window._cleanupFunctions) window._cleanupFunctions = {};
         window._cleanupFunctions.participantesImportados = function () {
-            document.removeEventListener('click', _piOnDocClick);
-            document.removeEventListener('keydown', _piOnDocKeydown);
-            window.removeEventListener('scroll', _piOnScroll, true);
+            document.removeEventListener('click', _piOnExcluirClick);
             if (desktopMedia) {
                 if (desktopMedia.removeEventListener) {
                     desktopMedia.removeEventListener('change', _piOnResizeView);
@@ -1178,20 +1061,6 @@
                 window.removeEventListener('resize', _piOnResizeView);
             }
         };
-
-        if (dropdownAcoesVer) {
-            dropdownAcoesVer.addEventListener('click', fecharDropdownAcoes);
-        }
-
-        if (dropdownAcoesExcluir) {
-            dropdownAcoesExcluir.addEventListener('click', function() {
-                var id = acaoParticipanteId;
-                var cnpj = dropdownAcoesCnpj ? dropdownAcoesCnpj.textContent : '';
-                var nome = dropdownAcoesNome ? dropdownAcoesNome.textContent : '';
-                fecharDropdownAcoes();
-                abrirModalExclusao(id, cnpj, nome);
-            });
-        }
 
         if (btnCancelar) btnCancelar.addEventListener('click', fecharModalExclusao);
         if (modalOverlay) modalOverlay.addEventListener('click', fecharModalExclusao);

@@ -13,6 +13,7 @@ use App\Models\Participante;
 use App\Models\User;
 use App\Models\XmlImportacao;
 use App\Services\Lgpd\ConsentLogService;
+use App\Support\CsvExport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -144,28 +145,18 @@ class PrivacidadeController extends Controller
 
         $logs = ConsentLog::where('user_id', $user->id)->orderBy('created_at')->get();
 
-        $handle = fopen('php://temp', 'r+');
-        fputcsv($handle, ['data', 'tipo', 'acao', 'valor', 'versao', 'ip']);
-        foreach ($logs as $l) {
-            fputcsv($handle, [
-                optional($l->created_at)->toIso8601String(),
-                $l->tipo,
-                $l->acao,
-                $l->valor === null ? '' : ($l->valor ? 'true' : 'false'),
-                $l->versao,
-                $l->ip,
-            ]);
-        }
-        rewind($handle);
-        $csv = stream_get_contents($handle);
-        fclose($handle);
+        $linhas = $logs->map(fn ($l) => [
+            optional($l->created_at)->toIso8601String(),
+            $l->tipo,
+            $l->acao,
+            $l->valor === null ? '' : ($l->valor ? 'true' : 'false'),
+            $l->versao,
+            $l->ip,
+        ]);
 
         $filename = 'fiscaldock-consentimentos-'.now()->format('Ymd-His').'.csv';
 
-        return response($csv, 200, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
-        ]);
+        return CsvExport::download($filename, ['data', 'tipo', 'acao', 'valor', 'versao', 'ip'], $linhas);
     }
 
     public function solicitarExclusao(Request $request)

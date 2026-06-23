@@ -31,7 +31,7 @@ class ComercialParametroService
         'minimum_deposit' => [
             'rotulo' => 'Depósito mínimo (R$)',
             'tipo' => 'float',
-            'default' => PricingCatalogService::MINIMUM_DEPOSIT, // 50.00
+            'default' => PricingCatalogService::MINIMUM_DEPOSIT, // 100.00
             'dica' => 'Valor mínimo de recarga avulsa.',
         ],
         'faixa_x_min' => [

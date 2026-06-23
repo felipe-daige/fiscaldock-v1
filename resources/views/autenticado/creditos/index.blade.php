@@ -61,30 +61,20 @@
             </div>
         </div>
 
-        <div class="bg-white rounded border border-gray-300 overflow-hidden">
-            <div class="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-gray-200">
-                <div class="p-4 sm:p-6">
-                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Faixa atual</p>
-                    <p class="text-lg sm:text-xl font-bold text-gray-900">{{ $pricing['current_tier']['nome'] ?? 'Base' }}</p>
-                    <p class="text-[11px] text-gray-500 mt-1">desconto aplicado nas próximas consultas</p>
-                </div>
-                <div class="p-4 sm:p-6">
-                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Histórico pago</p>
-                    <p class="text-lg sm:text-xl font-bold text-gray-900">{{ number_format($pricing['paid_credits'] ?? 0, 0, ',', '.') }}</p>
-                    <p class="text-[11px] text-gray-500 mt-1">créditos comprados acumulados</p>
-                </div>
-                <div class="p-4 sm:p-6">
-                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Próxima faixa</p>
-                    @if($pricing['next_tier'])
-                        <p class="text-lg sm:text-xl font-bold text-gray-900">{{ $pricing['next_tier']['nome'] }}</p>
-                        <p class="text-[11px] text-gray-500 mt-1">faltam {{ number_format($pricing['credits_remaining'], 0, ',', '.') }} créditos pagos</p>
-                    @else
-                        <p class="text-lg sm:text-xl font-bold text-gray-900">Máxima</p>
-                        <p class="text-[11px] text-gray-500 mt-1">você já está na melhor condição comercial</p>
-                    @endif
-                </div>
-            </div>
-        </div>
+        {{-- Faixa comercial — resumo numa linha (detalhe vive em /app/faixa-comercial) --}}
+        <a href="/app/faixa-comercial" data-link class="flex flex-wrap items-center gap-x-2 gap-y-1 bg-white rounded border border-gray-300 px-4 py-3 text-[13px] text-gray-600 hover:bg-gray-50 transition-colors">
+            <span class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Faixa</span>
+            <span class="font-semibold text-gray-900">{{ $pricing['current_tier']['nome'] ?? 'Base' }}</span>
+            <span class="text-gray-300">·</span>
+            <span>pago {{ number_format($pricing['paid_credits'] ?? 0, 0, ',', '.') }} cr</span>
+            <span class="text-gray-300">·</span>
+            @if($pricing['next_tier'])
+                <span>próxima <span class="font-medium text-gray-700">{{ $pricing['next_tier']['nome'] }}</span> (faltam {{ number_format($pricing['credits_remaining'], 0, ',', '.') }} cr)</span>
+            @else
+                <span>melhor condição comercial</span>
+            @endif
+            <span class="ml-auto text-gray-400">→</span>
+        </a>
 
         <div class="grid grid-cols-1 xl:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.1fr)] gap-6 items-start">
             <div class="bg-white rounded border border-gray-300 overflow-hidden">
@@ -94,7 +84,7 @@
                 <div class="p-4 sm:p-6 space-y-4">
                     <div>
                         <p class="text-sm font-semibold text-gray-900">Deposite o valor que fizer sentido agora</p>
-                        <p class="text-sm text-gray-600 mt-1">Mínimo de R$ {{ number_format($pricing['minimum_deposit'] ?? 50, 0, ',', '.') }}. Os créditos entram como saldo pré-pago e o histórico comprado continua contando para a sua faixa.</p>
+                        <p class="text-sm text-gray-600 mt-1">Mínimo de R$ {{ number_format($pricing['minimum_deposit'] ?? 100, 0, ',', '.') }}. Os créditos entram como saldo pré-pago e o histórico comprado continua contando para a sua faixa.</p>
                     </div>
                     <form method="GET" action="/app/checkout/custom" class="space-y-3">
                         <div>
@@ -105,16 +95,16 @@
                                     id="credit-custom-amount"
                                     name="amount"
                                     type="number"
-                                    min="{{ (int) ($pricing['minimum_deposit'] ?? 50) }}"
+                                    min="{{ (int) ($pricing['minimum_deposit'] ?? 100) }}"
                                     step="1"
-                                    value="{{ (int) ($pricing['minimum_deposit'] ?? 50) }}"
+                                    value="{{ (int) ($pricing['minimum_deposit'] ?? 100) }}"
                                     class="w-full border-0 px-0 py-3 text-sm text-gray-900 focus:ring-0 focus:outline-none"
                                 >
                             </div>
                             @if($errors->has('amount'))
                                 <p class="mt-2 text-xs text-red-600">{{ $errors->first('amount') }}</p>
                             @else
-                                <p class="mt-2 text-[11px] text-gray-500">Exemplo: R$ 80 libera {{ number_format((int) round(80 / ($pricing['credit_unit_price'] ?? 0.20)), 0, ',', '.') }} créditos.</p>
+                                <p class="mt-2 text-[11px] text-gray-500">Exemplo: R$ 200 libera {{ number_format((int) round(200 / ($pricing['credit_unit_price'] ?? 0.20)), 0, ',', '.') }} créditos.</p>
                             @endif
                         </div>
                         <button type="submit" class="w-full inline-flex items-center justify-center px-4 py-3 text-sm font-semibold text-white rounded" style="background-color: #1f2937">
@@ -260,24 +250,9 @@
             @endif
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div class="bg-white rounded border border-gray-300 p-4 text-center space-y-2">
-                <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Pre-pago</p>
-                <p class="text-sm font-semibold text-gray-900">Compre e use quando precisar.</p>
-            </div>
-            <div class="bg-white rounded border border-gray-300 p-4 text-center space-y-2">
-                <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Valor livre</p>
-                <p class="text-sm font-semibold text-gray-900">Você escolhe quanto pagar acima do mínimo.</p>
-            </div>
-            <div class="bg-white rounded border border-gray-300 p-4 text-center space-y-2">
-                <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Validade</p>
-                <p class="text-sm font-semibold text-gray-900">Créditos pagos não expiram; o bônus do trial expira em {{ config('trial.validade_dias') }} dias.</p>
-            </div>
-            <div class="bg-white rounded border border-gray-300 p-4 text-center space-y-2">
-                <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Ofertas</p>
-                <p class="text-sm font-semibold text-gray-900">Pacotes promocionais como atalho de recarga. Prefere mensalidade? <a href="/app/planos" data-link class="underline">Ver planos</a>.</p>
-            </div>
-        </div>
+        <p class="text-[11px] text-gray-500 text-center pt-1">
+            Créditos pagos não expiram; o bônus do trial expira em {{ config('trial.validade_dias') }} dias. Prefere mensalidade? <a href="/app/planos" data-link class="underline hover:text-gray-700">Ver planos</a>.
+        </p>
 
     </div>
 
