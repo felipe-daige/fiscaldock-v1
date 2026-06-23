@@ -58,8 +58,7 @@
             <div class="flex flex-col sm:flex-row gap-2 sm:items-center">
                 <span class="inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded text-xs text-gray-700">
                     <span class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Saldo</span>
-                    <span class="font-bold text-gray-900">{{ number_format($saldoCreditos, 0, ',', '.') }}</span>
-                    <span class="text-gray-500">créditos</span>
+                    <span class="font-bold text-gray-900">@brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) $saldoCreditos))</span>
                 </span>
                 <a href="/app/clearance/buscar" data-link class="inline-flex items-center gap-2 px-4 py-2 bg-gray-800 text-white hover:bg-gray-700 rounded text-sm font-medium self-start">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -207,7 +206,7 @@
                     </div>
                     <div>
                         <p class="font-semibold text-gray-900">3. Cobrança por consulta</p>
-                        <p class="text-[11px] text-gray-500 mt-1">Custo aproximado: <span class="font-semibold text-gray-900">{{ $custoConsultaUnitaria }} créditos por nota</span>. Consultas que falham antes de chegar na fonte oficial não são cobradas.</p>
+                        <p class="text-[11px] text-gray-500 mt-1">Custo aproximado: <span class="font-semibold text-gray-900">@brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) $custoConsultaUnitaria)) por nota</span>. Consultas que falham antes de chegar na fonte oficial não são cobradas.</p>
                     </div>
                 </div>
             </div>

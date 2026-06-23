@@ -180,7 +180,7 @@
                                 <p class="text-sm font-semibold text-gray-900">Básico</p>
                                 <span class="inline-block px-2 py-0.5 rounded text-white text-[10px] font-semibold" style="background-color: #6b7280;">Essencial</span>
                             </div>
-                            <p class="text-lg font-bold text-gray-900">{{ $custosTiers['basico'] }} <span class="text-xs font-medium text-gray-500">créditos/nota</span></p>
+                            <p class="text-lg font-bold text-gray-900">@brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) $custosTiers['basico'])) <span class="text-xs font-medium text-gray-500">/nota</span></p>
                             <p class="text-[11px] text-gray-500 mt-1">Situação oficial + eventos de cancelamento.</p>
                         </div>
                         <div class="border border-gray-300 rounded p-3">
@@ -188,11 +188,11 @@
                                 <p class="text-sm font-semibold text-gray-900">Full</p>
                                 <span class="inline-block px-2 py-0.5 rounded text-white text-[10px] font-semibold" style="background-color: #2563eb;">Completo</span>
                             </div>
-                            <p class="text-lg font-bold text-gray-900">{{ $custosTiers['full'] }} <span class="text-xs font-medium text-gray-500">créditos/nota</span></p>
+                            <p class="text-lg font-bold text-gray-900">@brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) $custosTiers['full'])) <span class="text-xs font-medium text-gray-500">/nota</span></p>
                             <p class="text-[11px] text-gray-500 mt-1">Situação + eventos + confronto de valores e alertas contábeis.</p>
                         </div>
                     </div>
-                    <p class="text-[11px] text-gray-500 mt-3">A cobrança acontece na hora da confirmação. <strong>Falhas do provedor estornam os créditos</strong> automaticamente.</p>
+                    <p class="text-[11px] text-gray-500 mt-3">A cobrança acontece na hora da confirmação. <strong>Falhas do provedor estornam o valor</strong> automaticamente.</p>
                 </div>
             </div>
         </details>
@@ -222,10 +222,10 @@
                 </div>
                 <div class="px-4 py-4" style="background-color: #ecfdf5">
                     <div class="flex items-center justify-between gap-2">
-                        <p class="text-[10px] font-semibold uppercase tracking-wide" style="color: #047857">Créditos</p>
+                        <p class="text-[10px] font-semibold uppercase tracking-wide" style="color: #047857">Saldo</p>
                         <span class="text-[9px] font-bold uppercase tracking-wide text-white px-1.5 py-0.5 rounded" style="background-color: #047857">Saldo</span>
                     </div>
-                    <p class="text-xl font-bold mt-0.5" style="color: #047857">{{ number_format($saldoAtual, 0, ',', '.') }}</p>
+                    <p class="text-xl font-bold mt-0.5" style="color: #047857">@brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency($saldoAtual))</p>
                     <p class="text-[11px] mt-1" style="color: #065f46">Disponível para validações</p>
                 </div>
             </div>
@@ -322,7 +322,7 @@
                         <li class="flex items-start gap-2"><svg class="w-3.5 h-3.5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: #047857"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>Cruzamento com EFD</li>
                     </ul>
                     <div class="border-t border-gray-200 pt-3 flex items-center justify-between">
-                        <span class="text-[10px] font-semibold text-gray-400 bg-gray-200 px-2 py-0.5 rounded uppercase tracking-wide">{{ $custosTiers['basico'] }} créditos / nota</span>
+                        <span class="text-[10px] font-semibold text-gray-400 bg-gray-200 px-2 py-0.5 rounded uppercase tracking-wide">@brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) $custosTiers['basico'])) / nota</span>
                         <span class="flex items-center gap-1.5">
                             <span class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Total</span>
                             <span class="text-[10px] font-bold text-white px-2 py-0.5 rounded uppercase tracking-wide" style="background-color: #374151"><span class="plan-total" data-tier="basico">0</span> créditos</span>
@@ -347,7 +347,7 @@
                         <li class="flex items-start gap-2"><svg class="w-3.5 h-3.5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: #047857"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>CNDT do emitente na data</li>
                     </ul>
                     <div class="border-t border-gray-200 pt-3 flex items-center justify-between">
-                        <span class="text-[10px] font-semibold text-gray-400 bg-gray-200 px-2 py-0.5 rounded uppercase tracking-wide">{{ $custosTiers['full'] }} créditos / nota</span>
+                        <span class="text-[10px] font-semibold text-gray-400 bg-gray-200 px-2 py-0.5 rounded uppercase tracking-wide">@brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) $custosTiers['full'])) / nota</span>
                         <span class="flex items-center gap-1.5">
                             <span class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Total</span>
                             <span class="text-[10px] font-bold text-white px-2 py-0.5 rounded uppercase tracking-wide" style="background-color: #374151"><span class="plan-total" data-tier="full">0</span> créditos</span>
@@ -619,7 +619,7 @@
                 <p class="text-sm text-gray-700">Todas as notas selecionadas foram processadas.</p>
             </div>
             <div class="border border-gray-200 rounded px-3 py-3" style="background-color: #ecfdf5">
-                <p class="text-[10px] font-semibold uppercase tracking-wide" style="color: #047857">Créditos debitados</p>
+                <p class="text-[10px] font-semibold uppercase tracking-wide" style="color: #047857">Valor debitado</p>
                 <p class="text-lg font-bold mt-0.5" style="color: #047857"><span id="modal-sucesso-creditos">0</span> créditos</p>
             </div>
         </div>

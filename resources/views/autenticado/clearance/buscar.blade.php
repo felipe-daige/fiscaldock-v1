@@ -196,7 +196,7 @@
                                 <p class="text-sm font-semibold text-gray-900">Consulta avulsa</p>
                                 <span class="inline-block px-2 py-0.5 rounded text-white text-[10px] font-semibold" style="background-color: #2563eb;">Clearance</span>
                             </div>
-                            <p class="text-lg font-bold text-gray-900">{{ number_format($custoEstimadoCreditos, 0, ',', '.') }} <span class="text-xs font-medium text-gray-500">créditos/documento</span></p>
+                            <p class="text-lg font-bold text-gray-900">@brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) $custoEstimadoCreditos)) <span class="text-xs font-medium text-gray-500">/documento</span></p>
                             <p class="text-[11px] text-gray-500 mt-1">Cobrança unitária para NF-e, NFC-e e CT-e consultados por chave.</p>
                         </div>
                         <div class="border border-gray-300 rounded p-3">
@@ -208,7 +208,7 @@
                             <p class="text-[11px] text-gray-500 mt-1">A página de resultado carrega o andamento da consulta e recarrega quando o provedor concluir.</p>
                         </div>
                     </div>
-                    <p class="text-[11px] text-gray-500 mt-3">A cobrança acontece no início da consulta. <strong>Falhas do provedor estornam os créditos</strong> automaticamente.</p>
+                    <p class="text-[11px] text-gray-500 mt-3">A cobrança acontece no início da consulta. <strong>Falhas do provedor estornam o valor</strong> automaticamente.</p>
                 </div>
             </div>
         </details>
@@ -339,7 +339,7 @@
                             <div class="flex-1 min-w-0">
                                 <p id="erro-titulo" class="text-sm font-semibold text-gray-900">Não foi possível consultar</p>
                                 <p id="erro-mensagem" class="text-xs text-gray-700 mt-1">-</p>
-                                <p id="erro-refund" class="hidden text-[11px] text-gray-500 mt-2">Créditos estornados.</p>
+                                <p id="erro-refund" class="hidden text-[11px] text-gray-500 mt-2">Valor estornado.</p>
                                 <a id="erro-suporte-link"
                                    href="{{ config('support.whatsapp_url') }}"
                                    target="_blank"
@@ -419,13 +419,13 @@
                     <div class="grid grid-cols-2 divide-x divide-gray-200">
                         <div class="px-4 py-2.5">
                             <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Custo por consulta</p>
-                            <p class="text-lg font-bold text-gray-900 mt-0.5">{{ number_format($custoEstimadoCreditos, 0, ',', '.') }}</p>
-                            <p class="text-[10px] text-gray-500 mt-0.5">créditos por documento</p>
+                            <p class="text-lg font-bold text-gray-900 mt-0.5">@brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) $custoEstimadoCreditos))</p>
+                            <p class="text-[10px] text-gray-500 mt-0.5">por documento</p>
                         </div>
                         <div class="px-4 py-2.5">
                             <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Saldo atual</p>
-                            <p id="saldo-atual-label" class="text-lg font-bold text-gray-900 mt-0.5">{{ number_format($saldoAtual, 0, ',', '.') }}</p>
-                            <p class="text-[10px] text-gray-500 mt-0.5">créditos disponíveis</p>
+                            <p id="saldo-atual-label" class="text-lg font-bold text-gray-900 mt-0.5">@brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) $saldoAtual))</p>
+                            <p class="text-[10px] text-gray-500 mt-0.5">disponíveis</p>
                         </div>
                     </div>
                     <div>
@@ -459,7 +459,7 @@
                         </div>
 
                         <div class="px-4 py-2 border-t border-gray-200 bg-gray-50">
-                            <p class="text-[10px] text-gray-600">Falhas do provedor estornam os créditos automaticamente.</p>
+                            <p class="text-[10px] text-gray-600">Falhas do provedor estornam o valor automaticamente.</p>
                         </div>
                     </div>
                 </section>
