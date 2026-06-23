@@ -54,6 +54,7 @@ class BiController extends Controller
             'clientes' => $clientes,
             'resumo' => $resumo,
             'resumoEfd' => $resumoEfd,
+            'cobertura' => $this->biService->getCoberturaResumo($userId, null, null, null),
             'defaultTab' => $defaultTab,
         ];
 
@@ -332,6 +333,7 @@ class BiController extends Controller
         $resumo = $this->biService->getResumoGeral($userId, $clienteId, $dataInicio, $dataFim);
         // KPIs EFD (Saldo Líquido + barra secundária) também respeitam o período.
         $resumo['kpis_efd'] = $this->biService->getKpisEfd($userId, $dataInicio, $dataFim);
+        $resumo['cobertura'] = $this->biService->getCoberturaResumo($userId, $dataInicio, $dataFim, $clienteId);
 
         return response()->json($resumo);
     }

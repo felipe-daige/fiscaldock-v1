@@ -112,3 +112,17 @@ it('gap total fica em meses_gap_total e fora de sem_fiscal/sem_contrib', functio
     expect($cob['meses_sem_fiscal'])->toBe([]);
     expect($cob['meses_sem_contrib'])->toBe([]);
 });
+
+it('GET /app/bi/resumo inclui cobertura no payload', function () {
+    [$uid, $cli, $imp] = semearContextoCob();
+    semearNotaCob($uid, $cli, $imp, 'fiscal', '2025-01-10');
+    semearNotaCob($uid, $cli, $imp, 'contribuicoes', '2025-01-10');
+    semearNotaCob($uid, $cli, $imp, 'contribuicoes', '2025-02-10');
+
+    $resp = $this->actingAs(User::find($uid))
+        ->getJson('/app/bi/resumo');
+
+    $resp->assertOk()
+        ->assertJsonPath('cobertura.parcial', true)
+        ->assertJsonPath('cobertura.meses_sem_fiscal.0.mes', '2025-02');
+});
