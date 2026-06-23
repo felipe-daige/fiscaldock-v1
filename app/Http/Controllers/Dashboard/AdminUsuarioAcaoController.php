@@ -72,6 +72,7 @@ class AdminUsuarioAcaoController extends Controller
         $this->acoes->registrar($admin, $alvo, 'impersonar', $dados['motivo']);
         $request->session()->put('impersonator_id', $admin->id);
         Auth::login($alvo);
+        $request->session()->regenerate();
 
         return redirect('/app');
     }
@@ -85,11 +86,15 @@ class AdminUsuarioAcaoController extends Controller
 
         $alvoId = Auth::id();
         $admin = User::find($adminId);
+
         if ($admin) {
             Auth::login($admin);
+            $request->session()->regenerate();
             $this->acoes->registrar($admin, User::find($alvoId), 'impersonar_sair', 'fim da impersonação');
+
+            return redirect("/app/admin/usuarios/{$alvoId}");
         }
 
-        return redirect("/app/admin/usuarios/{$alvoId}");
+        return redirect('/app');
     }
 }

@@ -26,12 +26,15 @@ it('não impersona a si mesmo nem outro admin', function () {
     $outroAdmin = User::factory()->create(['is_admin' => true]);
 
     actingAs($this->admin)
-        ->post("/app/admin/usuarios/{$this->admin->id}/impersonar", ['motivo' => 'x'])
-        ->assertSessionHasErrors();
+        ->post("/app/admin/usuarios/{$this->admin->id}/impersonar", ['motivo' => 'tentativa self'])
+        ->assertSessionHasErrors('motivo');
+    expect(session('impersonator_id'))->toBeNull();
+    expect(auth()->id())->toBe($this->admin->id);
 
     actingAs($this->admin)
-        ->post("/app/admin/usuarios/{$outroAdmin->id}/impersonar", ['motivo' => 'x'])
-        ->assertSessionHasErrors();
+        ->post("/app/admin/usuarios/{$outroAdmin->id}/impersonar", ['motivo' => 'tentativa admin'])
+        ->assertSessionHasErrors('motivo');
+    expect(session('impersonator_id'))->toBeNull();
 });
 
 it('sair restaura o admin', function () {
