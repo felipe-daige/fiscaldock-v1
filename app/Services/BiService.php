@@ -1025,6 +1025,70 @@ class BiService
         return $resultado;
     }
 
+    /**
+     * Resumo de cobertura de fonte por mês (window+cliente aware), para avisar
+     * onde Faturamento/Aquisições estão incompletos por falta do arquivo SPED.
+     * 'fiscal' = EFD ICMS/IPI (onde vivem as entradas/compras); 'contribuicoes'
+     * = EFD PIS/COFINS. Range ancorado ao min..max real das notas (intersectado
+     * com a janela e o cliente quando informados). Ver getGapImportacoes (matriz).
+     */
+    public function getCoberturaResumo(int $userId, ?string $dataInicio, ?string $dataFim, ?int $clienteId): array
+    {
+        $vazio = ['meses_total' => 0, 'meses_sem_fiscal' => [], 'meses_sem_contrib' => [], 'meses_gap_total' => [], 'parcial' => false];
+
+        $base = DB::table('efd_notas')
+            ->where('user_id', $userId)
+            ->where('cancelada', false)
+            ->when($clienteId, fn ($q) => $q->where('cliente_id', $clienteId))
+            ->when($dataInicio, fn ($q) => $q->where('data_emissao', '>=', $dataInicio))
+            ->when($dataFim, fn ($q) => $q->where('data_emissao', '<=', $dataFim));
+
+        $min = (clone $base)->min('data_emissao');
+        $max = (clone $base)->max('data_emissao');
+        if (! $min || ! $max) {
+            return $vazio;
+        }
+
+        $porMes = (clone $base)
+            ->selectRaw("TO_CHAR(DATE_TRUNC('month', data_emissao), 'YYYY-MM') as mes, BOOL_OR(origem_arquivo = 'fiscal') as tem_fiscal, BOOL_OR(origem_arquivo = 'contribuicoes') as tem_contrib")
+            ->groupBy(DB::raw("DATE_TRUNC('month', data_emissao)"))
+            ->get()
+            ->keyBy('mes');
+
+        $inicio = Carbon::parse($min)->startOfMonth();
+        $fim = Carbon::parse($max)->startOfMonth();
+
+        $semFiscal = [];
+        $semContrib = [];
+        $gapTotal = [];
+        $total = 0;
+
+        foreach (CarbonPeriod::create($inicio, '1 month', $fim) as $mes) {
+            $total++;
+            $key = $mes->format('Y-m');
+            $row = $porMes->get($key);
+            $temFiscal = (bool) ($row->tem_fiscal ?? false);
+            $temContrib = (bool) ($row->tem_contrib ?? false);
+            $item = ['mes' => $key, 'label' => $mes->locale('pt_BR')->isoFormat('MMM/YY')];
+
+            if (! $temFiscal && ! $temContrib) {
+                $gapTotal[] = $item;
+            } elseif (! $temFiscal) {
+                $semFiscal[] = $item;
+            } elseif (! $temContrib) {
+                $semContrib[] = $item;
+            }
+        }
+
+        return [
+            'meses_total' => $total,
+            'meses_sem_fiscal' => $semFiscal,
+            'meses_sem_contrib' => $semContrib,
+            'meses_gap_total' => $gapTotal,
+            'parcial' => count($semFiscal) > 0 || count($semContrib) > 0,
+        ];
+    }
+
     // =========================================================================
     // Módulo Tributário EFD
     // =========================================================================
