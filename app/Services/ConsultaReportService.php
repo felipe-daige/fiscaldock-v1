@@ -6,7 +6,6 @@ use App\Models\ConsultaLote;
 use App\Models\ConsultaResultado;
 use App\Services\Consultas\ResultadoDetalhePresenter;
 use App\Support\CsvExport;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Collection;
 
 class ConsultaReportService
@@ -58,16 +57,7 @@ class ConsultaReportService
      */
     public function gerarPdf(ConsultaLote $lote): \Barryvdh\DomPDF\PDF
     {
-        $pdf = Pdf::loadView('reports.consulta-lote', $this->dadosRelatorio($lote));
-
-        $pdf->setPaper('a4', 'landscape');
-        $pdf->setOptions([
-            'isHtml5ParserEnabled' => true,
-            'isRemoteEnabled' => false,
-            'defaultFont' => 'sans-serif',
-        ]);
-
-        return $pdf;
+        return \App\Support\PdfReport::render('reports.consulta-lote', $this->dadosRelatorio($lote), 'landscape');
     }
 
     /**

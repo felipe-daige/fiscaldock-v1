@@ -77,6 +77,22 @@ it('getDetalhes traz blocos por fonte com link de comprovante de TODAS as fontes
         ->toContain('https://ex.com/cnj.pdf');
 });
 
+it('PDF da consulta estende o layout-mestre e colore o risco', function () {
+    $user = User::factory()->create();
+    $lote = pdfDetLote($user);
+    pdfDetResultado($lote, $user);
+
+    $service = app(\App\Services\ConsultaReportService::class);
+    $html = view('reports.consulta-lote', $service->dadosRelatorio($lote))->render();
+
+    // herda o layout-mestre (marca no header)
+    expect($html)->toContain('FiscalDock');
+    // risco colorido por token (algum badge com background-color hex)
+    expect($html)->toContain('background-color:');
+    // WIP comprovante preservado
+    expect($html)->toContain('Detalhamento por CNPJ');
+});
+
 it('view PDF renderiza detalhamento completo com links de comprovante clicaveis', function () {
     $user = User::factory()->create();
     $lote = pdfDetLote($user);

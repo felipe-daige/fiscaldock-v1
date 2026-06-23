@@ -1,203 +1,93 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-    <title>Consulta Fiscal - Lote #{{ $lote->id }}</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: DejaVu Sans, sans-serif;
-            font-size: 9px;
-            color: #111827;
-            line-height: 1.35;
-        }
-        .page { padding: 14px; }
-        .section {
-            border: 1px solid #d1d5db;
-            margin-bottom: 10px;
-        }
-        .section-header {
-            background: #f9fafb;
-            border-bottom: 1px solid #e5e7eb;
-            padding: 6px 8px;
-            font-size: 9px;
-            font-weight: bold;
-            color: #6b7280;
-            text-transform: uppercase;
-            letter-spacing: .08em;
-        }
-        .header-grid, .summary-grid {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .header-grid td, .summary-grid td {
-            border-right: 1px solid #e5e7eb;
-            padding: 8px;
-            vertical-align: top;
-        }
-        .header-grid td:last-child, .summary-grid td:last-child {
-            border-right: none;
-        }
-        .brand {
-            font-size: 18px;
-            font-weight: bold;
-            color: #111827;
-            text-transform: uppercase;
-            letter-spacing: .08em;
-        }
-        .muted { color: #6b7280; }
-        .meta-label {
-            font-size: 8px;
-            color: #9ca3af;
-            text-transform: uppercase;
-            letter-spacing: .08em;
-            margin-bottom: 3px;
-        }
-        .meta-value {
-            font-size: 11px;
-            font-weight: bold;
-            color: #111827;
-        }
-        .badge {
-            display: inline-block;
-            padding: 2px 6px;
-            font-size: 8px;
-            font-weight: bold;
-            text-transform: uppercase;
-            color: #fff;
-            border-radius: 3px;
-        }
-        .table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .table th {
-            background: #f9fafb;
-            border-bottom: 1px solid #d1d5db;
-            padding: 6px 5px;
-            text-align: left;
-            font-size: 8px;
-            color: #6b7280;
-            text-transform: uppercase;
-            letter-spacing: .08em;
-        }
-        .table td {
-            border-bottom: 1px solid #f3f4f6;
-            padding: 5px;
-            vertical-align: top;
-            font-size: 8px;
-            color: #374151;
-        }
-        .mono { font-family: DejaVu Sans Mono, monospace; }
-        .right { text-align: right; }
-        .center { text-align: center; }
-        .small { font-size: 7px; }
-        .footer {
-            margin-top: 8px;
-            border-top: 1px solid #d1d5db;
-            padding-top: 6px;
-            text-align: center;
-            font-size: 8px;
-            color: #6b7280;
-        }
-        /* ── Detalhamento por CNPJ ───────────────────────────────── */
-        .cnpj-block { margin-bottom: 12px; page-break-inside: avoid; }
-        .cnpj-head { background: #111827; color: #fff; padding: 5px 8px; }
-        .cnpj-head .doc { font-family: DejaVu Sans Mono, monospace; font-size: 10px; font-weight: bold; }
-        .cnpj-head .nome { font-size: 9px; }
-        .cnpj-resumo {
-            padding: 5px 8px; font-size: 8px; color: #374151;
-            background: #f9fafb; border: 1px solid #e5e7eb; border-top: none;
-        }
-        .cards { width: 100%; border-collapse: separate; border-spacing: 6px 6px; }
-        .cards > tbody > tr > td { width: 50%; vertical-align: top; padding: 0; border: none; }
-        .card { border: 1px solid #d1d5db; }
-        .card-head { background: #f9fafb; border-bottom: 1px solid #e5e7eb; padding: 4px 6px; }
-        .card-head td { border: none; padding: 0; }
-        .card-title { font-size: 8px; font-weight: bold; color: #6b7280; text-transform: uppercase; letter-spacing: .06em; }
-        .card-body { padding: 5px 6px; }
-        .kv { width: 100%; border-collapse: collapse; }
-        .kv td { padding: 1px 3px; font-size: 8px; vertical-align: top; border: none; }
-        .kv .k { color: #9ca3af; text-transform: uppercase; font-size: 7px; width: 40%; }
-        .kv .v { color: #374151; }
-        .list-title { font-size: 7px; color: #9ca3af; text-transform: uppercase; letter-spacing: .06em; margin-top: 5px; }
-        .list-item { font-size: 8px; color: #374151; line-height: 1.3; }
-        .msg { font-size: 7px; color: #6b7280; font-style: italic; border-left: 2px solid #e5e7eb; padding-left: 5px; margin-top: 5px; }
-        .comprovante { margin-top: 6px; font-size: 8px; }
-        .comprovante a { color: #1d4ed8; text-decoration: underline; font-weight: bold; }
-        .comprovante .url { font-family: DejaVu Sans Mono, monospace; font-size: 6px; color: #9ca3af; word-break: break-all; margin-top: 1px; }
-    </style>
-</head>
-<body>
-@php
-    $statusHex = fn ($status) => match (strtoupper((string) $status)) {
-        'ATIVA', 'REGULAR', 'NEGATIVA', 'OK', 'HABILITADO', 'SUCESSO' => '#047857',
-        'SUSPENSA', 'EM ANALISE', 'PROCESSANDO' => '#d97706',
-        'BAIXADA', 'INAPTA', 'IRREGULAR', 'POSITIVA', 'ERRO', 'TIMEOUT', 'RESTRITO' => '#dc2626',
-        default => '#9ca3af',
-    };
-@endphp
+@extends('reports.layout')
 
-<div class="page">
-    <div class="section">
-        <div class="section-header">Identificação do Relatório</div>
-        <table class="header-grid">
-            <tr>
-                <td style="width: 34%">
-                    <div class="brand">FiscalDock</div>
-                    <div class="muted">Relatório consolidado de consulta fiscal em lote</div>
-                </td>
-                <td style="width: 22%">
-                    <div class="meta-label">Lote</div>
-                    <div class="meta-value">#{{ $lote->id }}</div>
-                </td>
-                <td style="width: 22%">
-                    <div class="meta-label">Plano</div>
-                    <div class="meta-value">{{ $plano->nome ?? 'N/A' }}</div>
-                </td>
-                <td style="width: 22%">
-                    <div class="meta-label">Gerado em</div>
-                    <div class="meta-value">{{ $gerado_em }}</div>
-                </td>
-            </tr>
-        </table>
+@section('titulo', 'Consulta Fiscal · Lote #'.$lote->id)
+
+@section('meta')
+    <div>Plano: {{ $plano->nome ?? 'N/A' }}</div>
+    <div>Lote #{{ $lote->id }}</div>
+@endsection
+
+@push('estilos')
+<style>
+    .muted { color: #6b7280; }
+    .meta-label {
+        font-size: 8px;
+        color: #9ca3af;
+        text-transform: uppercase;
+        letter-spacing: .08em;
+        margin-bottom: 3px;
+    }
+    .meta-value {
+        font-size: 11px;
+        font-weight: bold;
+        color: #111827;
+    }
+    .table th {
+        background: #f9fafb;
+        border-bottom: 1px solid #d1d5db;
+        padding: 6px 5px;
+        text-align: left;
+        font-size: 8px;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: .08em;
+    }
+    .table td {
+        border-bottom: 1px solid #f3f4f6;
+        padding: 5px;
+        vertical-align: top;
+        font-size: 8px;
+        color: #374151;
+    }
+    .right { text-align: right; }
+    .center { text-align: center; }
+    .small { font-size: 7px; }
+    /* ── Detalhamento por CNPJ ───────────────────────────────── */
+    .cnpj-block { margin-bottom: 12px; page-break-inside: avoid; }
+    .cnpj-head { background: #111827; color: #fff; padding: 5px 8px; }
+    .cnpj-head .doc { font-family: DejaVu Sans Mono, monospace; font-size: 10px; font-weight: bold; }
+    .cnpj-head .nome { font-size: 9px; }
+    .cnpj-resumo {
+        padding: 5px 8px; font-size: 8px; color: #374151;
+        background: #f9fafb; border: 1px solid #e5e7eb; border-top: none;
+    }
+    .cards { width: 100%; border-collapse: separate; border-spacing: 6px 6px; }
+    .cards > tbody > tr > td { width: 50%; vertical-align: top; padding: 0; border: none; }
+    .card { border: 1px solid #d1d5db; }
+    .card-head { background: #f9fafb; border-bottom: 1px solid #e5e7eb; padding: 4px 6px; }
+    .card-head td { border: none; padding: 0; }
+    .card-title { font-size: 8px; font-weight: bold; color: #6b7280; text-transform: uppercase; letter-spacing: .06em; }
+    .card-body { padding: 5px 6px; }
+    .kv { width: 100%; border-collapse: collapse; }
+    .kv td { padding: 1px 3px; font-size: 8px; vertical-align: top; border: none; }
+    .kv .k { color: #9ca3af; text-transform: uppercase; font-size: 7px; width: 40%; }
+    .kv .v { color: #374151; }
+    .list-title { font-size: 7px; color: #9ca3af; text-transform: uppercase; letter-spacing: .06em; margin-top: 5px; }
+    .list-item { font-size: 8px; color: #374151; line-height: 1.3; }
+    .msg { font-size: 7px; color: #6b7280; font-style: italic; border-left: 2px solid #e5e7eb; padding-left: 5px; margin-top: 5px; }
+    .comprovante { margin-top: 6px; font-size: 8px; }
+    .comprovante a { color: #1d4ed8; text-decoration: underline; font-weight: bold; }
+    .comprovante .url { font-family: DejaVu Sans Mono, monospace; font-size: 6px; color: #9ca3af; word-break: break-all; margin-top: 1px; }
+</style>
+@endpush
+
+@section('conteudo')
+    {{-- Resumo Operacional --}}
+    <div class="secao">
+        <div class="secao-header">Resumo Operacional</div>
+        @include('reports.partials._kpi-strip', ['itens' => [
+            ['label' => 'Total Consultado', 'valor' => $resumo['total']],
+            ['label' => 'Sucesso', 'valor' => $resumo['sucesso']],
+            ['label' => 'Erros', 'valor' => $resumo['erro']],
+            ['label' => 'Score Médio', 'valor' => $resumo['score_medio']],
+            ['label' => 'CND Federal OK', 'valor' => $resumo['cnd_federal']['negativa'] ?? 0],
+            ['label' => 'CND Federal Restrita', 'valor' => $resumo['cnd_federal']['positiva'] ?? 0],
+        ]])
     </div>
 
-    <div class="section">
-        <div class="section-header">Resumo Operacional</div>
-        <table class="summary-grid">
-            <tr>
-                <td>
-                    <div class="meta-label">Total Consultado</div>
-                    <div class="meta-value">{{ $resumo['total'] }}</div>
-                </td>
-                <td>
-                    <div class="meta-label">Sucesso</div>
-                    <div class="meta-value">{{ $resumo['sucesso'] }}</div>
-                </td>
-                <td>
-                    <div class="meta-label">Erros</div>
-                    <div class="meta-value">{{ $resumo['erro'] }}</div>
-                </td>
-                <td>
-                    <div class="meta-label">Score Médio</div>
-                    <div class="meta-value">{{ $resumo['score_medio'] }}</div>
-                </td>
-                <td>
-                    <div class="meta-label">CND Federal OK</div>
-                    <div class="meta-value">{{ $resumo['cnd_federal']['negativa'] ?? 0 }}</div>
-                </td>
-                <td>
-                    <div class="meta-label">CND Federal Restrita</div>
-                    <div class="meta-value">{{ $resumo['cnd_federal']['positiva'] ?? 0 }}</div>
-                </td>
-            </tr>
-        </table>
-    </div>
-
-    <div class="section">
-        <div class="section-header">Resultados</div>
+    {{-- Resultados --}}
+    <div class="secao">
+        <div class="secao-header">Resultados</div>
         <table class="table">
             <thead>
                 <tr>
@@ -246,13 +136,13 @@
                         </td>
                         <td>{{ $r['uf'] ?: '-' }}</td>
                         <td>
-                            <span class="badge" style="background-color: {{ $statusHex($situacao) }}">{{ $situacao }}</span>
+                            <span class="badge" style="background-color: {{ \App\Support\Reports\ReportTheme::statusHex($situacao) }}">{{ $situacao }}</span>
                         </td>
                         <td>{{ $r['simples_nacional'] ?: '-' }}</td>
                         @if(in_array('sintegra', $plano->consultas_incluidas ?? []))
                             <td>
                                 @if($r['sintegra_situacao'])
-                                    <span class="badge" style="background-color: {{ $statusHex($r['sintegra_situacao']) }}">{{ $r['sintegra_situacao'] }}</span>
+                                    <span class="badge" style="background-color: {{ \App\Support\Reports\ReportTheme::statusHex($r['sintegra_situacao']) }}">{{ $r['sintegra_situacao'] }}</span>
                                 @else
                                     -
                                 @endif
@@ -261,7 +151,7 @@
                         @if(in_array('cnd_federal', $plano->consultas_incluidas ?? []))
                             <td>
                                 @if($r['cnd_federal_status'])
-                                    <span class="badge" style="background-color: {{ $statusHex($r['cnd_federal_status']) }}">{{ $r['cnd_federal_status'] }}</span>
+                                    <span class="badge" style="background-color: {{ \App\Support\Reports\ReportTheme::statusHex($r['cnd_federal_status']) }}">{{ $r['cnd_federal_status'] }}</span>
                                     @if($r['cnd_federal_validade'])
                                         <div class="small muted">Val. {{ $r['cnd_federal_validade'] }}</div>
                                     @endif
@@ -273,7 +163,7 @@
                         @if(in_array('crf_fgts', $plano->consultas_incluidas ?? []))
                             <td>
                                 @if($r['crf_fgts_status'])
-                                    <span class="badge" style="background-color: {{ $statusHex($r['crf_fgts_status']) }}">{{ $r['crf_fgts_status'] }}</span>
+                                    <span class="badge" style="background-color: {{ \App\Support\Reports\ReportTheme::statusHex($r['crf_fgts_status']) }}">{{ $r['crf_fgts_status'] }}</span>
                                 @else
                                     -
                                 @endif
@@ -282,7 +172,7 @@
                         @if(in_array('cndt', $plano->consultas_incluidas ?? []))
                             <td>
                                 @if($r['cndt_status'])
-                                    <span class="badge" style="background-color: {{ $statusHex($r['cndt_status']) }}">{{ $r['cndt_status'] }}</span>
+                                    <span class="badge" style="background-color: {{ \App\Support\Reports\ReportTheme::statusHex($r['cndt_status']) }}">{{ $r['cndt_status'] }}</span>
                                     @if($r['cndt_validade'])
                                         <div class="small muted">Val. {{ $r['cndt_validade'] }}</div>
                                     @endif
@@ -294,7 +184,7 @@
                         @if(in_array('tcu_consolidada', $plano->consultas_incluidas ?? []))
                             <td>
                                 @if($complianceLabel !== '-')
-                                    <span class="badge" style="background-color: {{ $statusHex($complianceLabel) }}">{{ $complianceLabel }}</span>
+                                    <span class="badge" style="background-color: {{ \App\Support\Reports\ReportTheme::statusHex($complianceLabel) }}">{{ $complianceLabel }}</span>
                                 @else
                                     -
                                 @endif
@@ -302,7 +192,7 @@
                         @endif
                         <td class="center"><strong style="color: #111827">{{ $r['score_total'] }}</strong></td>
                         <td>
-                            <span class="badge" style="background-color: {{ $statusHex($r['classificacao']) }}">{{ strtoupper($r['classificacao']) }}</span>
+                            <span class="badge" style="background-color: {{ \App\Support\Reports\ReportTheme::riscoHex($r['classificacao']) }}">{{ strtoupper($r['classificacao']) }}</span>
                         </td>
                     </tr>
                 @endforeach
@@ -311,8 +201,8 @@
     </div>
 
     @if(!empty($detalhes) && $detalhes->count())
-        <div class="section">
-            <div class="section-header">Detalhamento por CNPJ — dados completos e comprovantes</div>
+        <div class="secao">
+            <div class="secao-header">Detalhamento por CNPJ — dados completos e comprovantes</div>
         </div>
 
         @foreach($detalhes as $d)
@@ -326,7 +216,7 @@
                             </td>
                             <td style="border: none; padding: 0; text-align: right;">
                                 @if($d['status_consulta'] !== 'sucesso')
-                                    <span class="badge" style="background-color: {{ $statusHex($d['status_consulta']) }}">{{ strtoupper($d['status_consulta']) }}</span>
+                                    <span class="badge" style="background-color: {{ \App\Support\Reports\ReportTheme::statusHex($d['status_consulta']) }}">{{ strtoupper($d['status_consulta']) }}</span>
                                 @elseif($d['consultado_em'])
                                     <span class="small" style="color: #d1d5db;">{{ $d['consultado_em'] }}</span>
                                 @endif
@@ -405,10 +295,4 @@
             </div>
         @endforeach
     @endif
-
-    <div class="footer">
-        Relatório gerado automaticamente pelo FiscalDock com base em consultas oficiais. Lote #{{ $lote->id }} | Usuário {{ $lote->user_id }} | {{ $gerado_em }}
-    </div>
-</div>
-</body>
-</html>
+@endsection
