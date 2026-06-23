@@ -872,6 +872,22 @@
                     ])
                 </div>
 
+                {{-- Preview de Movimentações --}}
+                <div class="bg-white border border-gray-200 rounded-lg p-4 mt-4" data-spa-keep>
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-[13px] font-bold text-gray-700 uppercase tracking-wide">Movimentações</h3>
+                        <a href="/app/participante/{{ $participante->id }}/dossie" target="_blank" rel="noopener"
+                           class="text-[11px] font-bold text-white rounded px-3 py-1.5" style="background-color: #1f2937">Baixar dossiê (PDF)</a>
+                    </div>
+                    <div class="grid grid-cols-4 gap-3 mb-4">
+                        <div><div class="text-[11px] text-gray-500">Total Notas</div><div class="text-[15px] font-bold">{{ $movimentacao['kpis']['total_notas'] }}</div></div>
+                        <div><div class="text-[11px] text-gray-500">Valor Movimentado</div><div class="text-[15px] font-bold">R$ {{ number_format($movimentacao['kpis']['valor_movimentado'], 2, ',', '.') }}</div></div>
+                        <div><div class="text-[11px] text-gray-500">Entradas</div><div class="text-[15px] font-bold">{{ $movimentacao['kpis']['entradas_qtd'] }}</div></div>
+                        <div><div class="text-[11px] text-gray-500">Saídas</div><div class="text-[15px] font-bold">{{ $movimentacao['kpis']['saidas_qtd'] }}</div></div>
+                    </div>
+                    <div id="chart-mov-competencia" style="min-height:220px;"></div>
+                </div>
+
                 {{-- Histórico de Consultas --}}
                 @if(isset($lotesDoParticipante))
                 <div class="bg-white rounded border border-gray-300 overflow-hidden">
@@ -1473,3 +1489,5 @@ const formCriarAssinatura = document.getElementById('form-criar-assinatura');
     }
 })();
 </script>
+<script>window.movimentacaoData = @json($movimentacao);</script>
+<script src="/js/participante-movimentacao.js?v={{ filemtime(public_path('js/participante-movimentacao.js')) }}"></script>

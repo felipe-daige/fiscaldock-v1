@@ -35,7 +35,7 @@ final class ParticipanteMovimentacaoService
     public function kpis(Participante $p): array
     {
         $rows = $this->notasQuery($p)
-            ->selectRaw("tipo_operacao, count(*) as qtd, coalesce(sum(valor_total),0) as valor")
+            ->selectRaw('tipo_operacao, count(*) as qtd, coalesce(sum(valor_total),0) as valor')
             ->groupBy('tipo_operacao')
             ->get()
             ->keyBy('tipo_operacao');
@@ -87,7 +87,7 @@ final class ParticipanteMovimentacaoService
     public function porCfop(Participante $p, int $limite = 10): array
     {
         return $this->itensQuery($p)
-            ->selectRaw("i.cfop as cfop, count(*) as qtd, coalesce(sum(i.valor_total),0) as valor")
+            ->selectRaw('i.cfop as cfop, count(*) as qtd, coalesce(sum(i.valor_total),0) as valor')
             ->groupBy('i.cfop')
             ->orderByDesc('valor')
             ->limit($limite)
@@ -96,10 +96,19 @@ final class ParticipanteMovimentacaoService
             ->all();
     }
 
+    public function kpisEResumoParaPreview(Participante $p): array
+    {
+        return [
+            'kpis' => $this->kpis($p),
+            'por_competencia' => $this->porCompetencia($p),
+            'por_cfop' => $this->porCfop($p, 5),
+        ];
+    }
+
     public function porCst(Participante $p): array
     {
         return $this->itensQuery($p)
-            ->selectRaw("i.cst_icms as cst, count(*) as qtd, coalesce(sum(i.valor_total),0) as valor")
+            ->selectRaw('i.cst_icms as cst, count(*) as qtd, coalesce(sum(i.valor_total),0) as valor')
             ->groupBy('i.cst_icms')
             ->orderByDesc('valor')
             ->get()
@@ -110,13 +119,13 @@ final class ParticipanteMovimentacaoService
     public function impostos(Participante $p): array
     {
         $r = $this->itensQuery($p)
-            ->selectRaw("
+            ->selectRaw('
                 coalesce(sum(i.valor_icms),0) as icms,
                 coalesce(sum(i.valor_pis),0) as pis,
                 coalesce(sum(i.valor_cofins),0) as cofins,
                 coalesce(sum(i.aliquota_icms * i.valor_total),0) as aliq_peso,
                 coalesce(sum(i.valor_total),0) as base
-            ")
+            ')
             ->first();
 
         $base = (float) ($r->base ?? 0);

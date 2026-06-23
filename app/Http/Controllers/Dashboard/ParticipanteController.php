@@ -760,6 +760,9 @@ class ParticipanteController extends Controller
                 : [],
         ];
 
+        $movimentacao = app(\App\Services\Participantes\ParticipanteMovimentacaoService::class)->kpisEResumoParaPreview($participante);
+        $data['movimentacao'] = $movimentacao;
+
         if ($this->isAjaxRequest($request)) {
             $renderedView = view($participanteView, $data)->render();
 
