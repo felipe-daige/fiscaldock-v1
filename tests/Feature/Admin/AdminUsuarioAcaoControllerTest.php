@@ -15,14 +15,15 @@ beforeEach(function () {
 it('não-admin recebe 403', function () {
     $naoAdmin = User::factory()->create(['is_admin' => false]);
     actingAs($naoAdmin)
-        ->post("/app/admin/usuarios/{$this->alvo->id}/creditar", ['valor' => 5, 'motivo' => 'x'])
+        ->post("/app/admin/usuarios/{$this->alvo->id}/creditar", ['valor' => 5, 'motivo' => 'fraude'])
         ->assertForbidden();
 });
 
 it('admin credita e gera flash + audit', function () {
     actingAs($this->admin)
         ->post("/app/admin/usuarios/{$this->alvo->id}/creditar", ['valor' => 40, 'motivo' => 'cortesia'])
-        ->assertRedirect("/app/admin/usuarios/{$this->alvo->id}");
+        ->assertRedirect("/app/admin/usuarios/{$this->alvo->id}")
+        ->assertSessionHas('status');
 
     expect($this->alvo->fresh()->credits)->toBe(50);
 });
@@ -39,4 +40,31 @@ it('admin bloqueia e promove', function () {
 
     actingAs($this->admin)->post("/app/admin/usuarios/{$this->alvo->id}/admin", ['motivo' => 'operador']);
     expect($this->alvo->fresh()->is_admin)->toBeTrue();
+});
+
+it('creditar débito acima do saldo vira erro em valor, sem 500', function () {
+    actingAs($this->admin)
+        ->post("/app/admin/usuarios/{$this->alvo->id}/creditar", ['valor' => -9999, 'motivo' => 'estorno grande'])
+        ->assertSessionHasErrors('valor');
+    expect($this->alvo->fresh()->credits)->toBe(10);
+});
+
+it('creditar valor zero é rejeitado pela validação', function () {
+    actingAs($this->admin)
+        ->post("/app/admin/usuarios/{$this->alvo->id}/creditar", ['valor' => 0, 'motivo' => 'teste'])
+        ->assertSessionHasErrors('valor');
+});
+
+it('bloquear a si mesmo vira erro (guard do service), sem 500', function () {
+    actingAs($this->admin)
+        ->post("/app/admin/usuarios/{$this->admin->id}/bloquear", ['motivo' => 'tentativa'])
+        ->assertSessionHasErrors('motivo');
+    expect($this->admin->fresh()->bloqueado_em)->toBeNull();
+});
+
+it('rebaixar a si mesmo vira erro, sem 500', function () {
+    actingAs($this->admin)
+        ->post("/app/admin/usuarios/{$this->admin->id}/admin", ['motivo' => 'tentativa'])
+        ->assertSessionHasErrors('motivo');
+    expect($this->admin->fresh()->is_admin)->toBeTrue();
 });
