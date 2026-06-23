@@ -159,7 +159,7 @@
                             <div class="relative pl-10">
                                 <span class="absolute left-0 top-0 w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center" style="background-color: #2563eb;">3</span>
                                 <p class="text-sm font-semibold text-gray-900">Confirmar custo</p>
-                                <p class="text-xs text-gray-600 mt-0.5">O resumo à direita mostra créditos totais e seu saldo antes de executar — sem cobrança surpresa.</p>
+                                <p class="text-xs text-gray-600 mt-0.5">O resumo à direita mostra o custo total e seu saldo antes de executar — sem cobrança surpresa.</p>
                             </div>
                             <div class="relative pl-10">
                                 <span class="absolute left-0 top-0 w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center" style="background-color: #2563eb;">4</span>
@@ -220,7 +220,7 @@
                     <div class="px-4 py-4 border-t border-gray-200">
                         <div class="flex items-center justify-between mb-3">
                             <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Como é cobrado</p>
-                            <span class="text-[10px] font-semibold text-gray-400">Modelo prepago em créditos</span>
+                            <span class="text-[10px] font-semibold text-gray-400">Modelo pré-pago em reais</span>
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div class="border border-gray-300 rounded p-3">
