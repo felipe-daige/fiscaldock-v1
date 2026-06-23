@@ -27,9 +27,9 @@ class ConsultaReportService
         }
 
         // Determinar colunas baseado nos dados disponíveis
-        $colunas = $this->getColunasCsv($lote, $resultados);
+        $colunas = $this->getColunasRelatorio($lote, $resultados);
 
-        $linhas = $resultados->map(fn ($r) => $this->formatarLinhaCsv($r, $colunas));
+        $linhas = $resultados->map(fn ($r) => $this->formatarLinhaRelatorio($r, $colunas));
 
         return CsvExport::build($colunas, $linhas);
     }
@@ -58,6 +58,25 @@ class ConsultaReportService
     public function gerarPdf(ConsultaLote $lote): \Barryvdh\DomPDF\PDF
     {
         return \App\Support\PdfReport::render('reports.consulta-lote', $this->dadosRelatorio($lote), 'landscape');
+    }
+
+    public function xlsxDisponivel(): bool
+    {
+        return \App\Support\Reports\XlsxReport::disponivel();
+    }
+
+    public function gerarXlsx(ConsultaLote $lote): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    {
+        $dados = $this->dadosRelatorio($lote);
+        $colunas = $this->getColunasRelatorio($lote, $dados['resultados']);
+
+        $linhas = $dados['resultados']->map(fn ($r) => [
+            'valores' => $this->formatarLinhaRelatorio($r, $colunas),
+            'risco' => $r['classificacao'] ?? null,
+        ])->all();
+
+        return app(\App\Services\Consultas\Export\ConsultaXlsxBuilder::class)
+            ->download($dados, $colunas, $linhas, "consulta_lote_{$lote->id}.xlsx");
     }
 
     /**
@@ -228,9 +247,9 @@ class ConsultaReportService
     }
 
     /**
-     * Define colunas do CSV baseado no plano.
+     * Define colunas do relatório baseado no plano.
      */
-    private function getColunasCsv(ConsultaLote $lote, Collection $resultados): array
+    public function getColunasRelatorio(ConsultaLote $lote, Collection $resultados): array
     {
         $colunas = [
             'CNPJ',
@@ -301,9 +320,9 @@ class ConsultaReportService
     }
 
     /**
-     * Formata linha para CSV.
+     * Formata linha para relatório.
      */
-    private function formatarLinhaCsv(array $resultado, array $colunas): array
+    public function formatarLinhaRelatorio(array $resultado, array $colunas): array
     {
         $linha = [];
 

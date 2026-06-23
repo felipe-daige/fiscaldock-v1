@@ -1099,6 +1099,14 @@ class ConsultaController extends Controller
                 ->with('export_erro', 'Este lote não possui resultados para exportar.');
         }
 
+        if ($formato === 'xlsx') {
+            if (! $this->reportService->xlsxDisponivel()) {
+                abort(503, 'Exportação XLSX temporariamente indisponível.');
+            }
+
+            return $this->reportService->gerarXlsx($lote);
+        }
+
         if ($formato === 'pdf') {
             $pdf = $this->reportService->gerarPdf($lote);
             $filename = "consulta_lote_{$lote->id}.pdf";

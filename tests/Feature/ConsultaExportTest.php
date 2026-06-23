@@ -182,3 +182,18 @@ it('historico nao mostra link de exportacao para lote finalizado sem resultados'
         ->assertDontSee("/app/consulta/lote/{$lote->id}/baixar?formato=csv", false)
         ->assertDontSee("/app/consulta/lote/{$lote->id}/baixar?formato=pdf", false);
 });
+
+it('exporta xlsx quando a lib está disponível', function () {
+    if (! \App\Support\Reports\XlsxReport::disponivel()) {
+        $this->markTestSkipped('OpenSpout não instalado (rebuild pendente).');
+    }
+
+    $user = User::factory()->create();
+    $lote = exportLote($user);
+    exportResultadoParticipante($lote, $user);
+
+    $resp = actingAs($user)->get("/app/consulta/lote/{$lote->id}/baixar?formato=xlsx");
+
+    $resp->assertOk();
+    $resp->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+});
