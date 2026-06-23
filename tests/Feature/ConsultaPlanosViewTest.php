@@ -13,12 +13,12 @@ it('lista os planos de consulta com a nota do periodo de teste e cobertura atual
 
     $resp = actingAs($user)->get('/app/consulta/planos')->assertOk();
 
-    // planos pagos usáveis (sem bloqueio/"em breve" de plano)
-    $resp->assertSee('Compliance')->assertSee('Due Diligence')->assertSee('Usar plano');
+    // planos pagos ativos usáveis (Due Diligence foi desativado na reestruturação)
+    $resp->assertSee('Compliance')->assertSee('Usar plano')->assertDontSee('Due Diligence');
     // nota do teto de teste (usuário sem 1ª compra)
     $resp->assertSee('Período de teste');
-    // cobertura alinhada (rótulos derivados do catálogo via PlanoConsultaLabels)
-    $resp->assertSee('Sanções e idoneidade (CGU)')->assertSee('Improbidade administrativa (CNJ)');
+    // cobertura alinhada (rótulos derivados do catálogo via PlanoConsultaLabels) — Licitação/Compliance
+    $resp->assertSee('CND Estadual')->assertSee('CNDT (débitos trabalhistas)');
 });
 
 it('nao mostra a nota de teste apos a primeira compra', function () {
