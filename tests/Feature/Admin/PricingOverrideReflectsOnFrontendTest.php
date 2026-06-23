@@ -37,10 +37,12 @@ it('a tela /app/consulta/nova reflete o preço por crédito do override', functi
         ->assertDontSee('1 crédito = R$ 0,20');
 });
 
-it('a tela /app/planos reflete o preço por crédito do override', function () {
+it('a tela /app/planos reflete o preço por crédito do override (via saldo incluso)', function () {
+    app(\App\Services\Admin\ComercialParametroService::class)->definir('credit_unit_price', '0.25', null);
+
     actingAs(User::factory()->create())
         ->get('/app/planos')
         ->assertOk()
-        ->assertSee('1 crédito = R$ 0,25')
-        ->assertDontSee('1 crédito = R$ 0,20');
+        ->assertSee('R$ 75,00 em saldo/mês')      // 300 créditos inclusos × R$0,25 (override)
+        ->assertDontSee('R$ 60,00 em saldo/mês');  // valor com o peg padrão R$0,20
 });

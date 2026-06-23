@@ -27,9 +27,9 @@ it('renderiza os 5 tiers do seeder com preços e créditos inclusos da doc CFO',
     expect($html)->toContain('R$ 99');
     expect($html)->toContain('R$ 299');
     expect($html)->toContain('R$ 799');
-    expect($html)->toContain('300 créditos inclusos/mês');
-    expect($html)->toContain('1.100 créditos inclusos/mês');
-    expect($html)->toContain('3.000 créditos inclusos/mês');
+    expect($html)->toContain('R$ 60,00 em saldo/mês');
+    expect($html)->toContain('R$ 220,00 em saldo/mês');
+    expect($html)->toContain('R$ 600,00 em saldo/mês');
 });
 
 it('marca o Free como plano atual de quem não tem assinatura e oferece Assinar nos pagos', function () {
@@ -55,7 +55,7 @@ it('renderiza os tiers mesmo se a tabela estiver vazia (fallback resiliente)', f
     foreach (['Essencial', 'Profissional', 'Escritório'] as $nome) {
         expect($html)->toContain($nome);
     }
-    expect($html)->toContain('300 créditos inclusos/mês');
+    expect($html)->toContain('R$ 60,00 em saldo/mês');
 });
 
 it('expõe os limites de carteira por tier (clientes/CNPJs)', function () {

@@ -27,7 +27,7 @@ it('renderiza a tela de busca de clearance para requisicao normal', function () 
         ->assertSee('Resumo Operacional')
         ->assertSee('Custo por consulta')
         ->assertSee('Saldo atual')
-        ->assertSee('Falhas do provedor estornam os créditos automaticamente.')
+        ->assertSee('Falhas do provedor estornam o valor automaticamente.')
         ->assertDontSee('Não associar a cliente agora')
         ->assertDontSee('Custo:')
         ->assertDontSee('Saldo:');

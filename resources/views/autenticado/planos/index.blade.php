@@ -138,15 +138,11 @@
             @endforeach
         </div>
 
-        {{-- Rodapé: como o crédito e a faixa se relacionam --}}
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {{-- Rodapé: saldo incluso e avulso --}}
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div class="bg-white rounded border border-gray-300 p-4 space-y-1">
                 <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Saldo</p>
-                <p class="text-sm text-gray-700">Saldo pré-pago — 1 crédito = R$ {{ number_format($creditUnitPrice ?? 0.20, 2, ',', '.') }} (fixo). Os planos incluem saldo por mês; estourou, adicione avulso quando precisar.</p>
-            </div>
-            <div class="bg-white rounded border border-gray-300 p-4 space-y-1">
-                <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Faixa de desconto</p>
-                <p class="text-sm text-gray-700">O tier compra a faixa (Profissional→X, Escritório→Y, Enterprise→Z), que barateia as consultas avulsas.</p>
+                <p class="text-sm text-gray-700">Saldo pré-pago em reais. Os planos incluem saldo por mês; estourou, adicione avulso quando precisar.</p>
             </div>
             <div class="bg-white rounded border border-gray-300 p-4 space-y-1">
                 <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Avulso</p>
