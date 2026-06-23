@@ -5,16 +5,18 @@
     $sevLabel = ['critica' => 'Crítica', 'revisar' => 'A revisar', 'ok' => 'Conforme'];
     $vSev = $r['resumo']['veredito']['severidade'] ?? 'ok';
 @endphp
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="utf-8">
+@extends('reports.layout')
+
+@section('titulo', 'Clearance DF-e — Lote #'.($r['capa']['lote_id'] ?? ''))
+
+@section('meta')
+    @include('reports.partials._badge', ['hex' => $sevHex[$vSev] ?? '#6b7280', 'label' => $sevLabel[$vSev] ?? ucfirst($vSev)])
+    <div>Hash: {{ $r['hash'] }}</div>
+@endsection
+
+@push('estilos')
     <style>
-        @page { margin: 28px 32px 54px 32px; }
-        * { font-family: DejaVu Sans, sans-serif; }
-        body { margin: 0; color: #1f2937; font-size: 10px; line-height: 1.45; }
         h1, h2, h3 { margin: 0; color: #0b1f3a; }
-        table { width: 100%; border-collapse: collapse; }
         .muted { color: #6b7280; }
         .sec-title { font-size: 12px; color: #0b1f3a; border-bottom: 2px solid #0b1f3a; padding-bottom: 3px; margin: 18px 0 8px 0; }
         .kv td { padding: 2px 0; vertical-align: top; }
@@ -23,37 +25,13 @@
         .data-table th { background-color: #0b1f3a; color: #ffffff; font-size: 8.5px; text-align: left; padding: 5px 6px; }
         .data-table td { font-size: 8.5px; padding: 4px 6px; border-bottom: 1px solid #eef2f7; vertical-align: top; }
         .data-table tr:nth-child(even) td { background-color: #f8fafc; }
-        .badge { display: inline-block; padding: 1px 6px; border-radius: 3px; color: #ffffff; font-size: 8px; }
-        .footer { position: fixed; bottom: -38px; left: 0; right: 0; font-size: 7.5px; color: #9ca3af; border-top: 1px solid #e5e7eb; padding-top: 4px; }
     </style>
-</head>
-<body>
+@endpush
 
-    {{-- Rodapé fixo (todas as páginas) --}}
-    <div class="footer">
-        <table><tr>
-            <td style="text-align:left;">FiscalDock — Relatório de Clearance · Lote #{{ $r['capa']['lote_id'] }}</td>
-            <td style="text-align:right;">Hash SHA-256: {{ $r['hash'] }}</td>
-        </tr></table>
-    </div>
+@section('conteudo')
 
-    {{-- ===== CAPA ===== --}}
-    <table>
-        <tr>
-            <td style="vertical-align:middle;">
-                <h1 style="font-size:22px;">Fiscal<span style="color:#2563eb;">Dock</span></h1>
-                <div class="muted" style="font-size:9px;">Relatório executivo de clearance fiscal</div>
-            </td>
-            <td style="text-align:right; vertical-align:middle;">
-                <span class="badge" style="background-color: {{ $sevHex[$vSev] ?? '#6b7280' }}; font-size:11px; padding:4px 10px;">
-                    {{ $sevLabel[$vSev] ?? ucfirst($vSev) }}
-                </span>
-                <div class="muted" style="font-size:8px; margin-top:4px;">Emitido em {{ $r['capa']['emitido_em_label'] }}</div>
-            </td>
-        </tr>
-    </table>
-
-    <table class="grid" style="margin-top:14px;">
+    {{-- ===== ACERVO AUDITADO ===== --}}
+    <table class="grid" style="margin-bottom:14px;">
         <tr>
             <td style="width:50%;">
                 <div class="box">
@@ -176,7 +154,7 @@
         </table>
     @endif
 
-    {{-- ===== METODOLOGIA / RODAPÉ LEGAL ===== --}}
+    {{-- ===== METODOLOGIA / NOTA LEGAL ===== --}}
     <div class="sec-title">Metodologia e nota legal</div>
     <div class="muted" style="font-size:8px;">
         <strong>Fonte da verdade:</strong> consulta à Receita Federal via InfoSimples (Declarado × SEFAZ por chave de acesso).
@@ -186,5 +164,4 @@
         Integridade verificável pelo hash SHA-256 no rodapé.
     </div>
 
-</body>
-</html>
+@endsection

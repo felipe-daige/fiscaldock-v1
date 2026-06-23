@@ -17,7 +17,7 @@ use App\Services\Clearance\RelatorioExecutivoService;
 use App\Services\CreditService;
 use App\Services\NotaFiscalService;
 use App\Services\ValidacaoContabilService;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Support\PdfReport;
 use Carbon\Carbon;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
@@ -980,8 +980,7 @@ class ClearanceController extends Controller
             'hash' => $relatorio['hash'],
         ]);
 
-        $pdf = Pdf::loadView('autenticado.clearance.pdf.relatorio', ['r' => $relatorio])
-            ->setPaper('a4', 'portrait');
+        $pdf = PdfReport::render('autenticado.clearance.pdf.relatorio', ['r' => $relatorio], 'portrait');
 
         return $pdf->download("clearance-lote-{$lote->id}.pdf");
     }
