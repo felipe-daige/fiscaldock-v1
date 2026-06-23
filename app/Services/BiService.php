@@ -646,7 +646,7 @@ class BiService
         ];
     }
 
-    public function getFluxoMensalEfd(int $userId, ?string $dataInicio, ?string $dataFim): array
+    public function getFluxoMensalEfd(int $userId, ?string $dataInicio, ?string $dataFim, ?int $clienteId = null): array
     {
         // Sem filtro de data, limita a série à janela real de notas do usuário
         // (min..max de data_emissao). Usar Carbon::now() como fim enchia o eixo X
@@ -667,27 +667,21 @@ class BiService
                 : $fim->copy()->subMonths(11)->startOfMonth();
         }
 
-        $rows = DB::table('efd_notas')
-            ->where('user_id', $userId)
-            ->whereBetween('data_emissao', [$inicio->toDateString(), $fim->toDateString()])
-            ->select([
-                DB::raw("TO_CHAR(DATE_TRUNC('month', data_emissao), 'YYYY-MM') as mes"),
-                DB::raw("SUM(CASE WHEN tipo_operacao = 'entrada' THEN valor_total ELSE 0 END) as entradas"),
-                DB::raw("SUM(CASE WHEN tipo_operacao = 'saida' THEN valor_total ELSE 0 END) as saidas"),
-            ])
-            ->groupBy(DB::raw("DATE_TRUNC('month', data_emissao)"))
-            ->orderBy(DB::raw("DATE_TRUNC('month', data_emissao)"))
-            ->get()
-            ->keyBy('mes');
+        // Base dedup (P1 origem + P4 cancelada) — idêntica aos KPIs Faturamento/
+        // Aquisições (faturamentoMensal). Antes era SUM bruto de efd_notas, que
+        // dobrava a NF-e escriturada nas 2 origens e somava canceladas, divergindo
+        // ~6% dos KPIs (feedback Marcio, 2026-06-23).
+        $keyMes = fn (array $r) => Carbon::parse($r['mes'])->format('Y-m');
+        $entradasMes = collect($this->efd->faturamentoMensal($userId, 'entrada', $dataInicio, $dataFim, $clienteId))->keyBy($keyMes);
+        $saidasMes = collect($this->efd->faturamentoMensal($userId, 'saida', $dataInicio, $dataFim, $clienteId))->keyBy($keyMes);
 
         $result = [];
         $period = CarbonPeriod::create($inicio->startOfMonth(), '1 month', $fim->copy()->startOfMonth());
 
         foreach ($period as $date) {
             $key = $date->format('Y-m');
-            $row = $rows->get($key);
-            $entradas = (float) ($row->entradas ?? 0);
-            $saidas = (float) ($row->saidas ?? 0);
+            $entradas = (float) ($entradasMes->get($key)['valor'] ?? 0);
+            $saidas = (float) ($saidasMes->get($key)['valor'] ?? 0);
             $result[] = [
                 'mes' => $key,
                 'label' => $date->locale('pt_BR')->isoFormat('MMM/YY'),
