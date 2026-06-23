@@ -12,10 +12,10 @@
     .muted { color: #6b7280; }
     .table th {
         background: #f9fafb;
-        border-bottom: 1px solid #d1d5db;
+        border-bottom: 1.5px solid #1f2937;
         padding: 6px 5px;
         text-align: left;
-        font-size: 8px;
+        font-size: 7.5px;
         color: #6b7280;
         text-transform: uppercase;
         letter-spacing: .08em;
@@ -27,21 +27,27 @@
         font-size: 8px;
         color: #374151;
     }
+    .table tbody tr:nth-child(even) td { background: #fbfbfc; }
     .right { text-align: right; }
     .center { text-align: center; }
     .small { font-size: 7px; }
+    /* ── Resumo do lote — kv horizontal ──────────────────────── */
+    .lote-kv { width: 100%; border-collapse: collapse; }
+    .lote-kv td { border: none; padding: 2px 6px; font-size: 8px; vertical-align: top; }
+    .lote-kv .k { color: #9ca3af; text-transform: uppercase; font-size: 7px; }
+    .lote-kv .v { color: #111827; font-weight: bold; }
     /* ── Detalhamento por CNPJ ───────────────────────────────── */
     .cnpj-block { margin-bottom: 12px; page-break-inside: avoid; }
-    .cnpj-head { background: #111827; color: #fff; padding: 5px 8px; }
+    .cnpj-head { background: #1f2937; color: #fff; padding: 5px 8px; }
     .cnpj-head .doc { font-family: DejaVu Sans Mono, monospace; font-size: 10px; font-weight: bold; }
-    .cnpj-head .nome { font-size: 9px; }
+    .cnpj-head .nome { font-size: 9px; color: #e5e7eb; }
     .cnpj-resumo {
         padding: 5px 8px; font-size: 8px; color: #374151;
         background: #f9fafb; border: 1px solid #e5e7eb; border-top: none;
     }
     .cards { width: 100%; border-collapse: separate; border-spacing: 6px 6px; }
     .cards > tbody > tr > td { width: 50%; vertical-align: top; padding: 0; border: none; }
-    .card { border: 1px solid #d1d5db; }
+    .card { border: 1px solid #e5e7eb; border-top: 2px solid #1f2937; }
     .card-head { background: #f9fafb; border-bottom: 1px solid #e5e7eb; padding: 4px 6px; }
     .card-head td { border: none; padding: 0; }
     .card-title { font-size: 8px; font-weight: bold; color: #6b7280; text-transform: uppercase; letter-spacing: .06em; }
@@ -60,6 +66,25 @@
 @endpush
 
 @section('conteudo')
+    {{-- Resumo do Lote --}}
+    <div class="secao">
+        <div class="secao-header">Resumo do Lote</div>
+        <div class="secao-body">
+            <table class="lote-kv">
+                <tr>
+                    <td class="k">Lote</td>
+                    <td class="v mono">#{{ $lote->id }}</td>
+                    <td class="k">Plano</td>
+                    <td class="v">{{ $plano->nome ?? 'N/A' }}</td>
+                    <td class="k">Total de CNPJs</td>
+                    <td class="v">{{ $resumo['total'] }}</td>
+                    <td class="k">Gerado em</td>
+                    <td class="v">{{ $gerado_em }}</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
     {{-- Resumo Operacional --}}
     <div class="secao">
         <div class="secao-header">Resumo Operacional</div>
