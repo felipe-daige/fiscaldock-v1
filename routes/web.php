@@ -330,6 +330,7 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureNaoBloqueado::class, \App\
             Route::post('/usuarios/{id}/creditar', [\App\Http\Controllers\Dashboard\AdminUsuarioAcaoController::class, 'creditar'])->name('usuarios.creditar')->where('id', '[0-9]+');
             Route::post('/usuarios/{id}/bloquear', [\App\Http\Controllers\Dashboard\AdminUsuarioAcaoController::class, 'bloquear'])->name('usuarios.bloquear')->where('id', '[0-9]+');
             Route::post('/usuarios/{id}/admin', [\App\Http\Controllers\Dashboard\AdminUsuarioAcaoController::class, 'admin'])->name('usuarios.admin')->where('id', '[0-9]+');
+            Route::post('/usuarios/{id}/impersonar', [\App\Http\Controllers\Dashboard\AdminUsuarioAcaoController::class, 'impersonar'])->name('usuarios.impersonar')->where('id', '[0-9]+');
         });
 
     // Painel admin — parâmetros comerciais (§6.1, somente operador FiscalDock)
@@ -339,6 +340,9 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureNaoBloqueado::class, \App\
             Route::post('/{chave}', [\App\Http\Controllers\Dashboard\AdminComercialController::class, 'update'])->name('update');
             Route::post('/{chave}/reset', [\App\Http\Controllers\Dashboard\AdminComercialController::class, 'reset'])->name('reset');
         });
+
+    // Impersonação — sair (fora do EnsureAdmin: sessão vira do alvo não-admin durante impersonação)
+    Route::post('/app/admin/impersonar/sair', [\App\Http\Controllers\Dashboard\AdminUsuarioAcaoController::class, 'impersonarSair'])->name('app.admin.impersonar.sair');
 
     // Centro de Privacidade (LGPD fase 2 — direitos do titular)
     Route::prefix('app/privacidade')->name('app.privacidade.')->group(function () {

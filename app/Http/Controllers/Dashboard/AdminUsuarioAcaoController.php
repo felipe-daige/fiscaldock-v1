@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\Admin\AdminAcaoService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class AdminUsuarioAcaoController extends Controller
 {
@@ -56,5 +57,39 @@ class AdminUsuarioAcaoController extends Controller
         }
 
         return redirect("/app/admin/usuarios/{$id}")->with('status', 'Permissão de admin atualizada.');
+    }
+
+    public function impersonar(Request $request, int $id)
+    {
+        $dados = $request->validate(['motivo' => ['required', 'string', 'min:3', 'max:500']]);
+        $alvo = User::findOrFail($id);
+        $admin = $request->user();
+
+        if ($alvo->id === $admin->id || $alvo->is_admin) {
+            return back()->withErrors(['motivo' => 'Alvo inválido para impersonação.']);
+        }
+
+        $this->acoes->registrar($admin, $alvo, 'impersonar', $dados['motivo']);
+        $request->session()->put('impersonator_id', $admin->id);
+        Auth::login($alvo);
+
+        return redirect('/app');
+    }
+
+    public function impersonarSair(Request $request)
+    {
+        $adminId = $request->session()->pull('impersonator_id');
+        if (! $adminId) {
+            return redirect('/app');
+        }
+
+        $alvoId = Auth::id();
+        $admin = User::find($adminId);
+        if ($admin) {
+            Auth::login($admin);
+            $this->acoes->registrar($admin, User::find($alvoId), 'impersonar_sair', 'fim da impersonação');
+        }
+
+        return redirect("/app/admin/usuarios/{$alvoId}");
     }
 }
