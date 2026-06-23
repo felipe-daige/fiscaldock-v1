@@ -327,6 +327,9 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureNaoBloqueado::class, \App\
             Route::get('/', [\App\Http\Controllers\Dashboard\AdminAnalyticsController::class, 'index'])->name('index');
             Route::get('/usuarios', [\App\Http\Controllers\Dashboard\AdminUsuariosController::class, 'index'])->name('usuarios.index');
             Route::get('/usuarios/{id}', [\App\Http\Controllers\Dashboard\AdminUsuariosController::class, 'show'])->name('usuarios.show')->where('id', '[0-9]+');
+            Route::post('/usuarios/{id}/creditar', [\App\Http\Controllers\Dashboard\AdminUsuarioAcaoController::class, 'creditar'])->name('usuarios.creditar')->where('id', '[0-9]+');
+            Route::post('/usuarios/{id}/bloquear', [\App\Http\Controllers\Dashboard\AdminUsuarioAcaoController::class, 'bloquear'])->name('usuarios.bloquear')->where('id', '[0-9]+');
+            Route::post('/usuarios/{id}/admin', [\App\Http\Controllers\Dashboard\AdminUsuarioAcaoController::class, 'admin'])->name('usuarios.admin')->where('id', '[0-9]+');
         });
 
     // Painel admin — parâmetros comerciais (§6.1, somente operador FiscalDock)
