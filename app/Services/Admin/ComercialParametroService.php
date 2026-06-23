@@ -10,8 +10,8 @@ use Illuminate\Support\Facades\DB;
  *
  * A tabela `comercial_parametros` começa VAZIA → `valor()` cai no default hardcoded do registro
  * abaixo. Um admin que grava um override passa a vencer. **Garante zero mudança de preço em prod
- * até alguém editar.** Escopo MVP: núcleo global + faixas; demais números seguem no
- * PricingCatalogService (fase 2). Os defaults aqui espelham as constantes/valores atuais —
+ * até alguém editar.** Escopo MVP: peg global (credit_unit_price/minimum_deposit) + preços por
+ * plano (preco_validacao/licitacao/compliance). Os defaults espelham as constantes/valores atuais —
  * o teste anti-drift trava qualquer divergência.
  */
 class ComercialParametroService
@@ -34,21 +34,20 @@ class ComercialParametroService
             'default' => PricingCatalogService::MINIMUM_DEPOSIT, // 100.00
             'dica' => 'Valor mínimo de recarga avulsa.',
         ],
-        'faixa_x_min' => [
-            'rotulo' => 'Faixa X — créditos pagos mínimos',
+        'preco_validacao' => [
+            'rotulo' => 'Preço Validação (créditos)',
             'tipo' => 'int',
-            'default' => 1000,
-            'dica' => 'A partir de quantos créditos pagos o cliente entra na Faixa X.',
+            'default' => 15,
         ],
-        'faixa_y_min' => [
-            'rotulo' => 'Faixa Y — créditos pagos mínimos',
+        'preco_licitacao' => [
+            'rotulo' => 'Preço Licitação (créditos)',
             'tipo' => 'int',
-            'default' => 5000,
+            'default' => 50,
         ],
-        'faixa_z_min' => [
-            'rotulo' => 'Faixa Z — créditos pagos mínimos',
+        'preco_compliance' => [
+            'rotulo' => 'Preço Compliance (créditos)',
             'tipo' => 'int',
-            'default' => 20000,
+            'default' => 100,
         ],
     ];
 
