@@ -4,12 +4,21 @@
     <meta charset="utf-8">
     <title>@yield('titulo', 'Relatório FiscalDock')</title>
     <style>
-        @page { margin: 96px 26px 56px 26px; }
+        @page { margin: 92px 32px 52px 32px; }
         * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family:"DejaVu Sans", sans-serif; font-size:9px; color:#111827; line-height:1.35; }
+        body { font-family:"DejaVu Sans", sans-serif; font-size:9px; color:#111827; line-height:1.4; }
         .pdf-conteudo { position:relative; z-index:2; }
-        .secao { border:1px solid #d1d5db; margin-bottom:10px; }
-        .secao-header { background:#f9fafb; border-bottom:1px solid #e5e7eb; padding:6px 8px; font-size:9px; font-weight:bold; color:#6b7280; text-transform:uppercase; letter-spacing:.08em; }
+
+        /* Componente Seção: barra slate + corpo aberto (sem caixa) */
+        .secao { margin-bottom:14px; }
+        .secao-header {
+            background:#1f2937; color:#fff;
+            padding:5px 8px; font-size:9px; font-weight:bold;
+            text-transform:uppercase; letter-spacing:.1em;
+        }
+        .secao-header .meta { float:right; font-weight:normal; color:#cbd5e1; letter-spacing:.04em; text-transform:none; }
+        .secao-body { padding:8px 2px; }
+
         .badge { color:#fff; padding:1px 6px; border-radius:3px; font-size:8px; font-weight:bold; text-transform:uppercase; }
         .mono { font-family:"DejaVu Sans Mono", monospace; }
         table { border-collapse:collapse; width:100%; }
@@ -17,7 +26,6 @@
     @stack('estilos')
 </head>
 <body>
-    @include('reports.partials._marca-dagua')
     @include('reports.partials._header')
     @include('reports.partials._footer')
     <main class="pdf-conteudo">
