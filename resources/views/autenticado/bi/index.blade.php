@@ -33,6 +33,14 @@
             </div>
         </div>
 
+        {{-- Faixa de cobertura de fonte (avisa meses sem EFD ICMS/IPI / PIS-COFINS) --}}
+        @php $cobInicial = $cobertura ?? ['parcial' => false]; @endphp
+        <div id="bi-cobertura-banner" class="{{ ($cobInicial['parcial'] ?? false) ? '' : 'hidden' }} rounded border mb-4 px-4 py-2 flex items-start gap-2"
+             style="background-color: #fffbeb; border-color: #fde68a;">
+            <span style="color: #b45309;" class="text-sm font-bold leading-5">&#9888;</span>
+            <p id="bi-cobertura-texto" class="text-[12px] leading-5" style="color: #92400e;"></p>
+        </div>
+
         {{-- KPIs Consolidados --}}
         @php
         // KPIs exibem o valor exato COM centavos, inclusive grandes (mesmo critério do bi.js).
@@ -55,6 +63,7 @@
                     <p class="text-lg font-bold text-gray-900" id="kpi-aquisicoes">{{ $compactBrl($resumo['total_compras'] ?? 0) }}</p>
                     <p class="text-[11px] text-gray-500 mt-1" id="kpi-aquisicoes-notas">{{ number_format(($resumoEfd['total_entradas_notas'] ?? 0), 0, ',', '.') }} notas recebidas</p>
                     <p class="text-[11px] text-gray-500">Merc.: <span id="kpi-aquisicoes-merc" class="font-medium text-gray-700">{{ $compactBrl($resumo['total_compras_mercadoria'] ?? 0) }}</span> · Frete: <span id="kpi-aquisicoes-frete" class="font-medium text-gray-700">{{ $compactBrl($resumo['total_frete'] ?? 0) }}</span></p>
+                    <p id="kpi-aquisicoes-cobertura" class="hidden text-[11px] font-medium mt-1" style="color: #b45309;"></p>
                 </div>
 
                 {{-- Tributação --}}
@@ -622,4 +631,4 @@
 
 {{-- ApexCharts (local) --}}
 <script src="/js/apexcharts.min.js"></script>
-<script src="/js/bi.js"></script>
+<script src="/js/bi.js?v={{ filemtime(public_path('js/bi.js')) }}"></script>

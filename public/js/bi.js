@@ -189,8 +189,46 @@
             setKpi('kpi-sec-participantes', efd.participantes_ativos || 0);
             setKpi('kpi-sec-risco', efd.notas_em_risco || 0);
             setKpi('kpi-sec-sem-itens', efd.notas_sem_itens || 0);
+            renderCobertura(resumo.cobertura);
         } catch (e) {
             console.error('Erro ao atualizar resumo KPIs:', e);
+        }
+    }
+
+    // Avisos de cobertura de fonte: card Aquisições (meses sem EFD ICMS/IPI) +
+    // faixa-resumo no topo. Dados vêm de /app/bi/resumo (resumo.cobertura).
+    function renderCobertura(cob) {
+        cob = cob || { parcial: false, meses_sem_fiscal: [], meses_sem_contrib: [], meses_gap_total: [] };
+        const semFiscal = cob.meses_sem_fiscal || [];
+        const semContrib = cob.meses_sem_contrib || [];
+
+        // #1 — card Aquisições
+        const cardEl = document.getElementById('kpi-aquisicoes-cobertura');
+        if (cardEl) {
+            if (semFiscal.length > 0) {
+                const labels = semFiscal.map(m => m.label).join(', ');
+                cardEl.textContent = `⚠ ${semFiscal.length} ${semFiscal.length === 1 ? 'mês sem' : 'meses sem'} EFD ICMS/IPI — entradas incompletas`;
+                cardEl.setAttribute('title', `Meses sem o arquivo fiscal: ${labels}`);
+                cardEl.classList.remove('hidden');
+            } else {
+                cardEl.classList.add('hidden');
+                cardEl.removeAttribute('title');
+            }
+        }
+
+        // #2 — faixa no topo
+        const banner = document.getElementById('bi-cobertura-banner');
+        const texto = document.getElementById('bi-cobertura-texto');
+        if (banner && texto) {
+            if (cob.parcial) {
+                const partes = [];
+                if (semFiscal.length) partes.push(`${semFiscal.length} ${semFiscal.length === 1 ? 'mês' : 'meses'} só PIS/COFINS (sem EFD ICMS/IPI): ${semFiscal.map(m => m.label).join(', ')}`);
+                if (semContrib.length) partes.push(`${semContrib.length} ${semContrib.length === 1 ? 'mês' : 'meses'} só ICMS/IPI (sem EFD PIS/COFINS): ${semContrib.map(m => m.label).join(', ')}`);
+                texto.textContent = `Cobertura parcial do período — ${partes.join(' · ')}. Importe o arquivo faltante para completar os números.`;
+                banner.classList.remove('hidden');
+            } else {
+                banner.classList.add('hidden');
+            }
         }
     }
 
