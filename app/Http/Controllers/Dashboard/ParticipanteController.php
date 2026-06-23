@@ -1139,6 +1139,25 @@ class ParticipanteController extends Controller
     }
 
     /**
+     * Gera e baixa o dossiê completo do participante em PDF.
+     */
+    public function dossiePdf(\Illuminate\Http\Request $request, $id)
+    {
+        if (! \Illuminate\Support\Facades\Auth::check()) {
+            return $this->redirectToLogin($request);
+        }
+
+        $participante = \App\Models\Participante::where('id', $id)
+            ->where('user_id', (int) \Illuminate\Support\Facades\Auth::id())
+            ->firstOrFail();
+
+        $dados = app(\App\Services\Participantes\DossieParticipanteBuilder::class)->montar($participante);
+
+        return \App\Support\PdfReport::render('reports.dossie.participante', $dados, 'portrait')
+            ->download('dossie_'.preg_replace('/\D/', '', (string) $participante->documento).'.pdf');
+    }
+
+    /**
      * Redireciona para login.
      */
     private function redirectToLogin(Request $request)

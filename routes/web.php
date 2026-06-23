@@ -161,6 +161,9 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureNaoBloqueado::class, \App\
         // Participante individual
         Route::get('/participante/nota-fiscal/{id}', [ParticipanteController::class, 'notaFiscalDetalhes'])->name('participante.nota-fiscal');
         Route::get('/participante/{id}/notas', [ParticipanteController::class, 'notas'])->name('participante.notas');
+        Route::get('/participante/{id}/dossie', [ParticipanteController::class, 'dossiePdf'])
+            ->middleware(\App\Http\Middleware\RequiresEntitlement::class.':export')
+            ->name('participante.dossie');
         Route::get('/participante/{id}', [ParticipanteController::class, 'show'])->name('participante');
         Route::get('/participante/{id}/editar', [ParticipanteController::class, 'edit'])->name('participante.editar');
         Route::put('/participante/{id}', [ParticipanteController::class, 'update'])->name('participante.update');
