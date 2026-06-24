@@ -103,6 +103,46 @@ it('cria score para resultado de cliente (empresa gerida/propria)', function () 
     expect($cliente->fresh()->score)->not->toBeNull();
 });
 
+it('persiste score_credito_reforma a partir do regime (MEI => 100)', function () {
+    $user = User::factory()->create();
+    $part = Participante::create([
+        'user_id' => $user->id, 'documento' => '11222333000184', 'razao_social' => 'MEI LTDA',
+    ]);
+    $lote = novoLote($user);
+
+    ConsultaResultado::create([
+        'consulta_lote_id' => $lote->id,
+        'participante_id' => $part->id,
+        'status' => ConsultaResultado::STATUS_SUCESSO,
+        'resultado_dados' => ['situacao_cadastral' => 'ATIVA', 'mei' => true],
+    ]);
+
+    app(FecharLoteService::class)->fechar($lote->id);
+
+    $score = ParticipanteScore::where('participante_id', $part->id)->first();
+    expect($score->score_credito_reforma)->toBe(100);
+});
+
+it('score_credito_reforma usa o crt do proprio participante (Regime Normal => 0)', function () {
+    $user = User::factory()->create();
+    $part = Participante::create([
+        'user_id' => $user->id, 'documento' => '11222333000185', 'razao_social' => 'NORMAL SA', 'crt' => 3,
+    ]);
+    $lote = novoLote($user);
+
+    ConsultaResultado::create([
+        'consulta_lote_id' => $lote->id,
+        'participante_id' => $part->id,
+        'status' => ConsultaResultado::STATUS_SUCESSO,
+        'resultado_dados' => ['situacao_cadastral' => 'ATIVA'],
+    ]);
+
+    app(FecharLoteService::class)->fechar($lote->id);
+
+    $score = ParticipanteScore::where('participante_id', $part->id)->first();
+    expect($score->score_credito_reforma)->toBe(0);
+});
+
 it('marca nao_avaliado quando nada e avaliavel', function () {
     $user = User::factory()->create();
     $part = Participante::create([

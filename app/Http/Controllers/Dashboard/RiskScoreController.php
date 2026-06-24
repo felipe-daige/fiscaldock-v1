@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Cliente;
 use App\Models\Participante;
 use App\Models\ParticipanteScore;
+use App\Services\Reforma\CreditoRiscoReformaService;
 use App\Services\RiskScoreService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -20,7 +21,8 @@ class RiskScoreController extends Controller
     private const AUTH_LAYOUT_VIEW = 'autenticado.layouts.app';
 
     public function __construct(
-        protected RiskScoreService $riskScoreService
+        protected RiskScoreService $riskScoreService,
+        protected CreditoRiscoReformaService $creditoReforma
     ) {}
 
     /**
@@ -202,6 +204,7 @@ class RiskScoreController extends Controller
             'score' => $participante->score,
             'pesos' => $this->riskScoreService->getPesos(),
             'volumeEfd' => $volumeEfd,
+            'creditoReforma' => $this->creditoReforma->creditoParticipante($participante, $volumeEfd, $participante->score?->score_credito_reforma),
         ];
 
         return $this->render($request, 'show', $data);

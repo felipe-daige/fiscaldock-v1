@@ -32,6 +32,13 @@
         if ($s) return ['label' => 'Comprador', 'hex' => '#7c3aed'];
         return null;
     };
+    // Crédito IBS/CBS (Reforma): score_credito_reforma 0=gera cheio, 100=não gera, 1-99=parcial, null=sem regime.
+    $creditoBadge = function($sc) {
+        if ($sc === null) return ['label' => '—', 'hex' => '#9ca3af'];
+        if ($sc <= 0) return ['label' => 'Gera', 'hex' => '#047857'];
+        if ($sc >= 100) return ['label' => 'Não gera', 'hex' => '#b91c1c'];
+        return ['label' => 'Parcial', 'hex' => '#d97706'];
+    };
 @endphp
 <div class="min-h-screen bg-gray-100" id="risk-container">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
@@ -90,6 +97,84 @@
                 </div>
 
                 <p class="text-[11px] text-gray-400">ESG (trabalho escravo / IBAMA) e protestos em cartório entrarão no score em breve.</p>
+            </div>
+        </details>
+
+        {{-- Como funciona: Crédito IBS/CBS na Reforma Tributária --}}
+        <details class="bg-white rounded border border-gray-300 border-l-4 mb-6 group" style="border-left-color: #047857;">
+            <summary class="cursor-pointer px-4 py-3 flex items-center justify-between list-none hover:bg-gray-50">
+                <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-emerald-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m-6 4h6m-6 4h4M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z"/>
+                    </svg>
+                    <span class="text-sm font-semibold text-gray-900">Crédito IBS/CBS na Reforma Tributária — como funciona e base legal</span>
+                </div>
+                <span class="text-[11px] font-semibold text-gray-500 group-open:hidden">Abrir</span>
+                <span class="text-[11px] font-semibold text-gray-500 hidden group-open:inline">Fechar</span>
+            </summary>
+            <div class="border-t border-gray-200 px-4 py-4 space-y-4">
+                <p class="text-xs text-gray-600 leading-relaxed">
+                    Além do risco de regularidade, estimamos se cada <strong>fornecedor</strong> vai
+                    <strong>gerar crédito de IBS/CBS</strong> para você sob a Reforma Tributária — e quanto crédito você pode
+                    <strong>perder</strong> comprando dele. É uma <strong>previsão</strong>, não garantia.
+                </p>
+
+                <div>
+                    <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">A regra (por regime do fornecedor)</p>
+                    <ul class="text-xs text-gray-600 leading-relaxed list-disc pl-4 space-y-1">
+                        <li><strong>Regime Normal</strong> (Lucro Real/Presumido): gera crédito <strong>integral</strong>.</li>
+                        <li><strong>Simples Nacional</strong>: crédito <strong>reduzido</strong>, salvo se optar pelo regime regular/híbrido (aí gera integral).</li>
+                        <li><strong>MEI</strong>: <strong>não gera</strong> crédito ao adquirente.</li>
+                    </ul>
+                </div>
+
+                <div>
+                    <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Semáforo do crédito</p>
+                    <div class="flex flex-wrap gap-3 text-xs">
+                        <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background-color: #047857"></span><span class="text-gray-600">Gera crédito integral</span></span>
+                        <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background-color: #d97706"></span><span class="text-gray-600">Parcial (Simples)</span></span>
+                        <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background-color: #b91c1c"></span><span class="text-gray-600">Não gera (MEI)</span></span>
+                        <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background-color: #9ca3af"></span><span class="text-gray-600">Regime não identificado</span></span>
+                    </div>
+                </div>
+
+                <div>
+                    <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Como o valor em risco é calculado</p>
+                    <p class="text-xs text-gray-600 leading-relaxed">
+                        <span class="font-mono">crédito em risco = volume de entradas (EFD) × alíquota de referência × (1 − fator do regime)</span>.
+                        O valor por fornecedor aparece na tela de <strong>detalhe</strong> de cada CNPJ.
+                    </p>
+                </div>
+
+                <div>
+                    <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Base legal</p>
+                    <p class="text-xs text-gray-600 leading-relaxed">
+                        EC 132/2023; <strong>LC 214/2025</strong> — crédito do adquirente condicionado à <strong>extinção do
+                        débito</strong> (arts. 27 e 47), com dispensa fora do split payment/recolhimento pelo adquirente (art. 48);
+                        Simples em regime unificado (crédito reduzido) × híbrido (integral); <strong>LC 225/2026</strong> (devedor
+                        contumaz → recolhimento incerto). O <em>split payment</em> (2027+) é que confirmará o recolhimento.
+                    </p>
+                </div>
+
+                <div>
+                    <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Alíquota total IBS+CBS por ano (estimativa)</p>
+                    @php $fasesReforma = config('reforma.aliquotas_por_fase', []); $plenoReforma = (float) config('reforma.aliquota_referencia'); @endphp
+                    <div class="flex flex-wrap gap-2 text-[11px]">
+                        @foreach($fasesReforma as $anoFase => $aliqFase)
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-gray-100 text-gray-600"><strong>{{ $anoFase }}</strong> {{ number_format($aliqFase * 100, 1, ',', '.') }}%</span>
+                        @endforeach
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 text-emerald-800"><strong>2033+</strong> {{ number_format($plenoReforma * 100, 1, ',', '.') }}% (pleno)</span>
+                    </div>
+                    <p class="mt-1 text-[11px] text-gray-400">2026 é fase de teste; CBS plena em 2027; IBS rampa 2029–2032; estado pleno em 2033. Alíquotas fixadas anualmente por Resolução do Senado (cálculo do TCU). O valor em risco no detalhe usa o <strong>estado pleno</strong> (impacto total).</p>
+                </div>
+
+                <div class="rounded border border-amber-200 bg-amber-50 px-3 py-2">
+                    <p class="text-[11px] text-amber-800 leading-relaxed">
+                        <strong>Premissas (não são lei):</strong> alíquota de referência do IVA pleno ≈ <strong>28,5%</strong>
+                        (faixa oficial 26,5%–28%) e fator do Simples sem opção ≈ <strong>30%</strong> são parâmetros, revisáveis
+                        com a regulamentação. É previsão de risco — <strong>não confirma recolhimento</strong> nem substitui a apuração fiscal.
+                    </p>
+                </div>
             </div>
         </details>
 
@@ -217,6 +302,7 @@
                             <th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">UF</th>
                             <th class="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Score</th>
                             <th class="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Classificação</th>
+                            <th class="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Crédito IBS/CBS</th>
                             <th class="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Última Consulta</th>
                             <th class="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Ações</th>
                         </tr>
@@ -256,6 +342,10 @@
                                         Não Avaliado
                                     </span>
                                 @endif
+                            </td>
+                            <td class="px-3 py-3 whitespace-nowrap text-center">
+                                @php $cb = $creditoBadge($sc->score_credito_reforma); @endphp
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $cb['hex'] }}">{{ $cb['label'] }}</span>
                             </td>
                             <td class="px-3 py-3 whitespace-nowrap text-center text-sm text-gray-700 font-mono">
                                 @if($sc->ultima_consulta_em)
@@ -307,6 +397,8 @@
                         @else
                             <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: #9ca3af">Não Avaliado</span>
                         @endif
+                        @php $cb = $creditoBadge($sc->score_credito_reforma); @endphp
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $cb['hex'] }}" title="Crédito IBS/CBS na Reforma">Créd: {{ $cb['label'] }}</span>
                         @if($sc->alvo_uf)
                             <span class="text-[11px] text-gray-500">{{ $sc->alvo_uf }}</span>
                         @endif

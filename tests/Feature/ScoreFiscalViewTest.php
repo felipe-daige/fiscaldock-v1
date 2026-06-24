@@ -237,3 +237,26 @@ it('o detalhe do participante mostra subscores avaliados e ESG/Protestos em brev
         ->assertSee('Em breve')
         ->assertSee('Situação Cadastral');
 });
+
+it('o dashboard mostra o explicador de Crédito IBS/CBS da Reforma', function () {
+    $user = User::factory()->create();
+
+    actingAs($user)
+        ->get('/app/score-fiscal')
+        ->assertOk()
+        ->assertSee('Crédito IBS/CBS na Reforma Tributária', false)
+        ->assertSee('LC 214/2025');
+});
+
+it('a tela de detalhe mostra o cartão de crédito IBS/CBS do fornecedor', function () {
+    $user = User::factory()->create();
+    $part = Participante::create([
+        'user_id' => $user->id, 'documento' => '11222333000181', 'razao_social' => 'FORN MEI LTDA', 'regime_tributario' => 'MEI',
+    ]);
+
+    actingAs($user)
+        ->get("/app/score-fiscal/participante/{$part->id}")
+        ->assertOk()
+        ->assertSee('Crédito IBS/CBS', false)
+        ->assertSee('Não gera crédito', false);
+});

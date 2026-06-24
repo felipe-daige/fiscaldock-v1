@@ -6,6 +6,7 @@ use App\Models\Cliente;
 use App\Models\Participante;
 use App\Models\ParticipanteScore;
 use App\Support\CertidaoBadge;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
 class RiskScoreService
@@ -102,6 +103,108 @@ class RiskScoreService
     }
 
     /**
+     * Eixo CRÉDITO IBS/CBS (Reforma Tributária) — ortogonal ao score de conformidade.
+     * Fração do imposto que o regime do fornecedor permite virar crédito para o comprador:
+     * 1.0 = crédito integral (Regime Normal) | reduzido = Simples sem opção (config) |
+     * 0.0 = MEI | null = regime não identificado.
+     * Espelha a precedência de ConsultaResultado::getRegimeTributarioLabel().
+     */
+    public function fatorCreditoRegime(?Model $alvo, array $dados): ?float
+    {
+        return match ($this->categoriaRegime($dados, $alvo)) {
+            'normal' => 1.0,
+            'simples' => (float) config('reforma.fator_simples_sem_opcao'),
+            'mei' => 0.0,
+            default => null,
+        };
+    }
+
+    /**
+     * Sub-score de crédito IBS/CBS (0-100): 0 = gera crédito integral, 100 = não gera.
+     * null = regime não identificado. Eixo separado — NÃO entra em calcularScoreTotal().
+     */
+    public function scoreCreditoReforma(array $dados, ?Model $alvo = null): ?int
+    {
+        $fator = $this->fatorCreditoRegime($alvo, $dados);
+
+        return $fator === null ? null : (int) round((1 - $fator) * 100);
+    }
+
+    /** Categoria de regime do fornecedor: 'normal' | 'simples' | 'mei' | null. MEI sempre vence Simples. */
+    private function categoriaRegime(array $dados, ?Model $alvo): ?string
+    {
+        $texto = $this->primeiroRegimeTexto([$dados['regime_tributario'] ?? null, $alvo?->regime_tributario]);
+
+        if ($this->flagVerdadeira($dados['mei'] ?? null) || $this->regimeContem($texto, 'mei')) {
+            return 'mei';
+        }
+
+        if ($this->flagVerdadeira($dados['simples_nacional'] ?? null) || $this->regimeContem($texto, 'simples')) {
+            return 'simples';
+        }
+
+        $crt = $this->parseCrt($dados['crt'] ?? null) ?? $this->parseCrt($alvo?->crt);
+        if ($crt !== null) {
+            return $crt === 3 ? 'normal' : 'simples';
+        }
+
+        if ($this->regimeContem($texto, 'normal', 'lucro', 'presumido', 'real')) {
+            return 'normal';
+        }
+
+        return null;
+    }
+
+    private function primeiroRegimeTexto(array $candidatos): ?string
+    {
+        foreach ($candidatos as $candidato) {
+            if (is_string($candidato) && trim($candidato) !== '') {
+                return $candidato;
+            }
+        }
+
+        return null;
+    }
+
+    private function regimeContem(?string $texto, string ...$agulhas): bool
+    {
+        if ($texto === null) {
+            return false;
+        }
+
+        $texto = mb_strtolower($texto);
+
+        foreach ($agulhas as $agulha) {
+            if (str_contains($texto, $agulha)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function flagVerdadeira(mixed $valor): bool
+    {
+        if (is_bool($valor)) {
+            return $valor;
+        }
+
+        return in_array($valor, [1, '1', 'true', 'sim', 'S'], true);
+    }
+
+    /** CRT (Código de Regime Tributário) válido: 1/2 = Simples, 3 = Regime Normal. */
+    private function parseCrt(mixed $valor): ?int
+    {
+        if ($valor === null || $valor === '') {
+            return null;
+        }
+
+        $crt = (int) $valor;
+
+        return in_array($crt, [1, 2, 3], true) ? $crt : null;
+    }
+
+    /**
      * Retorna a cor CSS para a classificacao.
      */
     public function getCorClassificacao(string $classificacao): string
@@ -134,7 +237,7 @@ class RiskScoreService
      */
     public function atualizarScore(Participante $participante, array $dados): ParticipanteScore
     {
-        return $this->persistirScore(['participante_id' => $participante->id], $participante->user_id, $dados);
+        return $this->persistirScore(['participante_id' => $participante->id], $participante->user_id, $dados, $participante);
     }
 
     /**
@@ -142,7 +245,7 @@ class RiskScoreService
      */
     public function atualizarScoreCliente(Cliente $cliente, array $dados): ParticipanteScore
     {
-        return $this->persistirScore(['cliente_id' => $cliente->id], $cliente->user_id, $dados);
+        return $this->persistirScore(['cliente_id' => $cliente->id], $cliente->user_id, $dados, $cliente);
     }
 
     /**
@@ -152,7 +255,7 @@ class RiskScoreService
      *
      * @param  array{participante_id?: int, cliente_id?: int}  $chaveAlvo
      */
-    private function persistirScore(array $chaveAlvo, int $userId, array $dados): ParticipanteScore
+    private function persistirScore(array $chaveAlvo, int $userId, array $dados, ?Model $alvo = null): ParticipanteScore
     {
         $scores = $this->calcularScores($dados);
         $scoreTotal = $this->calcularScoreTotal($scores);
@@ -171,6 +274,7 @@ class RiskScoreService
                 'score_esg' => null,       // dívida: sem fonte (docs/score-fiscal/README.md)
                 'score_protestos' => null, // dívida: sem fonte (docs/score-fiscal/README.md)
                 'score_total' => $scoreTotal,
+                'score_credito_reforma' => $this->scoreCreditoReforma($dados, $alvo),
                 'classificacao' => $classificacao,
                 'ultima_consulta_em' => now(),
                 'dados_consultados' => $dados,

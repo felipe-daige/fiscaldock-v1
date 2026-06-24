@@ -112,6 +112,44 @@
                         </div>
                     </dl>
                 </div>
+
+                {{-- Crédito IBS/CBS (Reforma Tributária) --}}
+                @php
+                    $cr = $creditoReforma ?? null;
+                    $crCor = ([
+                        'verde' => '#047857', 'amarelo' => '#d97706', 'vermelho' => '#b91c1c', 'cinza' => '#9ca3af',
+                    ])[$cr['flag'] ?? 'cinza'] ?? '#9ca3af';
+                @endphp
+                <div class="bg-white rounded border border-gray-300 overflow-hidden">
+                    <div class="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between gap-2">
+                        <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Crédito IBS/CBS — Reforma</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $crCor }}">{{ $cr['gera_credito'] ?? 'Regime não identificado' }}</span>
+                    </div>
+                    <dl class="divide-y divide-gray-100">
+                        <div class="px-4 py-3">
+                            <dt class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Crédito potencial (estimado)</dt>
+                            <dd class="text-sm text-gray-700 font-mono mt-0.5">R$ {{ number_format($cr['credito_potencial'] ?? 0, 2, ',', '.') }}</dd>
+                        </div>
+                        <div class="px-4 py-3">
+                            <dt class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Crédito em risco</dt>
+                            <dd class="text-base font-bold font-mono mt-0.5" style="color: {{ $crCor }}">
+                                @if(($cr['credito_em_risco'] ?? null) === null)
+                                    —
+                                @else
+                                    R$ {{ number_format($cr['credito_em_risco'], 2, ',', '.') }}
+                                @endif
+                            </dd>
+                        </div>
+                    </dl>
+                    <div class="px-4 py-3 border-t border-gray-100">
+                        <p class="text-[11px] text-gray-400 leading-relaxed">
+                            Estimativa do crédito de IBS/CBS que este fornecedor pode <strong>deixar de gerar</strong> para você,
+                            pelo <strong>regime tributário</strong> dele e pelo volume de entradas escriturado (EFD). É previsão de
+                            risco — não confirma recolhimento. Cenário de <strong>impacto pleno</strong> (vigência total em 2033,
+                            alíquota {{ number_format((float) config('reforma.aliquota_referencia') * 100, 1, ',', '.') }}%).
+                        </p>
+                    </div>
+                </div>
             </div>
 
             {{-- Detalhes do Score --}}
