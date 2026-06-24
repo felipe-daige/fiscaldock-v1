@@ -20,6 +20,21 @@
     </div>
 @endif
 
+@if(!empty($certidoes))
+    <div class="mb-3 flex flex-wrap gap-1.5">
+        @foreach($certidoes as $cert)
+            <span class="cert-chip inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide text-white"
+                  style="background-color: {{ $cert['hex'] }}">
+                {{ $cert['sigla'] }} {{ $cert['glyph'] }}
+                <span class="cert-tip">
+                    <strong>{{ $cert['titulo'] }} · {{ $cert['label'] }}</strong>
+                    @if(!empty($cert['descricao'])){{ $cert['descricao'] }}@endif
+                </span>
+            </span>
+        @endforeach
+    </div>
+@endif
+
 @if(empty($blocos))
     <p class="text-xs text-gray-500">Sem detalhes adicionais para esta consulta.</p>
 @else
