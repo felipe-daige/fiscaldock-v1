@@ -1620,6 +1620,9 @@ class ConsultaController extends Controller
             'temResultadosNoLote' => $temResultadosNoLote,
             'aguardaPersistencia' => $aguardaPersistencia,
             'credits' => $this->creditService->getBalance($user),
+            'retryPendentes' => $temResultadosNoLote
+                ? app(\App\Services\Consultas\RetryConsultaService::class)->pendentesRetry($lote)
+                : ['elegiveis' => [], 'inelegiveis' => [], 'total_preco_creditos' => 0],
         ];
 
         if ($this->isAjaxRequest($request)) {
@@ -1631,6 +1634,54 @@ class ConsultaController extends Controller
         return view(self::AUTH_LAYOUT_VIEW, array_merge([
             'initialView' => $loteView,
         ], $data));
+    }
+
+    /**
+     * Lista as fontes com falha do lote que podem ser reconsultadas (50% off) + as inelegíveis.
+     */
+    public function retryPendentes(Request $request, int $id): JsonResponse
+    {
+        $user = Auth::user();
+        $lote = ConsultaLote::where('id', $id)->where('user_id', $user->id)->firstOrFail();
+
+        $pend = app(\App\Services\Consultas\RetryConsultaService::class)->pendentesRetry($lote);
+
+        return response()->json(array_merge($pend, [
+            'saldo' => $this->creditService->getBalance($user),
+        ]));
+    }
+
+    /**
+     * Cobra (50% off) e re-despacha a reconsulta das fontes selecionadas. Valida elegibilidade,
+     * ownership, saldo e protege contra duplo-clique (lock por user+lote).
+     */
+    public function retryExecutar(Request $request, int $id): JsonResponse
+    {
+        $user = Auth::user();
+        $lote = ConsultaLote::where('id', $id)->where('user_id', $user->id)->firstOrFail();
+
+        $validated = $request->validate([
+            'selecao' => 'required|array|min:1',
+            'selecao.*.alvo_tipo' => 'required|in:participante,cliente',
+            'selecao.*.alvo_id' => 'required|integer',
+            'selecao.*.fonte' => 'required|string',
+        ]);
+
+        $lock = Cache::lock("consulta_retry_lock:{$user->id}:{$lote->id}", 10);
+        abort_unless($lock->get(), 409, 'Reconsulta já em andamento.');
+
+        try {
+            $r = app(\App\Services\Consultas\RetryConsultaService::class)->executar($lote, $validated['selecao']);
+        } finally {
+            $lock->release();
+        }
+
+        return response()->json([
+            'success' => true,
+            'creditos' => $r['creditos'],
+            'novo_saldo' => $this->creditService->getBalance($user->fresh()),
+            'redirect_url' => route('app.consulta.lote.show', ['id' => $lote->id]),
+        ]);
     }
 
     /**

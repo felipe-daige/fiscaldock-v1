@@ -410,6 +410,10 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureNaoBloqueado::class, \App\
         // Resultados de um lote (para exibição inline)
         Route::get('/lote/{id}/resultados', [ConsultaController::class, 'resultadosLote'])->name('lote.resultados');
 
+        // Reconsulta de fontes com falha transitória (50% off, 1x por fonte)
+        Route::get('/lote/{id}/retry/pendentes', [ConsultaController::class, 'retryPendentes'])->name('lote.retry.pendentes');
+        Route::post('/lote/{id}/retry', [ConsultaController::class, 'retryExecutar'])->name('lote.retry');
+
     });
 
     // Compatibilidade legada: /app/consultas/*

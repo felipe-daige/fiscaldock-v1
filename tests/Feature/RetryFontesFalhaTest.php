@@ -217,3 +217,65 @@ it('settlement não estorna quando a reconsulta teve sucesso (marca limpa)', fun
 
     expect(app(CreditService::class)->getBalance($user->fresh()))->toBe($saldoAntes); // receita mantida
 });
+
+// ---------------------------------------------------------------------------
+// Task 4 — Endpoints HTTP (pendentes + retry)
+// ---------------------------------------------------------------------------
+
+it('GET retry/pendentes lista elegíveis e saldo do dono', function () {
+    [$lote, $p, $user] = montarLoteComPlano();
+    app(CreditService::class)->add($user, 50);
+    gravarFontesErro($lote->id, $p->id, [
+        'cnd_federal' => ['origem' => 'integracao', 'status' => 'retry', 'codigo' => 600, 'tentativas' => 0],
+    ]);
+
+    $this->actingAs($user)
+        ->getJson("/app/consulta/lote/{$lote->id}/retry/pendentes")
+        ->assertOk()
+        ->assertJsonPath('elegiveis.0.fonte', 'cnd_federal')
+        ->assertJsonPath('saldo', 50);
+});
+
+it('GET retry/pendentes de lote de outro user dá 404', function () {
+    [$lote, $p, $user] = montarLoteComPlano();
+    $outro = User::factory()->create();
+
+    $this->actingAs($outro)
+        ->getJson("/app/consulta/lote/{$lote->id}/retry/pendentes")
+        ->assertNotFound();
+});
+
+it('POST retry sem saldo dá 402 e nada é cobrado/despachado', function () {
+    Bus::fake();
+    [$lote, $p, $user] = montarLoteComPlano();
+    gravarFontesErro($lote->id, $p->id, [
+        'cnd_federal' => ['origem' => 'integracao', 'status' => 'retry', 'codigo' => 600, 'tentativas' => 0],
+    ]);
+
+    $this->actingAs($user)
+        ->postJson("/app/consulta/lote/{$lote->id}/retry", [
+            'selecao' => [['alvo_tipo' => 'participante', 'alvo_id' => $p->id, 'fonte' => 'cnd_federal']],
+        ])
+        ->assertStatus(402);
+
+    Bus::assertNothingBatched();
+});
+
+it('POST retry feliz cobra, despacha e responde novo saldo', function () {
+    Bus::fake();
+    config()->set('consultas.retry.desconto_pct', 50);
+    [$lote, $p, $user] = montarLoteComPlano();
+    app(CreditService::class)->add($user, 100);
+    gravarFontesErro($lote->id, $p->id, [
+        'cnd_federal' => ['origem' => 'integracao', 'status' => 'retry', 'codigo' => 600, 'tentativas' => 0],
+    ]);
+
+    $this->actingAs($user)
+        ->postJson("/app/consulta/lote/{$lote->id}/retry", [
+            'selecao' => [['alvo_tipo' => 'participante', 'alvo_id' => $p->id, 'fonte' => 'cnd_federal']],
+        ])
+        ->assertOk()
+        ->assertJsonPath('success', true);
+
+    Bus::assertBatched(fn ($b) => $b->name === "consulta-retry-{$lote->id}");
+});
