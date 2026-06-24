@@ -2,6 +2,8 @@
 
 namespace App\Services\Consultas;
 
+use App\Services\Consultas\Fiscal\AgregacaoFiscalHelpers;
+use App\Services\Consultas\Fiscal\TopMovimentacaoQuery;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -13,11 +15,15 @@ use Illuminate\Support\Facades\DB;
  */
 class ParticipanteFiscalResumoService
 {
+    use AgregacaoFiscalHelpers;
+
+    public function __construct(private TopMovimentacaoQuery $top) {}
+
     /**
      * @param  array<int, int>  $participanteIds
      * @return array<int, array<string, mixed>> keyed por participante_id
      */
-    public function paraParticipantes(int $userId, array $participanteIds, bool $comCfops = false): array
+    public function paraParticipantes(int $userId, array $participanteIds, bool $comCfops = false, bool $comProdutos = false): array
     {
         $ids = array_values(array_unique(array_filter($participanteIds)));
         if ($ids === []) {
@@ -46,7 +52,8 @@ class ParticipanteFiscalResumoService
             ->get(['id', 'razao_social', 'is_empresa_propria'])
             ->keyBy('id');
 
-        $cfopsPorParticipante = $comCfops ? $this->topCfops($userId, $ids) : [];
+        $cfopsPorParticipante = $comCfops ? $this->top->cfops($userId, 'participante_id', $ids) : [];
+        $produtosPorParticipante = $comProdutos ? $this->top->produtos($userId, 'participante_id', $ids) : [];
 
         $acc = [];
         foreach ($linhas as $l) {
@@ -85,11 +92,14 @@ class ParticipanteFiscalResumoService
         foreach ($acc as $pid => $a) {
             $relacionamentos = array_map(function (array $e) {
                 $e['papel'] = $this->papelDe($e['valor_entrada'] > 0, $e['valor_saida'] > 0);
+                $e['nome'] = $e['empresa_nome'];
+                $e['is_propria'] = $e['is_empresa_propria'];
 
                 return $e;
             }, array_values($a['empresas']));
 
             $out[$pid] = [
+                'perspectiva' => 'participante',
                 'papel' => $this->papelDe($a['total_comprado'] > 0, $a['total_vendido'] > 0),
                 'total_comprado' => round($a['total_comprado'], 2),
                 'total_vendido' => round($a['total_vendido'], 2),
@@ -100,20 +110,13 @@ class ParticipanteFiscalResumoService
                 'ultima_nota' => $a['ultima_nota'],
                 'empresas_count' => count($a['empresas']),
                 'relacionamentos' => $relacionamentos,
+                'relacionamentos_titulo' => 'Por empresa',
                 'top_cfops' => $cfopsPorParticipante[$pid] ?? [],
+                'top_produtos' => $produtosPorParticipante[$pid] ?? [],
             ];
         }
 
         return $out;
-    }
-
-    private function papelDe(bool $temEntrada, bool $temSaida): string
-    {
-        return match (true) {
-            $temEntrada && $temSaida => 'ambos',
-            $temEntrada => 'fornecedor',
-            default => 'cliente',
-        };
     }
 
     /**
@@ -181,52 +184,5 @@ class ParticipanteFiscalResumoService
             ->get()
             ->mapWithKeys(fn ($r) => [(int) $r->participante_id => (int) $r->qtd])
             ->all();
-    }
-
-    /**
-     * Top 3 CFOPs por participante a partir do C190 consolidado (mais leve que itens).
-     *
-     * @param  array<int, int>  $ids
-     * @return array<int, array<int, array{cfop:int, qtd:int}>> keyed por participante_id
-     */
-    private function topCfops(int $userId, array $ids): array
-    {
-        $linhas = DB::table('efd_notas_consolidados as c')
-            ->join('efd_notas as n', 'n.id', '=', 'c.efd_nota_id')
-            ->where('n.user_id', $userId)
-            ->where('n.origem_arquivo', 'fiscal')
-            ->where('n.cancelada', false)
-            ->whereIn('n.participante_id', $ids)
-            ->whereNotNull('c.cfop')
-            ->groupBy('n.participante_id', 'c.cfop')
-            ->selectRaw('n.participante_id, c.cfop, COUNT(*) as qtd')
-            ->get();
-
-        return $linhas
-            ->groupBy('participante_id')
-            ->map(fn ($g) => $g->sortByDesc('qtd')->take(3)
-                ->map(fn ($r) => ['cfop' => (int) $r->cfop, 'qtd' => (int) $r->qtd])
-                ->values()->all())
-            ->all();
-    }
-
-    private function menorData(?string $atual, ?string $nova): ?string
-    {
-        $nova = $nova ? substr((string) $nova, 0, 10) : null;
-        if ($nova === null) {
-            return $atual;
-        }
-
-        return $atual === null || $nova < $atual ? $nova : $atual;
-    }
-
-    private function maiorData(?string $atual, ?string $nova): ?string
-    {
-        $nova = $nova ? substr((string) $nova, 0, 10) : null;
-        if ($nova === null) {
-            return $atual;
-        }
-
-        return $atual === null || $nova > $atual ? $nova : $atual;
     }
 }

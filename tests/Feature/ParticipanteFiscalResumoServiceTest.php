@@ -98,21 +98,18 @@ it('não vaza entre usuários e omite participante sem notas', function () {
     expect($r)->toBe([]);
 });
 
-it('com comCfops=true retorna top 3 CFOPs desc do participante', function () {
+it('com comCfops=true retorna top 5 CFOPs desc do participante', function () {
     $d = pfrSetup();
-    // adiciona consolidados (C190) às notas de entrada do fornecedor
     $notas = DB::table('efd_notas')->where('participante_id', $d['forn'])
         ->where('origem_arquivo', 'fiscal')->where('cancelada', false)->pluck('id');
-    expect($notas)->toHaveCount(2, 'pfrSetup mudou: o número de notas do fornecedor afeta a distribuição de CFOP — revisar cfopSeq/itens por nota');
-    // 1102×3, 1556×2, 2401×2, 2102×1 → top 3 = [1102,1556,2401]; 2102 fica fora
-    // (cfopSeq estendida para 8 porque os 2 notas × 4 itens = 8 inserts cobrem o ciclo)
+    expect($notas)->toHaveCount(2, 'pfrSetup mudou: nº de notas do fornecedor afeta a distribuição de CFOP');
+    // 1102×3, 1556×2, 2401×2, 2102×1 → 4 distintos, todos no top 5
     $cfopSeq = [1102, 1102, 1102, 1556, 1556, 2401, 2401, 2102];
     $i = 0;
     foreach ($notas as $nid) {
-        foreach ([0, 1, 2, 3] as $_) { // 4 itens por nota p/ ter volume de CFOP
+        foreach ([0, 1, 2, 3] as $_) {
             $cfop = $cfopSeq[$i % count($cfopSeq)];
             $i++;
-            // aliquota_icms varia por $i para satisfazer o unique (efd_nota_id, cst_icms, cfop, aliquota_icms)
             DB::table('efd_notas_consolidados')->insert([
                 'efd_nota_id' => $nid, 'user_id' => $d['user']->id, 'cfop' => $cfop,
                 'cst_icms' => '00', 'aliquota_icms' => $i, 'valor_operacao' => 100,
@@ -125,10 +122,10 @@ it('com comCfops=true retorna top 3 CFOPs desc do participante', function () {
     $r = app(ParticipanteFiscalResumoService::class)->paraParticipantes($d['user']->id, [$d['forn']], comCfops: true);
     $cfops = $r[$d['forn']]['top_cfops'];
 
-    expect($cfops)->toHaveCount(3);
+    expect($cfops)->toHaveCount(4);          // 4 CFOPs distintos, todos cabem no top 5
     expect($cfops[0]['cfop'])->toBe(1102);
-    expect($cfops[0]['qtd'])->toBeGreaterThanOrEqual($cfops[1]['qtd']);
-    expect(collect($cfops)->pluck('cfop')->all())->not->toContain(2102); // fora do top 3
+    expect($cfops[0]['qtd'])->toBe(3);
+    expect(collect($cfops)->pluck('cfop')->all())->toContain(2102); // agora incluído
 });
 
 it('sem comCfops top_cfops fica vazio', function () {
@@ -157,4 +154,44 @@ it('papelPorParticipante omite participante sem nota e não vaza entre usuários
 
     $outro = App\Models\User::factory()->create();
     expect(app(ParticipanteFiscalResumoService::class)->papelPorParticipante($outro->id))->toBe([]);
+});
+
+it('com comProdutos=true retorna top produtos e campos do shape único', function () {
+    $d = pfrSetup();
+    // catálogo + itens nas 2 notas de entrada do fornecedor
+    $imp = DB::table('efd_notas')->where('participante_id', $d['forn'])
+        ->where('origem_arquivo', 'fiscal')->where('cancelada', false)->value('importacao_id');
+    DB::table('efd_catalogo_itens')->insert([
+        'user_id' => $d['user']->id, 'cliente_id' => $d['empresaA'], 'importacao_id' => $imp,
+        'cod_item' => 'AGUA', 'descr_item' => 'AGUA 500ML', 'tipo_item' => '00',
+        'cod_ncm' => '22011000', 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    $notas = DB::table('efd_notas')->where('participante_id', $d['forn'])
+        ->where('origem_arquivo', 'fiscal')->where('cancelada', false)->pluck('id');
+    $ni = 0;
+    foreach ($notas as $nid) {
+        $ni++;
+        DB::table('efd_notas_itens')->insert([
+            'efd_nota_id' => $nid, 'user_id' => $d['user']->id, 'numero_item' => $ni,
+            'codigo_item' => 'AGUA', 'descricao' => 'x', 'quantidade' => 1, 'unidade_medida' => 'UN',
+            'valor_unitario' => 100, 'valor_total' => 100, 'cfop' => 1102, 'cst_icms' => '00',
+            'aliquota_icms' => 18, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+    }
+
+    $f = app(ParticipanteFiscalResumoService::class)
+        ->paraParticipantes($d['user']->id, [$d['forn']], comProdutos: true)[$d['forn']];
+
+    expect($f['perspectiva'])->toBe('participante');
+    expect($f['relacionamentos_titulo'])->toBe('Por empresa');
+    expect($f['top_produtos'][0]['cod_item'])->toBe('AGUA');
+    expect($f['top_produtos'][0]['ncm'])->toBe('22011000');
+    expect($f['relacionamentos'][0]['nome'])->toBe('EMPRESA A');      // alias de empresa_nome
+    expect($f['relacionamentos'][0]['is_propria'])->toBeTrue();        // alias de is_empresa_propria
+});
+
+it('sem comProdutos top_produtos fica vazio', function () {
+    $d = pfrSetup();
+    $f = app(ParticipanteFiscalResumoService::class)->paraParticipantes($d['user']->id, [$d['forn']])[$d['forn']];
+    expect($f['top_produtos'])->toBe([]);
 });
