@@ -324,3 +324,33 @@ it('POST retry com lock ativo (duplo-clique) responde 409 sem cobrar duas vezes'
     expect(app(CreditService::class)->getBalance($user->fresh()))->toBe($saldoAntes); // não cobrou
     Bus::assertNothingBatched();
 });
+
+// ---------------------------------------------------------------------------
+// GUARD — invariante: fonte em retry/fatal NÃO é persistida como blob (fica retriável).
+// Verificado contra dado real (lote 213 prod): nenhuma fonte escapa hoje — os normalizers
+// InfoSimples retornam [] em retry/fatal, então o job marca _fontes_erro. Este teste trava
+// esse contrato (se um normalizer futuro passar a fabricar blob no erro, quebra aqui).
+// ---------------------------------------------------------------------------
+
+it('fonte com timeout (retry) não é persistida como blob e vira retriável', function () {
+    [$loteId, $participanteId, $userId] = montarLoteParticipante();
+    config()->set('consultas.cnd_estadual.ufs_cobertas', ['SP']);
+    config()->set('consultas.infosimples_ativo', true);
+    config()->set('consultas.providers.infosimples.token', 'tok');
+
+    // code 610 = retry → normalizar devolve [] → job marca _fontes_erro, sem persistir blob.
+    \Illuminate\Support\Facades\Http::fake([
+        'api.infosimples.com/*' => \Illuminate\Support\Facades\Http::response(['code' => 610, 'code_message' => 'Tentativas excedidas'], 200),
+    ]);
+
+    ProcessarConsultaJob::dispatchSync(
+        loteId: $loteId, alvoTipo: 'participante', alvoId: $participanteId, userId: $userId, tabId: 'tab-test',
+        consultasIncluidas: ['cnd_estadual'], alvo: ['cnpj' => '19131243000197', 'uf' => 'SP'],
+        etapas: ['Preparando consulta', 'Certidões Estaduais'],
+    );
+
+    $r = ConsultaResultado::where('consulta_lote_id', $loteId)->first();
+    $d = (array) $r->resultado_dados;
+    expect($d['cnd_estadual'] ?? null)->toBeNull(); // NÃO persistido (re-consultável)
+    expect($d['_fontes_erro']['cnd_estadual'] ?? null)->toMatchArray(['origem' => 'integracao', 'status' => 'retry', 'codigo' => 610]);
+});
