@@ -38,13 +38,27 @@
 @if(empty($blocos))
     <p class="text-xs text-gray-500">Sem detalhes adicionais para esta consulta.</p>
 @else
-    {{-- ── Identidade (cadastro): largura total ───────────────────────────── --}}
+    {{-- ── Identidade (cadastro): largura total, retrátil ───────────────────── --}}
     @if($cadastro)
+        @php($cadId = 'cad-'.uniqid())
         <div class="mb-3 rounded border border-gray-300 bg-white overflow-hidden" style="border-top: 2px solid #1e4679">
-            <div class="px-3 py-2 bg-gray-50 border-b border-gray-200">
-                <span class="text-[11px] font-semibold text-gray-600 uppercase tracking-widest">{{ $cadastro['titulo'] }}</span>
-            </div>
-            <div class="px-3 py-3 space-y-3">
+            <button type="button" data-detalhe-toggle="{{ $cadId }}" aria-expanded="false"
+                    class="w-full flex items-center justify-between gap-3 px-3 py-2 bg-gray-50 border-b border-gray-200 text-left">
+                <span class="min-w-0">
+                    <span class="block text-[11px] font-semibold text-gray-600 uppercase tracking-widest">{{ $cadastro['titulo'] }}</span>
+                    @if(!empty($cabecalho['razao']) || !empty($cabecalho['documento']) || !empty($cabecalho['situacao']))
+                        <span class="block text-[11px] text-gray-500 truncate mt-0.5">
+                            @if(!empty($cabecalho['razao'])){{ $cabecalho['razao'] }}@endif
+                            @if(!empty($cabecalho['documento'])) · <span class="font-mono">{{ $cabecalho['documento'] }}</span>@endif
+                            @if(!empty($cabecalho['situacao'])) · {{ $cabecalho['situacao'] }}@endif
+                        </span>
+                    @endif
+                </span>
+                <svg class="detalhe-chevron w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+            </button>
+            <div id="{{ $cadId }}" class="hidden px-3 py-3 space-y-3">
                 @if(!empty($cadastro['itens']))
                     <dl class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-2">
                         @foreach($cadastro['itens'] as $item)
