@@ -22,7 +22,7 @@ class LandingPageController extends Controller
     {
         return $this->renderLanding($request, 'paginas.inicio', [
             'title' => 'FiscalDock | Radar de Riscos Fiscais',
-            'description' => 'Monitore CNPJs, emita CND, CNDT e FGTS numa só consulta e detecte inconsistências no SPED antes da malha fiscal. Créditos prepagos, sem mensalidade.',
+            'description' => 'Monitore CNPJs, emita CND, CNDT e FGTS numa só consulta e detecte inconsistências no SPED antes da malha fiscal. Saldo pré-pago em reais, sem mensalidade.',
             'canonical' => self::BASE_URL . '/',
             'og_type' => 'website',
             'og_image' => self::BASE_URL . '/binary_files/logo/Logo FiscalDock.png',
@@ -45,7 +45,7 @@ class LandingPageController extends Controller
     {
         return $this->renderLanding($request, 'paginas.duvidas', [
             'title' => 'Dúvidas Frequentes — FiscalDock',
-            'description' => 'Respostas sobre importação SPED, monitoramento fiscal, créditos, faixas de economia e segurança dos dados na FiscalDock. Tire sua dúvida antes de começar.',
+            'description' => 'Respostas sobre importação SPED, monitoramento fiscal, preços em reais e segurança dos dados na FiscalDock. Tire sua dúvida antes de começar.',
             'canonical' => self::BASE_URL . '/duvidas',
             'og_type' => 'website',
             'og_title' => 'Perguntas frequentes — FiscalDock',
@@ -56,11 +56,11 @@ class LandingPageController extends Controller
     public function precos(Request $request, PricingCatalogService $pricingCatalogService)
     {
         return $this->renderLanding($request, 'paginas.precos', [
-            'title' => 'Preços — FiscalDock | Créditos e Faixas por Volume',
-            'description' => 'Compre créditos avulsos e pague menos por consulta conforme seu volume acumulado. Modelo sem assinatura, com faixas de economia para Compliance e Clearance.',
+            'title' => 'Preços — FiscalDock | Consultas de CNPJ em Reais',
+            'description' => 'Pré-pago em reais, sem assinatura: adicione saldo e pague um preço fixo por consulta de CNPJ (Validação, Licitação, Compliance) e Clearance.',
             'canonical' => self::BASE_URL . '/precos',
             'og_type' => 'website',
-            'og_title' => 'Créditos e faixas de economia — FiscalDock',
+            'og_title' => 'Preços em reais por consulta — FiscalDock',
             'og_image' => self::BASE_URL . '/binary_files/logo/Logo FiscalDock.png',
         ], [
             'pricingData' => $pricingCatalogService->getLandingPricingData(),

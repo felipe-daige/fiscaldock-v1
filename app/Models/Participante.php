@@ -257,7 +257,7 @@ class Participante extends Model
             return preg_replace('/(\d{3})(\d{3})(\d{3})(\d{2})/', '$1.$2.$3-$4', $doc);
         }
 
-        return $this->documento;
+        return $this->documento ?? '';
     }
 
     /**

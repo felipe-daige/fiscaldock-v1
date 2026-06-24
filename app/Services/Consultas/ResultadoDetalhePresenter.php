@@ -32,8 +32,24 @@ class ResultadoDetalhePresenter
         'cnj_improbidade',
     ];
 
-    /** @return array<int, array<string, mixed>> */
-    public function blocos(ConsultaResultado $resultado): array
+    /** Fontes de regularidade exibidas no strip agrupado da tabela (sigla compacta). */
+    private const SIGLAS = [
+        'cnd_federal' => 'FED',
+        'cnd_estadual' => 'EST',
+        'cnd_municipal' => 'MUN',
+        'crf_fgts' => 'FGTS',
+        'cndt' => 'CNDT',
+        'sintegra' => 'SINT',
+    ];
+
+    /**
+     * @param  array<int, string>  $esperadas  chaves de fonte que o plano do lote inclui.
+     *                                         Quando informado, certidões pedidas mas ausentes
+     *                                         no resultado viram placeholder de erro (em vez de
+     *                                         sumir) — separando erro interno × falha na integração.
+     * @return array<int, array<string, mixed>>
+     */
+    public function blocos(ConsultaResultado $resultado, array $esperadas = []): array
     {
         $dados = is_array($resultado->resultado_dados) ? $resultado->resultado_dados : [];
         $blocos = [];
@@ -41,13 +57,21 @@ class ResultadoDetalhePresenter
         // UF do alvo (endereço cadastral) p/ completar certidões cuja resposta vem sem UF
         // (ex.: SEFAZ/CND Estadual costuma retornar uf=null, mas foi consultada para a UF do alvo).
         $ufFallback = trim((string) ($dados['endereco']['uf'] ?? $dados['uf'] ?? '')) ?: null;
+        $errosFonte = is_array($dados['_fontes_erro'] ?? null) ? $dados['_fontes_erro'] : [];
 
         if ($cadastro = $this->blocoCadastro($dados)) {
             $blocos[] = $cadastro;
         }
 
         foreach (self::ORDEM as $chave) {
-            if (! array_key_exists($chave, $dados) || ! is_array($dados[$chave]) || empty($dados[$chave])) {
+            $temDado = array_key_exists($chave, $dados) && is_array($dados[$chave]) && ! empty($dados[$chave]);
+
+            if (! $temDado) {
+                // Fonte de regularidade pedida pelo plano mas sem resultado → card de erro.
+                if (isset(self::SIGLAS[$chave]) && in_array($chave, $esperadas, true)) {
+                    $blocos[] = $this->blocoFalhou($chave, $errosFonte[$chave] ?? null);
+                }
+
                 continue;
             }
 
@@ -64,6 +88,140 @@ class ResultadoDetalhePresenter
         }
 
         return $blocos;
+    }
+
+    /**
+     * Strip compacto de certidões pra coluna agrupada da tabela do lote: 1 mini-badge por
+     * fonte de regularidade (sigla + glyph + cor). Inclui o estado "Falhou" pra fonte que o
+     * plano pediu mas que não retornou (sem isso a coluna fica "—", indistinguível de "fora
+     * do plano"). Reusa a MESMA classificação dos cards (CertidaoBadge) p/ não divergir.
+     *
+     * @param  array<int, string>  $esperadas  chaves de fonte que o plano do lote inclui
+     * @return array<int, array{chave: string, sigla: string, titulo: string, label: string, hex: string, estado: string, glyph: string, motivo: ?string}>
+     */
+    public function certidoes(ConsultaResultado $resultado, array $esperadas = []): array
+    {
+        $dados = is_array($resultado->resultado_dados) ? $resultado->resultado_dados : [];
+        $ufFallback = trim((string) ($dados['endereco']['uf'] ?? $dados['uf'] ?? '')) ?: null;
+        $errosFonte = is_array($dados['_fontes_erro'] ?? null) ? $dados['_fontes_erro'] : [];
+
+        $strip = [];
+
+        foreach (self::SIGLAS as $chave => $sigla) {
+            $temDado = array_key_exists($chave, $dados) && is_array($dados[$chave]) && ! empty($dados[$chave]);
+
+            if (! $temDado) {
+                if (! in_array($chave, $esperadas, true)) {
+                    continue; // fora do plano e ausente → não mostra
+                }
+
+                $erro = $this->erroCert($errosFonte[$chave] ?? null);
+                $strip[] = [
+                    'chave' => $chave,
+                    'sigla' => $sigla,
+                    'titulo' => $this->tituloCertidao($chave),
+                    'label' => $erro['label'],
+                    'hex' => $erro['hex'],
+                    'estado' => $erro['estado'],
+                    'glyph' => '⚠',
+                    'motivo' => $erro['descricao'],
+                    'descricao' => $erro['descricao'],
+                ];
+
+                continue;
+            }
+
+            $d = $dados[$chave];
+            $badge = $chave === 'sintegra'
+                ? CertidaoBadge::classificar(['situacao' => $d['situacao'] ?? null])
+                : CertidaoBadge::classificar($d, $chave === 'cnd_federal');
+
+            $estado = $this->bucketHex($badge['hex'] ?? null);
+            $uf = $chave === 'cnd_estadual' || $chave === 'cnd_municipal'
+                ? (trim((string) ($d['uf'] ?? '')) ?: $ufFallback)
+                : null;
+
+            $strip[] = [
+                'chave' => $chave,
+                'sigla' => $sigla,
+                'titulo' => $this->tituloCertidao($chave, $uf),
+                'label' => $badge['label'] ?? '—',
+                'hex' => $badge['hex'] ?? CertidaoBadge::HEX_NEUTRO,
+                'estado' => $estado,
+                'glyph' => $this->glyph($estado, $badge['label'] ?? ''),
+                'motivo' => $badge['motivo'] ?? null,
+                'descricao' => $this->descricaoCert($estado, $badge['label'] ?? '', $badge['motivo'] ?? null, $d['mensagem'] ?? null),
+            ];
+        }
+
+        return $strip;
+    }
+
+    private function glyph(string $estado, string $label): string
+    {
+        return match (true) {
+            $estado === 'regular' => '✓',
+            $estado === 'atencao' => '✗',
+            $estado === 'indeterminado' => '?',
+            str_contains(mb_strtolower($label), 'indispon') => '—',
+            str_contains(mb_strtolower($label), 'encontrad') => '—',
+            default => '·',
+        };
+    }
+
+    /**
+     * Classifica a falha de uma fonte pedida que não retornou. Default = integração: no pipeline
+     * atual a chave só fica ausente quando a fonte externa falhou (retry/fatal). 'interno' só
+     * quando o job registra exceção nossa (mapa `_fontes_erro`).
+     *
+     * @return array{estado: string, label: string, hex: string, descricao: string}
+     */
+    private function erroCert(?string $origem): array
+    {
+        $interno = $origem === 'interno';
+
+        return [
+            'estado' => $interno ? 'erro_interno' : 'erro_integracao',
+            'label' => $interno ? 'Erro interno' : 'Falha na integração',
+            'hex' => $interno ? CertidaoBadge::HEX_ERRO_INTERNO : CertidaoBadge::HEX_FALHOU,
+            'descricao' => $interno
+                ? 'Erro interno no processamento desta consulta.'
+                : 'Não foi possível obter este resultado. Refaça a consulta.',
+        ];
+    }
+
+    /** Texto curto p/ o tooltip rápido do badge (status + breve resumo). */
+    private function descricaoCert(string $estado, string $label, ?string $motivo, ?string $mensagem): string
+    {
+        $msg = $this->trecho($mensagem);
+
+        return match ($estado) {
+            'regular' => $msg ?: 'Situação regular, sem pendências.',
+            'atencao' => $msg ?: 'Pendência identificada na consulta.',
+            'indeterminado' => $motivo ?: ($msg ?: 'Não foi possível emitir a certidão.'),
+            default => $motivo ?: ($msg ?: ($label !== '' ? $label : 'Sem informação disponível.')),
+        };
+    }
+
+    private function trecho(?string $texto): ?string
+    {
+        $t = $this->limpar($texto);
+
+        return $t !== null ? \Illuminate\Support\Str::limit($t, 140) : null;
+    }
+
+    private function blocoFalhou(string $chave, ?string $origem = null): array
+    {
+        $erro = $this->erroCert($origem);
+
+        return $this->bloco(
+            $chave,
+            $this->tituloCertidao($chave),
+            ['label' => $erro['label'], 'hex' => $erro['hex']],
+            [],
+            [],
+            $erro['descricao'],
+        );
     }
 
     /** Buckets canônicos por cor do badge (usados na análise agregada e no rollup por CNPJ). */

@@ -110,29 +110,43 @@ class ProcessarConsultaJob implements ShouldQueue
 
             $throttle->aguardar($fonte->provider());
 
-            $provider = $this->resolverProvider($fonte->provider());
-            $resp = $provider->consultar($fonte->slugPara($alvo), $fonte->params($alvo));
+            try {
+                $provider = $this->resolverProvider($fonte->provider());
+                $resp = $provider->consultar($fonte->slugPara($alvo), $fonte->params($alvo));
 
-            $dados = $fonte->normalizar($resp->raw, $resp->status);
+                $dados = $fonte->normalizar($resp->raw, $resp->status);
 
-            // UF e município do cadastro são autoritativos p/ as fontes UF/cidade-dependentes.
-            if ($fonte->chave() === 'cadastro') {
-                if (! empty($dados['endereco']['uf'])) {
-                    $alvo['uf'] = $dados['endereco']['uf'];
+                // UF e município do cadastro são autoritativos p/ as fontes UF/cidade-dependentes.
+                if ($fonte->chave() === 'cadastro') {
+                    if (! empty($dados['endereco']['uf'])) {
+                        $alvo['uf'] = $dados['endereco']['uf'];
+                    }
+                    if (! empty($dados['endereco']['municipio'])) {
+                        $alvo['municipio'] = $dados['endereco']['municipio'];
+                    }
                 }
-                if (! empty($dados['endereco']['municipio'])) {
-                    $alvo['municipio'] = $dados['endereco']['municipio'];
+
+                $resultado = new ResultadoFonte(
+                    $fonte->chave(), $dados,
+                    $resp->status, $fonte->custoCreditos(), $resp->mensagem,
+                );
+                $persistencia->gravar($this->loteId, $this->alvoTipo, $this->alvoId, $resultado);
+
+                if ($resultado->ehFalhaEstornavel()) {
+                    $creditosFalhos += $resultado->custoCreditos;
                 }
-            }
 
-            $resultado = new ResultadoFonte(
-                $fonte->chave(), $dados,
-                $resp->status, $fonte->custoCreditos(), $resp->mensagem,
-            );
-            $persistencia->gravar($this->loteId, $this->alvoTipo, $this->alvoId, $resultado);
-
-            if ($resultado->ehFalhaEstornavel()) {
-                $creditosFalhos += $resultado->custoCreditos;
+                // Fonte pedida que não produziu resultado (retry/fatal/erro_participante → blob
+                // vazio, chave ausente) = falha NA INTEGRAÇÃO. Marca a origem p/ a UI distinguir
+                // de erro interno e de "fora do plano".
+                if (empty($dados) && $resp->status !== 'sucesso') {
+                    $persistencia->marcarErroFonte($this->loteId, $this->alvoTipo, $this->alvoId, $fonte->chave(), 'integracao');
+                }
+            } catch (\Throwable $e) {
+                // Exceção no nosso processamento da fonte = ERRO INTERNO. Não derruba as demais
+                // fontes do alvo (antes uma exceção matava o job inteiro).
+                report($e);
+                $persistencia->marcarErroFonte($this->loteId, $this->alvoTipo, $this->alvoId, $fonte->chave(), 'interno');
             }
         }
 

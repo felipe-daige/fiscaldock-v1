@@ -99,6 +99,24 @@ it('não deduplica origem na movimentação (itens fiscal e contrib são disjunt
     expect((float) $p1->valor_movimentado)->toBe(200.0);
 });
 
+it('filtra o catálogo por CFOP da movimentação (nota não cancelada) e expõe a faceta', function () {
+    // faceta: CFOP/CST vêm da movimentação não cancelada
+    $resp = actingAs($this->user)->get('/app/catalogo')->assertOk();
+    $facetas = $resp->viewData('facetas');
+    expect($facetas['cfops'])->toContain('5102');
+    expect($facetas['csts'])->toContain('00');
+
+    // cfop 5102 → produtos com movimentação real (P1, P2). P3 só em nota cancelada → fora.
+    $itens = actingAs($this->user)->get('/app/catalogo?cfops[]=5102')->assertOk()->viewData('itens');
+    $cods = $itens->pluck('cod_item')->all();
+    expect($cods)->toContain('P1')->toContain('P2');
+    expect($cods)->not->toContain('P3');
+
+    // CFOP inexistente → tabela vazia
+    $vazio = actingAs($this->user)->get('/app/catalogo?cfops[]=9999')->assertOk()->viewData('itens');
+    expect($vazio)->toHaveCount(0);
+});
+
 it('drill-down historico é roteado e exclui notas canceladas (P4)', function () {
     // P3 só movimenta numa nota CANCELADA (999) → não pode aparecer nos números do detalhe
     $html = actingAs($this->user)

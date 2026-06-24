@@ -31,8 +31,8 @@ abstract class FonteInfoSimplesBase implements Fonte
 
     public function pronta(): bool
     {
-        // Só roteia pro Laravel quando o InfoSimples estiver explicitamente ativado
-        // (pago/validado) E houver token. Até lá, planos pagos seguem no n8n.
+        // Só consulta o InfoSimples quando estiver explicitamente ativado
+        // (pago/validado) E houver token. Enquanto false, as fontes InfoSimples não rodam.
         return (bool) config('consultas.infosimples_ativo', false)
             && filled(config('consultas.providers.infosimples.token'));
     }

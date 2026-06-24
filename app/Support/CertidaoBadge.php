@@ -27,6 +27,14 @@ class CertidaoBadge
 
     public const HEX_OUTRO = '#374151';
 
+    // Fonte pedida pelo plano que NÃO retornou. Distinta de "Indisponível" (sem cobertura
+    // p/ a UF/cidade) e de "—" (fora do plano). Dois sabores:
+    //  - HEX_FALHOU          → falha na integração (a fonte externa não respondeu/recusou)
+    //  - HEX_ERRO_INTERNO    → erro interno nosso (exceção no processamento)
+    public const HEX_FALHOU = '#b45309';
+
+    public const HEX_ERRO_INTERNO = '#7c3aed';
+
     public static function classificar(mixed $valor, bool $aplicarIndeterminado = false): array
     {
         // CND Federal: o caso INDETERMINADO (611 / conseguiu_emitir=false) tem regra própria

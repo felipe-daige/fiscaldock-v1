@@ -1,6 +1,7 @@
 @extends('reports.layout')
 
 @section('titulo', 'Consulta Fiscal · Lote #'.$lote->id)
+@section('rodape_hash', \App\Support\PdfReport::hashDocumento('lote', $lote->id, optional($lote->updated_at)->timestamp))
 
 @section('meta')
     <div>Plano: {{ $plano->nome ?? 'N/A' }}</div>
@@ -105,10 +106,10 @@
             <thead>
                 <tr>
                     <th style="width: 12%">CNPJ</th>
-                    <th style="width: 19%">Razão Social</th>
+                    <th style="width: 15%">Razão Social</th>
                     <th style="width: 4%">UF</th>
                     <th style="width: 8%">Situação</th>
-                    <th style="width: 7%">Simples</th>
+                    <th style="width: 11%">Regime Tributário</th>
                     @if(in_array('sintegra', $plano->consultas_incluidas ?? []))
                         <th style="width: 8%">SINTEGRA</th>
                     @endif
@@ -151,7 +152,7 @@
                         <td>
                             <span class="badge" style="background-color: {{ \App\Support\Reports\ReportTheme::statusHex($situacao) }}">{{ $situacao }}</span>
                         </td>
-                        <td>{{ $r['simples_nacional'] ?: '-' }}</td>
+                        <td>{{ $r['regime_tributario'] ?: '-' }}</td>
                         @if(in_array('sintegra', $plano->consultas_incluidas ?? []))
                             <td>
                                 @if($r['sintegra_situacao'])

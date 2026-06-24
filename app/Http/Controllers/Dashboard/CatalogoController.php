@@ -8,6 +8,7 @@ use App\Models\Cliente;
 use App\Models\EfdCatalogoItem;
 use App\Models\EfdImportacao;
 use App\Services\CatalogoHistoricoService;
+use App\Support\Cfop;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -35,6 +36,15 @@ class CatalogoController extends Controller
         $userId = (int) Auth::id();
 
         $filtros = $request->only(['cliente_id', 'tipo_item', 'ncm', 'importacao_id', 'busca']);
+
+        // CFOP/CST: multi-select (1+) — filtram o catálogo pela movimentação (efd_notas_itens).
+        if ($cfopsSel = $this->parseLista($request->input('cfops'), '/\D/')) {
+            $filtros['cfops'] = $cfopsSel;
+        }
+        if ($cstsSel = $this->parseLista($request->input('csts'), '/[^0-9A-Za-z]/')) {
+            $filtros['csts'] = $cstsSel;
+        }
+
         $perPage = 25;
         $page = max(1, (int) $request->get('page', 1));
 
@@ -132,6 +142,16 @@ class CatalogoController extends Controller
             });
         }
 
+        // CFOP/CST: produto entra se TEM movimentação (nota não cancelada) casando. cfop=integer no SPED.
+        if (! empty($filtros['cfops'])) {
+            $cfops = array_map('intval', $filtros['cfops']);
+            $itensQuery->whereExists(fn ($s) => $this->movimentoExists($s, $userId)->whereIn('ni.cfop', $cfops));
+        }
+        if (! empty($filtros['csts'])) {
+            $csts = $filtros['csts'];
+            $itensQuery->whereExists(fn ($s) => $this->movimentoExists($s, $userId)->whereIn('ni.cst_icms', $csts));
+        }
+
         $totalItens = $itensQuery->count();
         $itens = (clone $itensQuery)
             ->orderBy('cod_item')
@@ -175,12 +195,28 @@ class CatalogoController extends Controller
         // Drift de cadastro: mudanças de NCM/alíquota/unidade/descrição entre importações.
         $drift = $this->historicoService->resumoMudancas($userId);
 
+        // Opções dos filtros CFOP/CST: universo de movimentação do catálogo (respeita cliente/importação).
+        $facetaRows = DB::select("
+            SELECT DISTINCT ni.cfop::text AS cfop, ni.cst_icms AS cst
+            FROM efd_notas_itens ni
+            INNER JOIN efd_notas n ON n.id = ni.efd_nota_id AND n.cancelada = false
+            INNER JOIN efd_catalogo_itens ci ON ci.cod_item = ni.codigo_item AND ci.user_id = ni.user_id
+            WHERE ci.user_id = ?{$clienteFilter}
+        ", [$userId]);
+        $pick = fn (string $f) => collect($facetaRows)->pluck($f)
+            ->map(fn ($v) => $v !== null ? trim((string) $v) : '')
+            ->filter(fn ($v) => $v !== '')->unique()->sort()->values()->all();
+        $facetas = ['cfops' => $pick('cfop'), 'csts' => $pick('cst')];
+        $cfopOpcoes = array_map(fn (string $c) => $this->rotularCfop($c), $facetas['cfops']);
+
         $data = [
             'itens' => $itens,
             'kpis' => $kpis,
             'clientes' => $clientes,
             'importacoes' => $importacoes,
             'filtros' => $filtros,
+            'facetas' => $facetas,
+            'cfopOpcoes' => $cfopOpcoes,
             'cfops' => $cfops,
             'csts_icms' => $cstsIcms,
             'drift' => $drift,
@@ -197,6 +233,48 @@ class CatalogoController extends Controller
         }
 
         return view(self::AUTH_LAYOUT_VIEW, array_merge(['initialView' => $view], $data));
+    }
+
+    /**
+     * Subquery base de movimentação (efd_notas_itens, nota não cancelada) ligada ao item do
+     * catálogo da linha externa. Chamador encadeia o whereIn de cfop/cst.
+     */
+    private function movimentoExists($sub, int $userId)
+    {
+        return $sub->selectRaw('1')
+            ->from('efd_notas_itens as ni')
+            ->join('efd_notas as n', fn ($j) => $j->on('n.id', '=', 'ni.efd_nota_id')->where('n.cancelada', false))
+            ->whereColumn('ni.codigo_item', 'efd_catalogo_itens.cod_item')
+            ->where('ni.user_id', $userId);
+    }
+
+    /**
+     * Normaliza input multi-select numa lista saneada (remove o que casar com $stripPattern),
+     * sem vazios e sem repetição. Aceita só array.
+     *
+     * @return list<string>
+     */
+    private function parseLista(mixed $raw, string $stripPattern): array
+    {
+        return collect(is_array($raw) ? $raw : [])
+            ->map(fn ($v) => preg_replace($stripPattern, '', (string) $v))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Rotula um CFOP pra opção do filtro: código + descrição CONFAZ + tipo (entrada/saída).
+     *
+     * @return array{codigo:string,descricao:string,tipo:string}
+     */
+    private function rotularCfop(string $codigo): array
+    {
+        $full = Cfop::descricao($codigo);
+        $descricao = str_contains($full, ' — ') ? trim(explode(' — ', $full, 2)[1]) : '';
+
+        return ['codigo' => $codigo, 'descricao' => $descricao, 'tipo' => Cfop::tipoOperacao($codigo)];
     }
 
     public function historico(Request $request, string $codItem)

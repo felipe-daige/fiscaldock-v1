@@ -1,6 +1,6 @@
 # FiscalDock
 
-> Radar de riscos fiscais para contadores, escritórios contábeis e empresas. Monitora CNPJs, consolida consultas de compliance e ajuda a detectar inconsistências no SPED antes da malha fiscal, com créditos pré-pagos e sem mensalidade.
+> Radar de riscos fiscais para contadores, escritórios contábeis e empresas. Monitora CNPJs, consolida consultas de compliance e ajuda a detectar inconsistências no SPED antes da malha fiscal, com saldo pré-pago em reais e sem mensalidade.
 
 ## O que o FiscalDock faz
 
@@ -11,7 +11,7 @@
 - **Importação EFD Contribuições**: blocos A, M, F — apuração de PIS/COFINS, retenções na fonte e serviços tomados
 - **Clearance de NF-e**: consulta e validação de documentos fiscais contra fontes oficiais, com produto ainda em evolução
 - **BI Fiscal**: dashboards de cruzamento (apuração × notas), ranking de participantes, análise por CFOP
-- **Modelo comercial**: créditos pré-pagos, sem assinatura mensal
+- **Modelo comercial**: saldo pré-pago em reais, sem assinatura mensal
 
 ## Para quem
 
@@ -20,7 +20,7 @@ Contadores, escritórios contábeis, departamentos fiscais, compradores e empres
 ## Páginas principais
 
 - [Soluções](https://fiscaldock.com/solucoes): visão geral dos produtos
-- [Preços](https://fiscaldock.com/precos): créditos avulsos e faixas de economia
+- [Preços](https://fiscaldock.com/precos): preços por consulta em reais
 - [Dúvidas](https://fiscaldock.com/duvidas): perguntas frequentes sobre EFD, SPED e uso da plataforma
 - [Blog](https://fiscaldock.com/blog): artigos sobre EFD, revisão fiscal e compliance
 - [Hub EFD](https://fiscaldock.com/blog/efd): cluster editorial sobre EFD para contadores

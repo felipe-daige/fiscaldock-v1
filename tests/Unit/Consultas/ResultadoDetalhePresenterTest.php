@@ -227,3 +227,87 @@ it('ordena cadastro primeiro e mantém ordem canônica das fontes', function () 
     expect($chaves[0])->toBe('cadastro');
     expect(array_search('cnd_federal', $chaves, true))->toBeLessThan(array_search('cnj_improbidade', $chaves, true));
 });
+
+// ── Strip de certidões (coluna agrupada) + estado "Falhou" ───────────────────
+
+it('certidoes() classifica fontes presentes com sigla e badge', function () {
+    $certs = (new ResultadoDetalhePresenter())->certidoes(resultadoComDados([
+        'cnd_federal' => ['status' => 'Negativa'],
+        'crf_fgts' => ['status' => 'Regular'],
+        'cndt' => ['status' => 'Positiva'],
+    ]), ['cnd_federal', 'crf_fgts', 'cndt']);
+
+    $fed = collect($certs)->firstWhere('chave', 'cnd_federal');
+    expect($fed['sigla'])->toBe('FED');
+    expect($fed['hex'])->toBe(\App\Support\CertidaoBadge::HEX_REGULAR);
+    expect($fed['estado'])->toBe('regular');
+
+    $cndt = collect($certs)->firstWhere('chave', 'cndt');
+    expect($cndt['hex'])->toBe(\App\Support\CertidaoBadge::HEX_IRREGULAR);
+});
+
+it('certidoes() marca "Falha na integração" (default) fonte esperada ausente sem marcador', function () {
+    // cnd_federal pedido pelo plano mas sem blob (fonte externa falhou → chave ausente)
+    $certs = (new ResultadoDetalhePresenter())->certidoes(resultadoComDados([
+        'crf_fgts' => ['status' => 'Regular'],
+    ]), ['cnd_federal', 'crf_fgts']);
+
+    $fed = collect($certs)->firstWhere('chave', 'cnd_federal');
+    expect($fed)->not->toBeNull();
+    expect($fed['estado'])->toBe('erro_integracao');
+    expect($fed['label'])->toBe('Falha na integração');
+    expect($fed['hex'])->toBe(\App\Support\CertidaoBadge::HEX_FALHOU);
+    expect($fed['descricao'])->toBeString()->not->toBe('');
+});
+
+it('certidoes() separa "Erro interno" quando o marcador _fontes_erro aponta interno', function () {
+    $certs = (new ResultadoDetalhePresenter())->certidoes(resultadoComDados([
+        'crf_fgts' => ['status' => 'Regular'],
+        '_fontes_erro' => ['cnd_federal' => 'interno'],
+    ]), ['cnd_federal', 'crf_fgts']);
+
+    $fed = collect($certs)->firstWhere('chave', 'cnd_federal');
+    expect($fed['estado'])->toBe('erro_interno');
+    expect($fed['label'])->toBe('Erro interno');
+    expect($fed['hex'])->toBe(\App\Support\CertidaoBadge::HEX_ERRO_INTERNO);
+});
+
+it('certidoes() omite fonte fora do plano e ausente', function () {
+    $certs = (new ResultadoDetalhePresenter())->certidoes(resultadoComDados([
+        'cnd_federal' => ['status' => 'Negativa'],
+    ]), ['cnd_federal']); // plano só inclui federal
+
+    $chaves = array_column($certs, 'chave');
+    expect($chaves)->toContain('cnd_federal');
+    expect($chaves)->not->toContain('cnd_estadual');
+    expect($chaves)->not->toContain('sintegra');
+});
+
+it('blocos() injeta placeholder "Falhou" para certidão esperada ausente', function () {
+    $presenter = new ResultadoDetalhePresenter();
+    $dados = ['situacao_cadastral' => 'ATIVA', 'crf_fgts' => ['status' => 'Regular']];
+
+    $comEsperadas = $presenter->blocos(resultadoComDados($dados), ['cnd_federal', 'crf_fgts']);
+    $fed = bloco($comEsperadas, 'cnd_federal');
+    expect($fed)->not->toBeNull();
+    expect($fed['badge']['label'])->toBe('Falha na integração');
+
+    // back-compat: sem esperadas não inventa Falhou
+    $semEsperadas = $presenter->blocos(resultadoComDados($dados));
+    expect(bloco($semEsperadas, 'cnd_federal'))->toBeNull();
+});
+
+it('analiseLote conta fonte que falhou como neutro (N/Consult)', function () {
+    $presenter = new ResultadoDetalhePresenter();
+    $rows = [
+        ['detalhe_blocos' => $presenter->blocos(resultadoComDados([
+            'situacao_cadastral' => 'ATIVA',
+            'crf_fgts' => ['status' => 'Regular'],
+        ]), ['cnd_federal', 'crf_fgts'])],
+    ];
+
+    $analise = $presenter->analiseLote($rows);
+    $fed = collect($analise['por_fonte'])->firstWhere('chave', 'cnd_federal');
+    expect($fed)->not->toBeNull();
+    expect($fed['neutro'])->toBe(1);
+});

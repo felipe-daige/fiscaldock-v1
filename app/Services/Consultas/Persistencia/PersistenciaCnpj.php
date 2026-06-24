@@ -50,11 +50,47 @@ class PersistenciaCnpj
             $dados['consultas_realizadas'] = $realizadas;
         }
 
+        // Sucesso da fonte limpa qualquer marca de erro anterior dela (re-consulta deu certo).
+        if ($resultado->status === 'sucesso' && isset($dados['_fontes_erro'][$resultado->chave])) {
+            unset($dados['_fontes_erro'][$resultado->chave]);
+            if (empty($dados['_fontes_erro'])) {
+                unset($dados['_fontes_erro']);
+            }
+        }
+
         $linha->resultado_dados = $dados;
         $linha->status = $resultado->status === 'sucesso' ? 'sucesso' : ($linha->status ?: 'erro');
         if ($resultado->status !== 'sucesso' && $resultado->mensagem) {
             $linha->error_message = $resultado->mensagem;
         }
+        $linha->consultado_em = now();
+        $linha->save();
+    }
+
+    /**
+     * Registra a ORIGEM da falha de uma fonte que não retornou resultado, num mapa reservado
+     * `_fontes_erro` (chave da fonte → 'interno' | 'integracao'). Não é chave de fonte, então
+     * NÃO entra na idempotência de retry — a fonte segue re-consultável numa nova tentativa.
+     *
+     * @param  string  $alvoTipo  'participante' | 'cliente'
+     * @param  string  $origem  'interno' (exceção nossa) | 'integracao' (fonte externa falhou)
+     */
+    public function marcarErroFonte(int $loteId, string $alvoTipo, int $alvoId, string $chave, string $origem): void
+    {
+        $chaveEscopo = $alvoTipo === 'cliente' ? 'cliente_id' : 'participante_id';
+
+        $linha = ConsultaResultado::firstOrNew([
+            'consulta_lote_id' => $loteId,
+            $chaveEscopo => $alvoId,
+        ]);
+
+        $dados = $linha->resultado_dados ?? [];
+        $erros = $dados['_fontes_erro'] ?? [];
+        $erros[$chave] = $origem;
+        $dados['_fontes_erro'] = $erros;
+
+        $linha->resultado_dados = $dados;
+        $linha->status = $linha->status ?: 'erro';
         $linha->consultado_em = now();
         $linha->save();
     }

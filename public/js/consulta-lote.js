@@ -411,12 +411,12 @@
         if (state.filters.uf) params.append('uf', state.filters.uf);
         if (state.filters.busca) params.append('busca', state.filters.busca);
         if (state.filters.relacao) params.append('relacao', state.filters.relacao);
-        if (state.filters.valor !== '') {
-            params.append('valor_op', state.filters.valor_op);
+        if (state.filters.valor !== '' && state.filters.valor != null && state.filters.valor !== 'undefined') {
+            params.append('valor_op', state.filters.valor_op || 'min');
             params.append('valor', state.filters.valor);
         }
-        if (state.filters.qtd !== '') {
-            params.append('qtd_op', state.filters.qtd_op);
+        if (state.filters.qtd !== '' && state.filters.qtd != null && state.filters.qtd !== 'undefined') {
+            params.append('qtd_op', state.filters.qtd_op || 'min');
             params.append('qtd', state.filters.qtd);
         }
 

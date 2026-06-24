@@ -271,11 +271,6 @@ class PricingCatalogService
                 'descricao' => 'Consulta de regularidade fiscal e trabalhista completa por CNPJ.',
             ],
             [
-                'slug' => 'due_diligence',
-                'nome' => 'Due Diligence',
-                'descricao' => 'Consulta ampliada de risco com compliance, sanções, CNJ, protestos e processos.',
-            ],
-            [
                 'slug' => 'clearance',
                 'nome' => 'Clearance',
                 'descricao' => 'Validação premium de notas fiscais com custo mais alto por consulta, preservando o posicionamento premium do produto.',

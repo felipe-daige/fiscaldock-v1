@@ -637,7 +637,9 @@ class BiService
             'total_entradas_notas' => $entradasNotas,
             'total_saidas_valor' => $saidasValor,
             'total_saidas_notas' => $saidasNotas,
-            'saldo_liquido' => $entradasValor - $saidasValor,
+            // Saldo Líquido = Saídas (faturamento) − Entradas (aquisições).
+            // Positivo quando a empresa vende mais do que compra (contador 2026-06-23).
+            'saldo_liquido' => $saidasValor - $entradasValor,
             'carga_tributaria' => $cargaTributaria,
             'participantes_ativos' => $participantesAtivos,
             'notas_em_risco' => $notasEmRisco,
@@ -687,7 +689,7 @@ class BiService
                 'label' => $date->locale('pt_BR')->isoFormat('MMM/YY'),
                 'entradas' => $entradas,
                 'saidas' => $saidas,
-                'saldo' => $entradas - $saidas,
+                'saldo' => $saidas - $entradas, // Saídas − Entradas (ver getKpisEfd)
             ];
         }
 

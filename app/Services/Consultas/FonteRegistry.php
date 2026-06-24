@@ -30,7 +30,7 @@ class FonteRegistry
 
     /**
      * True se TODOS os sub-atributos do plano (consultas_incluidas) são fornecidos
-     * por uma fonte registrada E PRONTA (gate de cutover). Roteamento Laravel×n8n.
+     * por uma fonte registrada E PRONTA (gate de liga/desliga do provider).
      */
     public function cobre(array $atributos): bool
     {

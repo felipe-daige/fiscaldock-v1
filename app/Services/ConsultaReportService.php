@@ -57,7 +57,7 @@ class ConsultaReportService
      */
     public function gerarPdf(ConsultaLote $lote): \Barryvdh\DomPDF\PDF
     {
-        return \App\Support\PdfReport::render('reports.consulta-lote', $this->dadosRelatorio($lote), 'landscape');
+        return \App\Support\PdfReport::render('reports.consulta-lote', $this->dadosRelatorio($lote), 'portrait');
     }
 
     public function xlsxDisponivel(): bool
@@ -86,10 +86,17 @@ class ConsultaReportService
      */
     public function getDetalhes(ConsultaLote $lote): Collection
     {
+        // Mesmo critério da tela web: certidões pedidas pelo plano mas sem retorno viram
+        // card "Falhou" no detalhamento (em vez de sumir).
+        $esperadasCert = array_values(array_intersect(
+            $lote->plano?->consultas_incluidas ?? [],
+            ['cnd_federal', 'cnd_estadual', 'cnd_municipal', 'crf_fgts', 'cndt', 'sintegra'],
+        ));
+
         return $lote->resultados()
             ->with(['participante', 'cliente'])
             ->get()
-            ->map(function (ConsultaResultado $resultado) {
+            ->map(function (ConsultaResultado $resultado) use ($esperadasCert) {
                 $alvo = $resultado->participante ?? $resultado->cliente;
                 $dados = $resultado->resultado_dados ?? [];
 
@@ -104,7 +111,7 @@ class ConsultaReportService
                         ? $this->detalhePresenter->resumoTextual($resultado)
                         : null,
                     'blocos' => $resultado->status === ConsultaResultado::STATUS_SUCESSO
-                        ? $this->detalhePresenter->blocos($resultado)
+                        ? $this->detalhePresenter->blocos($resultado, $esperadasCert)
                         : [],
                 ];
             });

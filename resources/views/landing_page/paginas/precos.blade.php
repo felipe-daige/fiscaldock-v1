@@ -52,7 +52,7 @@
                     </span>
                 </div>
                 <h1 class="mt-6 text-4xl md:text-5xl font-bold text-gray-900">
-                    Comece com <span class="text-blue-600">R$ {{ number_format($minimumDeposit, 0, ',', '.') }} em créditos</span> e pague só pelas consultas que usar
+                    Comece com <span class="text-blue-600">R$ {{ number_format($minimumDeposit, 0, ',', '.') }} de saldo</span> e pague só pelas consultas que usar
                 </h1>
                 <p class="mt-5 text-lg text-gray-600 max-w-3xl mx-auto">
                     A FiscalDock funciona no modelo pré-pago em reais: você testa sem cartão, adiciona saldo quando precisar e cada consulta tem preço fixo e transparente. Sem mensalidade.
@@ -100,7 +100,7 @@
                                 <div class="rounded-xl border border-gray-200 p-5 sm:p-6">
                                     <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Compliance</p>
                                     <div class="mt-3 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
-                                        <p class="text-2xl font-bold text-gray-900">{{ $complianceProduct['price_label'] ?? 'R$ 20,00/consulta' }}</p>
+                                        <p class="text-2xl font-bold text-gray-900">{{ $complianceProduct['price_label'] ?? 'R$ 5,00/consulta' }}</p>
                                         <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Uso recorrente</p>
                                     </div>
                                     <p class="mt-2 text-sm text-gray-600">Regularidade fiscal completa por CNPJ para a rotina operacional do escritório.</p>
@@ -207,7 +207,6 @@
         <div class="text-center mb-8">
             <h2 class="text-3xl font-bold text-gray-900">Preço por consulta</h2>
             <p class="mt-3 text-base text-gray-600">Tudo em reais. Veja quanto custa cada consulta e o total a cada 100 consultas.</p>
-            <p class="mt-2 text-sm text-gray-500">1 crédito = R$ {{ number_format($creditUnitPrice, 2, ',', '.') }} por crédito</p>
         </div>
         <div class="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
             <div class="overflow-x-auto">

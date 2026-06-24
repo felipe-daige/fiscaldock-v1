@@ -3,6 +3,7 @@
     'filename',
     'overlay' => 'download-overlay',
     'extraOnDone' => '',
+    'query' => '',
 ])
 
 @php
@@ -17,13 +18,21 @@
     // criptografa o valor (EncryptCookies), então o JS não consegue ler o token —
     // mas o NOME do cookie não é criptografado. Limpa antes de iniciar e faz poll
     // até o cookie reaparecer (= a resposta do download chegou).
+    // `query` opcional injeta params estáticos (ex.: formato=csv) p/ páginas sem os
+    // filtros do BI. cliente_id/meses só entram na URL se os selects existirem na
+    // página — assim o mesmo componente serve BI (com filtros) e lote (com formato).
     $tokExpr = "'d'+Date.now()+Math.floor(Math.random()*1e6)";
     $js = "(function(){"
         . "var ov=document.getElementById('{$overlay}');"
         . "var c=document.getElementById('filtro-cliente');"
         . "var p=document.getElementById('filtro-periodo');"
         . "var tok={$tokExpr};"
-        . "var u='{$path}?cliente_id='+((c&&c.value)||'')+'&meses='+((p&&p.value)||0)+'&download_token='+tok;"
+        . "var qs=[];"
+        . ($query !== '' ? "qs.push('{$query}');" : "")
+        . "if(c)qs.push('cliente_id='+(c.value||''));"
+        . "if(p)qs.push('meses='+(p.value||0));"
+        . "qs.push('download_token='+tok);"
+        . "var u='{$path}?'+qs.join('&');"
         . "document.cookie='bi_download=; path=/; max-age=0';"
         . "if(ov)ov.classList.remove('hidden');"
         . "var f=document.createElement('iframe');f.style.display='none';f.src=u;document.body.appendChild(f);"

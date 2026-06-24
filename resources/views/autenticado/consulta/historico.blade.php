@@ -160,7 +160,8 @@
                                         'url' => '/app/consulta/historico',
                                     ]);
                                 @endphp
-                                <tr class="hover:bg-gray-50/50 transition-colors">
+                                <tr class="hover:bg-gray-50/50 transition-colors cursor-pointer"
+                                    onclick="if(event.target.closest('a,button,[data-acoes-menu]'))return; var u='/app/consulta/lote/{{ $lote->id }}'; window.navigateTo?window.navigateTo(u):window.location.href=u;">
                                     <td class="px-3 py-3">
                                         <div class="text-sm text-gray-900 font-medium">Lote #{{ $lote->id }}</div>
                                         <div class="text-[11px] text-gray-500 mt-1">{{ $lote->created_at->format('d/m/Y H:i') }}</div>
@@ -222,7 +223,8 @@
                                 'url' => '/app/consulta/historico',
                             ]);
                         @endphp
-                        <div class="px-4 py-3">
+                        <div class="px-4 py-3 cursor-pointer"
+                            onclick="if(event.target.closest('a,button,[data-acoes-menu]'))return; var u='/app/consulta/lote/{{ $lote->id }}'; window.navigateTo?window.navigateTo(u):window.location.href=u;">
                             <div class="flex items-start justify-between gap-3">
                                 <div class="min-w-0">
                                     <p class="text-[10px] text-gray-400 uppercase">Lote</p>

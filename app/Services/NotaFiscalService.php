@@ -441,6 +441,24 @@ class NotaFiscalService
             $query->where('importacao_id', $filtros['importacao_id']);
         }
 
+        // CFOP/CST são item-level: a nota entra se TEM item casando (cfop é integer no SPED).
+        if (! empty($filtros['cfops'])) {
+            $cfops = array_map('intval', $filtros['cfops']);
+            $query->whereExists(function ($sub) use ($cfops) {
+                $sub->select(DB::raw(1))->from('efd_notas_itens')
+                    ->whereColumn('efd_notas_itens.efd_nota_id', 'efd_notas.id')
+                    ->whereIn('efd_notas_itens.cfop', $cfops);
+            });
+        }
+        if (! empty($filtros['csts'])) {
+            $csts = $filtros['csts'];
+            $query->whereExists(function ($sub) use ($csts) {
+                $sub->select(DB::raw(1))->from('efd_notas_itens')
+                    ->whereColumn('efd_notas_itens.efd_nota_id', 'efd_notas.id')
+                    ->whereIn('efd_notas_itens.cst_icms', $csts);
+            });
+        }
+
         if (! empty($filtros['busca'])) {
             $q = $filtros['busca'];
             $query->where(function ($sub) use ($q) {
@@ -529,6 +547,24 @@ class NotaFiscalService
             });
         }
 
+        // CFOP/CST item-level no XML (cfop é string(5), cst_icms string(4)).
+        if (! empty($filtros['cfops'])) {
+            $cfops = $filtros['cfops'];
+            $query->whereExists(function ($sub) use ($cfops) {
+                $sub->select(DB::raw(1))->from('xml_notas_itens')
+                    ->whereColumn('xml_notas_itens.xml_nota_id', 'xml_notas.id')
+                    ->whereIn('xml_notas_itens.cfop', $cfops);
+            });
+        }
+        if (! empty($filtros['csts'])) {
+            $csts = $filtros['csts'];
+            $query->whereExists(function ($sub) use ($csts) {
+                $sub->select(DB::raw(1))->from('xml_notas_itens')
+                    ->whereColumn('xml_notas_itens.xml_nota_id', 'xml_notas.id')
+                    ->whereIn('xml_notas_itens.cst_icms', $csts);
+            });
+        }
+
         if (! empty($filtros['busca'])) {
             $q = $filtros['busca'];
             $query->where(function ($sub) use ($q) {
@@ -538,6 +574,43 @@ class NotaFiscalService
         }
 
         return $query;
+    }
+
+    /**
+     * CFOPs e CSTs distintos no universo do usuário — opções dos filtros multi-select.
+     * Respeita o contexto (origem/cliente/período/participante/importação) mas NÃO a
+     * própria seleção cfop/cst, pra lista de opções ficar completa.
+     *
+     * @return array{cfops: list<string>, csts: list<string>}
+     */
+    public function facetasCfopCst(int $userId, array $filtros): array
+    {
+        $base = array_diff_key($filtros, array_flip(['cfops', 'csts']));
+        $origem = $base['origem'] ?? null;
+
+        $cfops = collect();
+        $csts = collect();
+
+        if ($origem !== 'xml') {
+            $ids = (clone $this->queryEfdBase($userId, $base))->select('id');
+            $rows = DB::table('efd_notas_itens')->whereIn('efd_nota_id', $ids)
+                ->selectRaw('DISTINCT cfop::text AS cfop, cst_icms AS cst')->get();
+            $cfops = $cfops->concat($rows->pluck('cfop'));
+            $csts = $csts->concat($rows->pluck('cst'));
+        }
+
+        if ($origem !== 'efd') {
+            $xmlIds = (clone $this->queryXmlBase($userId, $base))->select('id');
+            $rows = DB::table('xml_notas_itens')->whereIn('xml_nota_id', $xmlIds)
+                ->selectRaw('DISTINCT cfop, cst_icms AS cst')->get();
+            $cfops = $cfops->concat($rows->pluck('cfop'));
+            $csts = $csts->concat($rows->pluck('cst'));
+        }
+
+        $clean = fn ($c) => $c->map(fn ($v) => $v !== null ? trim((string) $v) : '')
+            ->filter(fn ($v) => $v !== '')->unique()->sort()->values()->all();
+
+        return ['cfops' => $clean($cfops), 'csts' => $clean($csts)];
     }
 
     private function queryXml(int $userId, array $filtros)

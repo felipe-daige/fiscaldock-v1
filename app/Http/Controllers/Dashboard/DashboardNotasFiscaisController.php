@@ -89,18 +89,29 @@ class DashboardNotasFiscaisController extends Controller
         $this->aplicarFiltros($base, $filtros);
         $this->aplicarDedupOrigem($base, $userId, $filtros);
 
-        // KPIs agregados
-        $kpis = (clone $base)
+        // Base COMERCIAL (= /app/bi/dashboard): exclui notas de CFOP fora-faturamento
+        // (devolução/conserto/uso-consumo). Vale p/ VALOR/CONTAGEM (faturamento,
+        // evolução, modelos, ranking). Sem isto a visão geral mostrava movimento
+        // bruto e divergia ~45% dos KPIs do BI.
+        $baseComercial = clone $base;
+        $this->aplicarBaseComercial($baseComercial);
+
+        // KPIs de valor/contagem na base comercial.
+        $kpis = (clone $baseComercial)
             ->selectRaw("
                 COUNT(*) as total_notas,
                 SUM(CASE WHEN tipo_operacao = 'entrada' THEN valor_total ELSE 0 END) as valor_entradas,
-                SUM(CASE WHEN tipo_operacao = 'saida' THEN valor_total ELSE 0 END) as valor_saidas,
-                COUNT(DISTINCT participante_id) as participantes_unicos
+                SUM(CASE WHEN tipo_operacao = 'saida' THEN valor_total ELSE 0 END) as valor_saidas
             ")
             ->first();
 
+        // Participantes únicos é HEADCOUNT, não faturamento: conta sobre a base
+        // sem o filtro comercial (devolvi mercadoria a um fornecedor → ele ainda é
+        // participante). Mantém paridade com "Participantes ativos" do BI.
+        $participantesUnicos = (int) (clone $base)->distinct()->count('participante_id');
+
         // Evolução temporal por mês
-        $evolucao = (clone $base)
+        $evolucao = (clone $baseComercial)
             ->selectRaw("
                 TO_CHAR(data_emissao, 'YYYY-MM') as mes,
                 SUM(CASE WHEN tipo_operacao = 'entrada' THEN valor_total ELSE 0 END) as entradas,
@@ -111,7 +122,7 @@ class DashboardNotasFiscaisController extends Controller
             ->get();
 
         // Breakdown por modelo de documento (com entradas/saidas)
-        $porModeloRaw = (clone $base)
+        $porModeloRaw = (clone $baseComercial)
             ->selectRaw('modelo, tipo_operacao, COUNT(*) as quantidade, SUM(valor_total) as valor_total')
             ->groupBy('modelo', 'tipo_operacao')
             ->get();
@@ -143,13 +154,19 @@ class DashboardNotasFiscaisController extends Controller
             ->sortByDesc('valor_total')
             ->values();
 
-        // Top 5 participantes por volume
-        $topParticipantes = (clone $base)
+        // Top 10 participantes por volume
+        $topParticipantes = (clone $baseComercial)
             ->whereNotNull('participante_id')
-            ->selectRaw('participante_id, COUNT(*) as total_notas, SUM(valor_total) as valor_total')
+            ->selectRaw("
+                participante_id,
+                COUNT(*) as total_notas,
+                SUM(valor_total) as valor_total,
+                SUM(CASE WHEN tipo_operacao = 'entrada' THEN 1 ELSE 0 END) as qtd_entradas,
+                SUM(CASE WHEN tipo_operacao = 'saida' THEN 1 ELSE 0 END) as qtd_saidas
+            ")
             ->groupBy('participante_id')
             ->orderByDesc('valor_total')
-            ->limit(5)
+            ->limit(10)
             ->get();
 
         $partIds = $topParticipantes->pluck('participante_id');
@@ -157,21 +174,32 @@ class DashboardNotasFiscaisController extends Controller
             ->get(['id', 'razao_social', 'documento as cnpj'])
             ->keyBy('id');
 
-        $topPart = $topParticipantes->map(fn ($r) => [
-            'participante_id' => $r->participante_id,
-            'razao_social' => $participantes[$r->participante_id]?->razao_social ?? 'N/A',
-            'cnpj' => $participantes[$r->participante_id]?->cnpj_formatado ?? '',
-            'total_notas' => (int) $r->total_notas,
-            'valor_total' => (float) $r->valor_total,
-        ]);
+        $topPart = $topParticipantes->map(function ($r) use ($participantes) {
+            // entrada = compra (participante emitiu p/ nós) => fornecedor;
+            // saida = venda (participante é destinatário) => cliente.
+            $ent = (int) $r->qtd_entradas;
+            $sai = (int) $r->qtd_saidas;
+            $papel = $ent > 0 && $sai > 0 ? 'ambos' : ($ent > 0 ? 'fornecedor' : 'cliente');
+
+            return [
+                'participante_id' => $r->participante_id,
+                'razao_social' => $participantes[$r->participante_id]?->razao_social ?? 'N/A',
+                'cnpj' => $participantes[$r->participante_id]?->cnpj_formatado ?? '',
+                'total_notas' => (int) $r->total_notas,
+                'valor_total' => (float) $r->valor_total,
+                'papel' => $papel,
+            ];
+        });
 
         return response()->json([
             'kpis' => [
                 'total_notas' => (int) $kpis->total_notas,
                 'valor_entradas' => (float) $kpis->valor_entradas,
                 'valor_saidas' => (float) $kpis->valor_saidas,
-                'saldo' => (float) $kpis->valor_entradas - (float) $kpis->valor_saidas,
-                'participantes_unicos' => (int) $kpis->participantes_unicos,
+                // Saldo Líquido = Saídas (faturamento) − Entradas (aquisições).
+                // Mesma convenção do BI fiscal (BiService::getKpisEfd); positivo = vendeu mais do que comprou.
+                'saldo' => (float) $kpis->valor_saidas - (float) $kpis->valor_entradas,
+                'participantes_unicos' => $participantesUnicos,
             ],
             'evolucao' => $evolucao,
             'por_modelo' => $porModelo,
@@ -666,5 +694,30 @@ class DashboardNotasFiscaisController extends Controller
             $q->where('origem_arquivo', 'fiscal')
                 ->orWhereRaw('NOT EXISTS (SELECT 1 FROM efd_notas f WHERE f.user_id = ? AND f.origem_arquivo = ? AND f.chave_acesso IS NOT NULL AND f.chave_acesso = efd_notas.chave_acesso)', [$userId, 'fiscal']);
         });
+    }
+
+    /**
+     * Base COMERCIAL: exclui INTEIRAS as notas que carregam, em qualquer item
+     * (C170) ou consolidado (C190), um CFOP que não compõe faturamento
+     * (remessa/retorno de conserto, devolução, uso/consumo). Espelha
+     * EfdAgregadorService::semCfopsForaFaturamento — fonte única da decisão do
+     * contador (2026-06-23) — para manter a visão geral em sincronia com o BI.
+     */
+    private function aplicarBaseComercial($query): void
+    {
+        $cfops = (array) config('efd.cfops_fora_faturamento', []);
+        if (empty($cfops)) {
+            return;
+        }
+
+        $query
+            ->whereNotExists(fn ($s) => $s->selectRaw('1')
+                ->from('efd_notas_consolidados as cfx')
+                ->whereColumn('cfx.efd_nota_id', 'efd_notas.id')
+                ->whereIn('cfx.cfop', $cfops))
+            ->whereNotExists(fn ($s) => $s->selectRaw('1')
+                ->from('efd_notas_itens as ifx')
+                ->whereColumn('ifx.efd_nota_id', 'efd_notas.id')
+                ->whereIn('ifx.cfop', $cfops));
     }
 }

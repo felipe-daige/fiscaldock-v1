@@ -25,12 +25,28 @@
         .badge { color:#fff; padding:1px 6px; border-radius:3px; font-size:8px; font-weight:bold; text-transform:uppercase; }
         .mono { font-family:"DejaVu Sans Mono", monospace; }
         table { border-collapse:collapse; width:100%; }
+
+        /* ── Helpers de conteúdo PADRÃO (compartilhados por todos os PDFs) ── */
+        .muted { color:#6b7280; }
+        .small { font-size:7px; }
+        .right { text-align:right; }
+        .center { text-align:center; }
+        /* Tabela padrão: th claro com régua slate, td hairline, zebra leve */
+        .table th { background:#f9fafb; border-bottom:1.5px solid #1f2937; padding:6px 5px; text-align:left; font-size:7.5px; color:#6b7280; text-transform:uppercase; letter-spacing:.08em; }
+        .table td { border-bottom:1px solid #f3f4f6; padding:5px; vertical-align:top; font-size:8px; color:#374151; }
+        .table tbody tr:nth-child(even) td { background:#fbfbfc; }
+        /* Card padrão: hairline + faixa-topo slate (sem caixa pesada) */
+        .card-slate { border:1px solid #e5e7eb; border-top:2px solid #1f2937; padding:8px 10px; }
     </style>
     @stack('estilos')
 </head>
 <body>
     @include('reports.partials._header')
     @include('reports.partials._footer')
+    @hasSection('sem_marca_dagua')
+    @else
+        @include('reports.partials._marca-dagua')
+    @endif
     <main class="pdf-conteudo">
         @yield('conteudo')
     </main>

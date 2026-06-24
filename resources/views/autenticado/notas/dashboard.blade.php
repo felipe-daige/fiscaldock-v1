@@ -171,7 +171,7 @@
                     <p class="text-lg font-bold whitespace-nowrap" id="dnf-kpi-saldo">
                         <span class="dnf-skeleton inline-block w-24 h-7 sm:h-9">&nbsp;</span>
                     </p>
-                    <p class="text-xs text-gray-400 mt-1 sm:mt-2 whitespace-nowrap">Entradas - Saídas</p>
+                    <p class="text-xs text-gray-400 mt-1 sm:mt-2 whitespace-nowrap">Saídas − Entradas</p>
                 </div>
 
                 {{-- Participantes Unicos --}}
@@ -195,7 +195,7 @@
                 </div>
             </div>
 
-            {{-- Breakdown por Tipo de Documento + Top 5 Participantes --}}
+            {{-- Breakdown por Tipo de Documento + Top 10 Participantes --}}
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                 {{-- Tipo de Documento --}}
                 <div class="bg-white rounded border border-gray-300 p-4 sm:p-6">
@@ -210,9 +210,9 @@
                     </div>
                 </div>
 
-                {{-- Top 5 Participantes --}}
+                {{-- Top 10 Participantes --}}
                 <div class="bg-white rounded border border-gray-300 p-4 sm:p-6">
-                    <h3 class="text-sm font-medium text-gray-700 mb-4">Top 5 Participantes por Volume</h3>
+                    <h3 class="text-sm font-medium text-gray-700 mb-4">Top 10 Participantes por Volume</h3>
                     <div id="dnf-table-participantes">
                         <div class="space-y-3">
                             <div class="dnf-skeleton h-8 w-full">&nbsp;</div>
@@ -865,9 +865,10 @@
     }
 
     function mesLabel(yyyyMm) {
+        if (!yyyyMm) return '—';
         const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-        const [y, m] = yyyyMm.split('-');
-        return meses[parseInt(m, 10) - 1] + '/' + y.slice(2);
+        const [y, m] = String(yyyyMm).split('-');
+        return (meses[parseInt(m, 10) - 1] || '?') + '/' + (y ? y.slice(2) : '');
     }
 
     // ─── Filtros ────────────────────────────────────────────
@@ -921,14 +922,31 @@
             if (emptyState) emptyState.classList.add('hidden');
 
             renderKpis(data.kpis);
-            renderEvolucao(data.evolucao);
-            renderPorModelo(data.por_modelo);
-            renderTopParticipantes(data.top_participantes);
+            // Render dos gráficos/tabelas é ISOLADO: uma falha aqui (ex.: ApexCharts ainda
+            // carregando após navegação SPA) NÃO pode disparar o empty-state "Nenhuma nota
+            // encontrada" — havendo total_notas > 0, há dados a mostrar.
+            safeRender('evolucao', () => renderEvolucao(data.evolucao));
+            safeRender('modelos', () => renderPorModelo(data.por_modelo));
+            safeRender('participantes', () => renderTopParticipantes(data.top_participantes));
         } catch (err) {
-            console.error('[Dashboard NF] Erro:', err);
+            console.error('[Dashboard NF] Erro ao carregar visão geral:', err);
             container.querySelectorAll('#tab-visao-geral > :not(#dnf-empty-state)').forEach(el => el.classList.add('hidden'));
             if (emptyState) emptyState.classList.remove('hidden');
         }
+    }
+
+    // Isola cada render: erro de um bloco não derruba a aba inteira (nem vira empty-state).
+    function safeRender(nome, fn) {
+        try { fn(); } catch (e) { console.error('[Dashboard NF] Falha ao renderizar ' + nome + ':', e); }
+    }
+
+    // ApexCharts pode não estar pronto logo após navegação SPA (script externo carrega async).
+    // Espera curta e re-tenta em vez de estourar.
+    function esperarApex(cb, tentativas) {
+        tentativas = tentativas || 0;
+        if (typeof ApexCharts !== 'undefined') { cb(); return; }
+        if (tentativas > 40) { console.error('[Dashboard NF] ApexCharts não carregou'); return; }
+        setTimeout(() => esperarApex(cb, tentativas + 1), 100);
     }
 
     // ─── Render KPIs ────────────────────────────────────────
@@ -953,6 +971,12 @@
     function renderEvolucao(evolucao) {
         const chartEl = document.getElementById('dnf-chart-evolucao');
         if (!chartEl) return;
+
+        // SPA: apexcharts.min.js pode ainda estar carregando. Espera e re-tenta em vez de estourar.
+        if (typeof ApexCharts === 'undefined') {
+            esperarApex(() => renderEvolucao(evolucao));
+            return;
+        }
 
         if (evolucaoChart) {
             evolucaoChart.destroy();
@@ -1133,6 +1157,19 @@
 
     // ─── Render Tabela Top Participantes ─────────────────────
 
+    // Badge papel: fornecedor (entrada/compra), cliente (saida/venda), ambos.
+    // Design-system: cor de fundo SEMPRE inline (Tailwind v4 oklch nao renderiza badge).
+    function papelBadge(papel) {
+        const map = {
+            fornecedor: { txt: 'Fornecedor', bg: '#ecfdf5', fg: '#047857' },
+            cliente:    { txt: 'Cliente',    bg: '#fffbeb', fg: '#b45309' },
+            ambos:      { txt: 'Ambos',      bg: '#eef2ff', fg: '#4338ca' },
+        };
+        const c = map[papel];
+        if (!c) return '';
+        return '<span class="flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full" style="background-color:' + c.bg + ';color:' + c.fg + '">' + c.txt + '</span>';
+    }
+
     function renderTopParticipantes(participantes) {
         const el = document.getElementById('dnf-table-participantes');
         if (!el) return;
@@ -1152,7 +1189,7 @@
         participantes.forEach((p, i) => {
             const bg = i % 2 === 0 ? '' : 'bg-gray-50';
             html += '<tr class="' + bg + '">';
-            html += '<td class="py-2 px-2"><div class="truncate max-w-[200px]"><a href="/app/participante/' + p.participante_id + '" class="text-gray-900 hover:text-gray-600 hover:underline">' + escapeHtml(p.razao_social) + '</a></div>';
+            html += '<td class="py-2 px-2"><div class="flex items-center gap-1.5 max-w-[220px]"><a href="/app/participante/' + p.participante_id + '" class="truncate text-gray-900 hover:text-gray-600 hover:underline">' + escapeHtml(p.razao_social) + '</a>' + papelBadge(p.papel) + '</div>';
             if (p.cnpj) html += '<div class="text-xs text-gray-400">' + escapeHtml(p.cnpj) + '</div>';
             html += '</td>';
             html += '<td class="py-2 px-2 text-right text-gray-600">' + formatNum(p.total_notas) + '</td>';

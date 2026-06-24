@@ -10,7 +10,7 @@ uses(Tests\TestCase::class, RefreshDatabase::class);
 it('preco do plano sem faixa', function () {
     $user = User::factory()->create();
     $plano = MonitoramentoPlano::where('codigo', 'compliance')->first();
-    expect(app(PricingCatalogService::class)->getProductCreditsByPlan($plano, $user))->toBe(50);
+    expect(app(PricingCatalogService::class)->getProductCreditsByPlan($plano, $user))->toBe(25);
 });
 
 it('faixas removidas', function () {

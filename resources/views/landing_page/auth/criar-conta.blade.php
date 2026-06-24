@@ -17,10 +17,10 @@
                             <div>
                                 <p class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Trial FiscalDock</p>
                                 <h1 class="text-lg sm:text-xl font-bold text-gray-900 uppercase tracking-wide mt-1">Criar conta grátis</h1>
-                                <p class="text-xs text-gray-500 mt-1">Receba {{ config('trial.creditos') }} créditos para usar em até {{ config('trial.validade_dias') }} dias.</p>
+                                <p class="text-xs text-gray-500 mt-1">Receba @brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency(config('trial.creditos'))) de saldo grátis para usar em até {{ config('trial.validade_dias') }} dias.</p>
                             </div>
                             <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: #047857">
-                                {{ config('trial.creditos') }} créditos
+                                @brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency(config('trial.creditos')))
                             </span>
                         </div>
                     </div>
@@ -204,7 +204,7 @@
                     <div class="p-4 space-y-4 text-sm text-gray-700">
                         <div class="border border-gray-200 rounded p-4">
                             <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Bônus inicial</p>
-                            <p class="text-lg font-bold text-gray-900">{{ config('trial.creditos') }} créditos grátis</p>
+                            <p class="text-lg font-bold text-gray-900">@brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency(config('trial.creditos'))) de saldo grátis</p>
                             <p class="text-xs text-gray-500 mt-1">Liberados automaticamente na criação da conta.</p>
                         </div>
                         <div class="border border-gray-200 rounded p-4">
@@ -214,7 +214,7 @@
                         </div>
                         <div class="border border-gray-200 rounded p-4">
                             <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Próximo passo</p>
-                            <p class="text-sm text-gray-700">Depois do trial, você pode comprar pacotes de créditos e continuar usando a plataforma no seu ritmo.</p>
+                            <p class="text-sm text-gray-700">Depois do trial, você adiciona saldo em reais e continua usando a plataforma no seu ritmo.</p>
                         </div>
                     </div>
                 </div>
@@ -224,7 +224,7 @@
                         <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Preferir ajuda humana?</span>
                     </div>
                     <div class="p-4 space-y-3 text-sm text-gray-700">
-                        <p>Se quiser confirmar aderência, pacotes de créditos, faixas ou regras de uso antes de criar a conta, fale direto com nosso time comercial.</p>
+                        <p>Se quiser confirmar aderência, preços ou regras de uso antes de criar a conta, fale direto com nosso time comercial.</p>
                         <a href="{{ route('agendar') }}" class="inline-flex items-center justify-center rounded border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
                             Falar com especialista
                         </a>
@@ -248,15 +248,15 @@
                 <div class="p-5 space-y-4 text-sm text-gray-700">
                     <div class="border border-gray-200 rounded p-4 text-center">
                         <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Bônus de boas-vindas</p>
-                        <p class="text-2xl font-bold text-gray-900 mt-1">{{ config('trial.creditos') }} créditos grátis</p>
+                        <p class="text-2xl font-bold text-gray-900 mt-1">@brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency(config('trial.creditos'))) de saldo grátis</p>
                         <p class="text-xs text-gray-500 mt-1">válidos por {{ config('trial.validade_dias') }} dias</p>
                     </div>
                     <div>
-                        <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Como funcionam os créditos</p>
+                        <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Como funciona o saldo</p>
                         <ul class="space-y-1.5 text-[13px] text-gray-600 list-disc pl-4">
-                            <li>São a moeda da plataforma: você os usa para rodar <strong>consultas de CNPJ</strong> (situação cadastral, certidões, sanções) e <strong>clearance de notas fiscais</strong>.</li>
-                            <li>Cada ação consome créditos conforme a <strong>profundidade</strong> escolhida — uma verificação simples custa menos que uma due diligence completa.</li>
-                            <li>Os créditos de boas-vindas <strong>expiram em {{ config('trial.validade_dias') }} dias</strong>. Depois, você compra pacotes para continuar no seu ritmo.</li>
+                            <li>É saldo em reais para rodar <strong>consultas de CNPJ</strong> (situação cadastral, certidões, sanções) e <strong>clearance de notas fiscais</strong>.</li>
+                            <li>Cada consulta tem preço fixo em reais conforme a <strong>profundidade</strong> escolhida — uma verificação simples custa menos que uma análise completa.</li>
+                            <li>O saldo de boas-vindas <strong>expira em {{ config('trial.validade_dias') }} dias</strong>. Depois, você adiciona saldo para continuar no seu ritmo.</li>
                         </ul>
                     </div>
                 </div>

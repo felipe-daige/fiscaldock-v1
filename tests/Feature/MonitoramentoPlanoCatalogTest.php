@@ -22,9 +22,9 @@ beforeEach(function () {
 it('4 planos lineares com precos em credito', function () {
     $b = collect(PlanoCatalog::definitions())->keyBy('codigo');
     expect($b['gratuito']['custo_creditos'])->toBe(0);
-    expect($b['validacao']['custo_creditos'])->toBe(10);
-    expect($b['licitacao']['custo_creditos'])->toBe(25);
-    expect($b['compliance']['custo_creditos'])->toBe(50);
+    expect($b['validacao']['custo_creditos'])->toBe(15);
+    expect($b['licitacao']['custo_creditos'])->toBe(20);
+    expect($b['compliance']['custo_creditos'])->toBe(25);
     expect($b['due_diligence']['is_active'])->toBeFalse();
 });
 
@@ -54,7 +54,7 @@ it('migrations sobem os planos com o catalogo atual', function () {
     ]);
 
     expect($compliance)->not->toBeNull();
-    expect($compliance->custo_creditos)->toBe(50);
+    expect($compliance->custo_creditos)->toBe(25);
     expect($compliance->is_active)->toBeTrue();
 
     expect($dueDiligence)->not->toBeNull();
@@ -103,7 +103,7 @@ it('resolve definicao canonica quando o banco esta legado', function () {
     expect($gratuito->ordem)->toBe(1);
 
     expect($compliance)->not->toBeNull();
-    expect($compliance->custo_creditos)->toBe(50);
+    expect($compliance->custo_creditos)->toBe(25);
     expect($compliance->is_active)->toBeTrue();
     expect(MonitoramentoPlano::ativos()->pluck('codigo')->all())->toContain('compliance');
 });

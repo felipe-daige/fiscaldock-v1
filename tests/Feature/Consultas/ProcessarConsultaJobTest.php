@@ -261,3 +261,39 @@ it('processa escopo cliente gravando cliente_id', function () {
     expect($r->participante_id)->toBeNull();
     expect($r->resultado_dados['razao_social'])->toBe('EMPRESA PROPRIA');
 });
+
+it('marca a fonte como falha na INTEGRAÇÃO quando o provedor não retorna resultado', function () {
+    [$loteId, $participanteId, $userId] = montarLoteParticipante();
+    config()->set('consultas.infosimples_ativo', true);
+    config()->set('consultas.providers.infosimples.token', 'tok');
+
+    // code 609 = retry → normalizar devolve [] → chave ausente; marca origem 'integracao'
+    Http::fake(['api.infosimples.com/*' => Http::response(['code' => 609, 'code_message' => 'temporário'], 200)]);
+
+    ProcessarConsultaJob::dispatchSync(
+        loteId: $loteId, alvoTipo: 'participante', alvoId: $participanteId, userId: $userId, tabId: 'tab-test',
+        consultasIncluidas: ['cnd_federal'], alvo: ['cnpj' => '19131243000197'],
+        etapas: ['Preparando', 'Federais'],
+    );
+
+    $r = ConsultaResultado::where('consulta_lote_id', $loteId)->first();
+    expect($r->resultado_dados['cnd_federal'] ?? null)->toBeNull();   // sem blob da fonte
+    expect($r->resultado_dados['_fontes_erro']['cnd_federal'])->toBe('integracao');
+});
+
+it('marcarErroFonte registra a origem e o sucesso posterior limpa a marca', function () {
+    [$loteId, $participanteId, $userId] = montarLoteParticipante();
+    $p = app(PersistenciaCnpj::class);
+
+    $p->marcarErroFonte($loteId, 'participante', $participanteId, 'cnd_federal', 'interno');
+    $r = ConsultaResultado::where('consulta_lote_id', $loteId)->first();
+    expect($r->resultado_dados['_fontes_erro']['cnd_federal'])->toBe('interno');
+
+    // re-consulta bem-sucedida da mesma fonte limpa a marca de erro
+    $p->gravar($loteId, 'participante', $participanteId, new ResultadoFonte(
+        'cnd_federal', ['cnd_federal' => ['status' => 'Negativa']], 'sucesso', 2, null,
+    ));
+    $r->refresh();
+    expect($r->resultado_dados['_fontes_erro'] ?? null)->toBeNull();
+    expect($r->resultado_dados['cnd_federal']['status'])->toBe('Negativa');
+});

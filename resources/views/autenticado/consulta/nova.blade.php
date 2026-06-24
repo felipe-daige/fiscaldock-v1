@@ -225,7 +225,7 @@
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div class="border border-gray-300 rounded p-3">
                                 <p class="text-sm font-semibold text-gray-900">1 crédito = R$ {{ number_format($creditUnitPrice ?? 0.20, 2, ',', '.') }}</p>
-                                <p class="text-[11px] text-gray-500 mt-1">Escada comercial atual: Validação {{ \App\Support\Dinheiro::brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency(5)) }}, Licitação {{ \App\Support\Dinheiro::brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency(10)) }}, Compliance {{ \App\Support\Dinheiro::brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency(18)) }}, Due Diligence {{ \App\Support\Dinheiro::brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency(35)) }} por CNPJ.</p>
+                                <p class="text-[11px] text-gray-500 mt-1">Escada comercial atual: Validação {{ \App\Support\Dinheiro::brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency(15)) }}, Licitação {{ \App\Support\Dinheiro::brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency(20)) }}, Compliance {{ \App\Support\Dinheiro::brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency(25)) }} por CNPJ.</p>
                             </div>
                             <div class="border border-gray-300 rounded p-3">
                                 <p class="text-sm font-semibold text-gray-900">Cobrança só na confirmação</p>
@@ -246,7 +246,7 @@
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div class="border border-gray-300 rounded p-3">
                                 <p class="text-sm font-semibold text-gray-900">Consultas feitas em fontes oficiais</p>
-                                <p class="text-[11px] text-gray-600 leading-relaxed mt-1">Receita Federal (situação cadastral, QSA, Simples/MEI, CND Federal), PGFN (CNDT), Caixa (FGTS), SEFAZ (CND Estadual), prefeituras (CND Municipal), SINTEGRA, sanções (CGU) e improbidade (CNJ). ESG e protestos em cartório em breve.</p>
+                                <p class="text-[11px] text-gray-600 leading-relaxed mt-1">Receita Federal/PGFN (situação cadastral, QSA, regime tributário, CND Federal), TST (CNDT), Caixa (FGTS), SEFAZ (CND Estadual), prefeituras (CND Municipal) e SINTEGRA. Sanções (CGU), improbidade (CNJ), ESG e protestos em cartório em breve.</p>
                             </div>
                             <div class="border border-gray-300 rounded p-3">
                                 <p class="text-sm font-semibold text-gray-900">Toda consulta no fornecedor é paga</p>

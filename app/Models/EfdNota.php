@@ -230,7 +230,7 @@ class EfdNota extends Model
 
     public function getModeloDocFormatadoAttribute(): string
     {
-        return match ($this->modelo) {
+        return match ((string) $this->modelo) {
             '00' => 'NFS-e',
             '01' => 'Nota Fiscal',
             '1B' => 'Nota Fiscal Avulsa',

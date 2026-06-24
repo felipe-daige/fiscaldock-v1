@@ -80,6 +80,33 @@ it('visão geral não dobra origem nem conta cancelada (tipo_efd=todos)', functi
     expect($m55['valor_total'])->toEqual(1700.0);                   // A 1000 + C 700, sem dobra
 });
 
+it('visão geral exclui notas de CFOP fora-faturamento (base comercial = BI)', function () {
+    // Nota de SAÍDA com CFOP fora-faturamento (5916 = remessa, não compõe
+    // faturamento). Deve sair do valor/contagem da visão geral, igual ao BI.
+    $imp = EfdImportacao::where('user_id', $this->user->id)->where('tipo_efd', 'EFD ICMS/IPI')->first();
+    $forada = EfdNota::create([
+        'user_id' => $this->user->id, 'cliente_id' => $this->cliente, 'numero' => 88888, 'serie' => '1',
+        'data_emissao' => '2024-01-20', 'valor_desconto' => 0, 'cancelada' => false, 'valor_total' => 9999,
+        'importacao_id' => $imp->id, 'chave_acesso' => str_pad('F', 44, '0', STR_PAD_LEFT),
+        'modelo' => '55', 'tipo_operacao' => 'saida', 'origem_arquivo' => 'fiscal',
+    ]);
+    DB::table('efd_notas_consolidados')->insert([
+        'efd_nota_id' => $forada->id, 'user_id' => $this->user->id, 'cfop' => 5916, 'cst_icms' => '00',
+        'aliquota_icms' => 0, 'valor_operacao' => 9999, 'valor_bc_icms' => 0, 'valor_icms' => 0,
+        'valor_bc_icms_st' => 0, 'valor_icms_st' => 0, 'valor_reducao_bc' => 0, 'valor_ipi' => 0,
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    $r = actingAs($this->user)
+        ->getJson('/app/notas/dashboard/visao-geral?periodo_inicio=2024-01&periodo_fim=2024-01')
+        ->assertOk()
+        ->json();
+
+    // 9999 NÃO entra: saídas seguem 1500, total segue 3 (igual ao teste base).
+    expect($r['kpis']['valor_saidas'])->toEqual(1500.0);
+    expect($r['kpis']['total_notas'])->toBe(3);
+});
+
 it('tributário: ICMS do C190 e PIS/COFINS só de contribuicoes (não dos itens fiscais lixo)', function () {
     $r = actingAs($this->user)
         ->getJson('/app/notas/dashboard/tributario?periodo_inicio=2024-01&periodo_fim=2024-01')

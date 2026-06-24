@@ -17,7 +17,7 @@
     'itemListElement' => [
         ['@type' => 'ListItem', 'position' => 1, 'name' => 'Importação SPED/EFD', 'description' => 'Importe arquivos SPED Fiscal e Contribuições e extraia notas, participantes e apurações automaticamente.', 'url' => url('/solucoes#produto-sped')],
         ['@type' => 'ListItem', 'position' => 2, 'name' => 'Monitoramento de Participantes', 'description' => 'Acompanhe situação cadastral, regime tributário e regularidade dos seus fornecedores.', 'url' => url('/solucoes#produto-monitoramento')],
-        ['@type' => 'ListItem', 'position' => 3, 'name' => 'Consultas CNPJ', 'description' => 'Consultas tributárias em lote com débito de créditos.', 'url' => url('/solucoes#produto-consultas')],
+        ['@type' => 'ListItem', 'position' => 3, 'name' => 'Consultas CNPJ', 'description' => 'Consultas tributárias de CNPJ em lote, pré-pago em reais.', 'url' => url('/solucoes#produto-consultas')],
         ['@type' => 'ListItem', 'position' => 4, 'name' => 'BI Fiscal', 'description' => 'Dashboards de notas, CFOP, participantes e apuração tributária.', 'url' => url('/solucoes#produto-bi')],
         ['@type' => 'ListItem', 'position' => 5, 'name' => 'Clearance de Notas', 'description' => 'Validação de NF-e/CT-e/NFS-e contra SEFAZ (em construção).', 'url' => url('/solucoes#produto-clearance')],
         ['@type' => 'ListItem', 'position' => 6, 'name' => 'Central de Alertas', 'description' => 'Alertas fiscais consolidados e priorizados por risco.', 'url' => url('/solucoes#produto-alertas')],
@@ -301,7 +301,7 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
                 </a>
                 <p class="sol-card-interlinks mt-4 text-xs text-gray-500">
-                    <a href="{{ route('precos') }}#precos-consumo" class="hover:underline" style="color: #1e4fa0">Ver créditos para este módulo</a>
+                    <a href="{{ route('precos') }}#precos-consumo" class="hover:underline" style="color: #1e4fa0">Ver preços</a>
                     <span class="mx-2 text-gray-300">·</span>
                     <a href="{{ route('duvidas') }}" class="hover:underline" style="color: #1e4fa0">Tirar dúvida</a>
                     <span class="mx-2 text-gray-300">·</span>
@@ -421,7 +421,7 @@
                     Saiba antes do fisco quando um fornecedor vira risco
                 </h2>
                 <p class="text-base text-gray-600 leading-relaxed mb-6">
-                    Cada CNPJ extraído do SPED recebe consulta de situação cadastral via Receita Federal e, nas consultas premium pagas com créditos, enriquecimento via sistemas públicos oficiais (CND Federal). Integração com SINTEGRA e CEIS está no roadmap.
+                    Cada CNPJ extraído do SPED recebe consulta de situação cadastral via Receita Federal e, nas consultas premium pagas, enriquecimento via sistemas públicos oficiais (CND Federal). Integração com SINTEGRA e CEIS está no roadmap.
                 </p>
                 <ul class="space-y-3 mb-7">
                     @foreach ([
@@ -441,7 +441,7 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
                 </a>
                 <p class="sol-card-interlinks mt-4 text-xs text-gray-500">
-                    <a href="{{ route('precos') }}#precos-consumo" class="hover:underline" style="color: #1e4fa0">Ver créditos para este módulo</a>
+                    <a href="{{ route('precos') }}#precos-consumo" class="hover:underline" style="color: #1e4fa0">Ver preços</a>
                     <span class="mx-2 text-gray-300">·</span>
                     <a href="{{ route('duvidas') }}" class="hover:underline" style="color: #1e4fa0">Tirar dúvida</a>
                     <span class="mx-2 text-gray-300">·</span>
@@ -463,7 +463,7 @@
                 <div class="w-14 h-14 rounded-xl flex items-center justify-center mb-5" style="background-color: #eef2f7; border: 1px solid #dce3ed;">
                     <svg class="w-7 h-7" fill="none" stroke="#1e4fa0" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                 </div>
-                <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600">Due Diligence</span>
+                <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600">Consulta em lote</span>
                 <h2 class="text-3xl md:text-4xl font-bold tracking-tight text-gray-900 mt-2 mb-4">
                     Consulte centenas de CNPJs em uma operação
                 </h2>
@@ -488,7 +488,7 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
                 </a>
                 <p class="sol-card-interlinks mt-4 text-xs text-gray-500">
-                    <a href="{{ route('precos') }}#precos-consumo" class="hover:underline" style="color: #1e4fa0">Ver créditos para este módulo</a>
+                    <a href="{{ route('precos') }}#precos-consumo" class="hover:underline" style="color: #1e4fa0">Ver preços</a>
                     <span class="mx-2 text-gray-300">·</span>
                     <a href="{{ route('duvidas') }}" class="hover:underline" style="color: #1e4fa0">Tirar dúvida</a>
                     <span class="mx-2 text-gray-300">·</span>
@@ -647,7 +647,7 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
                 </a>
                 <p class="sol-card-interlinks mt-4 text-xs text-gray-500">
-                    <a href="{{ route('precos') }}#precos-consumo" class="hover:underline" style="color: #1e4fa0">Ver créditos para este módulo</a>
+                    <a href="{{ route('precos') }}#precos-consumo" class="hover:underline" style="color: #1e4fa0">Ver preços</a>
                     <span class="mx-2 text-gray-300">·</span>
                     <a href="{{ route('duvidas') }}" class="hover:underline" style="color: #1e4fa0">Tirar dúvida</a>
                     <span class="mx-2 text-gray-300">·</span>
@@ -860,7 +860,7 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
                 </a>
                 <p class="sol-card-interlinks mt-4 text-xs text-gray-500">
-                    <a href="{{ route('precos') }}#precos-consumo" class="hover:underline" style="color: #1e4fa0">Ver créditos para este módulo</a>
+                    <a href="{{ route('precos') }}#precos-consumo" class="hover:underline" style="color: #1e4fa0">Ver preços</a>
                     <span class="mx-2 text-gray-300">·</span>
                     <a href="{{ route('duvidas') }}" class="hover:underline" style="color: #1e4fa0">Tirar dúvida</a>
                     <span class="mx-2 text-gray-300">·</span>
@@ -889,7 +889,7 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
                 </a>
                 <a href="{{ route('precos') }}" class="sol-cta-secondary inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-semibold text-base">
-                    Ver créditos e faixas
+                    Ver preços
                 </a>
             </div>
         </div>

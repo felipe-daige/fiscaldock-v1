@@ -10,6 +10,7 @@ use App\Models\EfdNota;
 use App\Models\Participante;
 use App\Models\XmlNota;
 use App\Services\NotaFiscalService;
+use App\Support\Cfop;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -36,6 +37,14 @@ class NotaFiscalController extends Controller
             'modelo', 'cliente_id', 'participante_id', 'importacao_id', 'busca',
         ]);
 
+        // CFOP/CST: multi-select (1+), saneados antes de ir pro IN(...).
+        if ($cfops = $this->parseLista($request->input('cfops'), '/\D/')) {
+            $filtros['cfops'] = $cfops;
+        }
+        if ($csts = $this->parseLista($request->input('csts'), '/[^0-9A-Za-z]/')) {
+            $filtros['csts'] = $csts;
+        }
+
         $perPage = 25;
         $page = max(1, (int) $request->get('page', 1));
 
@@ -55,6 +64,9 @@ class NotaFiscalController extends Controller
             ->orderByDesc('created_at')
             ->get(['id', 'filename', 'tipo_efd', 'created_at']);
 
+        $facetas = $this->service->facetasCfopCst($userId, $filtros);
+        $cfopOpcoes = array_map(fn (string $c) => $this->rotularCfop($c), $facetas['cfops']);
+
         $data = [
             'notas' => $notas,
             'kpis' => $kpis,
@@ -62,6 +74,8 @@ class NotaFiscalController extends Controller
             'participantes' => $participantes,
             'importacoes' => $importacoes,
             'filtros' => $filtros,
+            'facetas' => $facetas,
+            'cfopOpcoes' => $cfopOpcoes,
         ];
 
         if ($this->isAjaxRequest($request)) {
@@ -139,6 +153,35 @@ class NotaFiscalController extends Controller
     private function querDetalheInline(Request $request): bool
     {
         return $request->header('X-Nota-Detalhe') === 'inline';
+    }
+
+    /**
+     * Normaliza input multi-select numa lista saneada (remove o que casar com $stripPattern),
+     * sem vazios e sem repetição. Aceita só array.
+     *
+     * @return list<string>
+     */
+    private function parseLista(mixed $raw, string $stripPattern): array
+    {
+        return collect(is_array($raw) ? $raw : [])
+            ->map(fn ($v) => preg_replace($stripPattern, '', (string) $v))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Rotula um CFOP pra opção do filtro: código + descrição CONFAZ + tipo (entrada/saída).
+     *
+     * @return array{codigo:string,descricao:string,tipo:string}
+     */
+    private function rotularCfop(string $codigo): array
+    {
+        $full = Cfop::descricao($codigo);
+        $descricao = str_contains($full, ' — ') ? trim(explode(' — ', $full, 2)[1]) : '';
+
+        return ['codigo' => $codigo, 'descricao' => $descricao, 'tipo' => Cfop::tipoOperacao($codigo)];
     }
 
     private function redirectToLogin(Request $request)

@@ -41,7 +41,7 @@ class EfdAgregadorService
      */
     public function notasDedup(int $userId, ?string $tipo = null, ?string $dataInicio = null, ?string $dataFim = null, ?int $clienteId = null): Builder
     {
-        return DB::table('efd_notas as n')
+        $q = DB::table('efd_notas as n')
             ->where('n.user_id', $userId)
             ->where('n.cancelada', false)
             ->when($tipo, fn ($q) => $q->where('n.tipo_operacao', $tipo))
@@ -52,11 +52,44 @@ class EfdAgregadorService
                 $q->where('n.origem_arquivo', 'fiscal')
                     ->orWhereRaw('NOT EXISTS (SELECT 1 FROM efd_notas f WHERE f.user_id = ? AND f.origem_arquivo = ? AND f.chave_acesso IS NOT NULL AND f.chave_acesso = n.chave_acesso)', [$userId, 'fiscal']);
             });
+
+        // Base COMERCIAL única: além do dedup de origem (P1) e canceladas (P4),
+        // exclui as notas de CFOP que não compõem movimento comercial (conserto/
+        // devolução/uso-consumo). Vale p/ faturamento, volume, ticket e rankings
+        // (contador 2026-06-23). A carga tributária NÃO passa por aqui — usa
+        // queries próprias sobre C190/itens, preservando o imposto real.
+        return $this->semCfopsForaFaturamento($q);
     }
 
     private function baseMov(int $userId, string $tipo, ?string $dataInicio, ?string $dataFim, ?int $clienteId): Builder
     {
         return $this->notasDedup($userId, $tipo, $dataInicio, $dataFim, $clienteId);
+    }
+
+    /**
+     * Exclui INTEIRAS as notas que carregam, em qualquer item (C170) ou
+     * consolidado (C190), um CFOP que não compõe faturamento (remessa/retorno de
+     * conserto, devolução, uso/consumo). Decisão nível-nota (contador 2026-06-23).
+     * Lista canônica e fonte CONFAZ em config('efd.cfops_fora_faturamento').
+     * `$notaCol` = coluna do id da nota no contexto (alias `n` na base, ou
+     * `efd_notas` em queries sem alias como totalNotas).
+     */
+    private function semCfopsForaFaturamento(Builder $q, string $notaCol = 'n.id'): Builder
+    {
+        $cfops = (array) config('efd.cfops_fora_faturamento', []);
+        if (empty($cfops)) {
+            return $q;
+        }
+
+        return $q
+            ->whereNotExists(fn ($s) => $s->select(DB::raw(1))
+                ->from('efd_notas_consolidados as cfx')
+                ->whereColumn('cfx.efd_nota_id', $notaCol)
+                ->whereIn('cfx.cfop', $cfops))
+            ->whereNotExists(fn ($s) => $s->select(DB::raw(1))
+                ->from('efd_notas_itens as ifx')
+                ->whereColumn('ifx.efd_nota_id', $notaCol)
+                ->whereIn('ifx.cfop', $cfops));
     }
 
     /**
@@ -102,6 +135,9 @@ class EfdAgregadorService
             ->when($clienteId, fn ($q) => $q->where('cliente_id', $clienteId))
             ->when($dataInicio, fn ($q) => $q->where('data_emissao', '>=', $dataInicio))
             ->when($dataFim, fn ($q) => $q->where('data_emissao', '<=', $dataFim));
+
+        // Mesma base comercial: ticket médio não conta as notas fora-faturamento.
+        $q = $this->semCfopsForaFaturamento($q, 'efd_notas.id');
 
         $comChave = (clone $q)->whereNotNull('chave_acesso')->distinct()->count('chave_acesso');
         $semChave = (clone $q)->whereNull('chave_acesso')->count();

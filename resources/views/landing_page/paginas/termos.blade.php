@@ -29,7 +29,7 @@
 
                 <div>
                     <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">2. Finalidade do site</p>
-                    <p>As páginas públicas apresentam informações institucionais e comerciais sobre a FiscalDock, seus módulos, pacotes de créditos, faixas comerciais e conteúdos educativos. O envio de dados por formulários ou canais de contato não garante contratação, agenda automática, aprovação de cadastro nem ativação imediata de serviços.</p>
+                    <p>As páginas públicas apresentam informações institucionais e comerciais sobre a FiscalDock, seus módulos, preços por consulta, pacotes de saldo e conteúdos educativos. O envio de dados por formulários ou canais de contato não garante contratação, agenda automática, aprovação de cadastro nem ativação imediata de serviços.</p>
                 </div>
 
                 <div>

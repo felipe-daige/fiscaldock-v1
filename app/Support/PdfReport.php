@@ -19,6 +19,26 @@ final class PdfReport
             ]);
     }
 
+    /**
+     * Hash curto de integridade sobre os identificadores do documento (não os bytes do PDF
+     * nem o timestamp de emissão) → mesmo documento ⇒ mesmo hash. Prova anti-adulteração no rodapé.
+     */
+    public static function hashDocumento(int|string|null ...$partes): string
+    {
+        $base = implode('|', array_map(static fn ($p) => (string) $p, $partes));
+
+        return strtoupper(substr(hash('sha256', $base), 0, 12));
+    }
+
+    /**
+     * Identificador de origem do relatório no rodapé: o domínio da marca (não a razão social
+     * do escritório). Views podem sobrescrever via @yield('rodape_emissor').
+     */
+    public static function emissor(): string
+    {
+        return 'fiscaldock.com.br';
+    }
+
     public static function logoDataUri(): string
     {
         static $cache = null;

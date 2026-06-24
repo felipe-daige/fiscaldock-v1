@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $seo['title'] ?? 'FiscalDock | Radar de Riscos Fiscais' }}</title>
-    <meta name="description" content="{{ $seo['description'] ?? 'Monitore CNPJs, emita CND, CNDT e FGTS numa só consulta e detecte inconsistências no SPED antes da malha fiscal. Créditos prepagos, sem mensalidade.' }}">
+    <meta name="description" content="{{ $seo['description'] ?? 'Monitore CNPJs, emita CND, CNDT e FGTS numa só consulta e detecte inconsistências no SPED antes da malha fiscal. Saldo pré-pago em reais, sem mensalidade.' }}">
     <link rel="canonical" href="{{ $seo['canonical'] ?? url()->current() }}">
     <meta name="robots" content="{{ $seo['robots'] ?? 'index,follow,max-image-preview:large' }}">
 
@@ -18,13 +18,13 @@
     <meta property="og:locale" content="pt_BR">
     <meta property="og:url" content="{{ $seo['canonical'] ?? url()->current() }}">
     <meta property="og:title" content="{{ $seo['og_title'] ?? $seo['title'] ?? 'FiscalDock | Radar de Riscos Fiscais' }}">
-    <meta property="og:description" content="{{ $seo['og_description'] ?? $seo['description'] ?? 'Monitore CNPJs, emita CND, CNDT e FGTS numa só consulta e detecte inconsistências no SPED antes da malha fiscal. Créditos prepagos, sem mensalidade.' }}">
+    <meta property="og:description" content="{{ $seo['og_description'] ?? $seo['description'] ?? 'Monitore CNPJs, emita CND, CNDT e FGTS numa só consulta e detecte inconsistências no SPED antes da malha fiscal. Saldo pré-pago em reais, sem mensalidade.' }}">
     <meta property="og:image" content="{{ $seo['og_image'] ?? asset('binary_files/logo/Logo FiscalDock.png') }}">
 
     <!-- Twitter Card (X) -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="{{ $seo['og_title'] ?? $seo['title'] ?? 'FiscalDock | Radar de Riscos Fiscais' }}">
-    <meta name="twitter:description" content="{{ $seo['og_description'] ?? $seo['description'] ?? 'Monitore CNPJs, emita CND, CNDT e FGTS numa só consulta e detecte inconsistências no SPED antes da malha fiscal. Créditos prepagos, sem mensalidade.' }}">
+    <meta name="twitter:description" content="{{ $seo['og_description'] ?? $seo['description'] ?? 'Monitore CNPJs, emita CND, CNDT e FGTS numa só consulta e detecte inconsistências no SPED antes da malha fiscal. Saldo pré-pago em reais, sem mensalidade.' }}">
     <meta name="twitter:image" content="{{ $seo['og_image'] ?? asset('binary_files/logo/Logo FiscalDock.png') }}">
 
     <!-- Tipografia: Instrument Sans (corpo, design system) + Fraunces (headline editorial do hero) -->

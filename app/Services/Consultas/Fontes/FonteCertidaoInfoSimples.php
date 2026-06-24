@@ -52,11 +52,14 @@ abstract class FonteCertidaoInfoSimples extends FonteInfoSimplesBase
             return $this->bloco(['status' => 'NAO_ENCONTRADA', 'mensagem' => $this->mensagem($raw)]);
         }
 
-        // Cobertura do provedor indisponível para a UF/cidade do alvo (não foi consultado).
+        // Não consultado: ou a fonte não se aplica ao alvo (path aplicavelPara=false, que injeta
+        // o _motivo específico — ex.: UF/cidade sem cobertura), ou o provider devolveu nao_aplicavel
+        // sem motivo (ex.: bloqueio de allowlist). O fallback NÃO presume causa geográfica, pois
+        // certidões nacionais (Federal/CNDT/FGTS) não têm recorte de UF/cidade.
         if ($status === 'nao_aplicavel') {
             return $this->bloco([
                 'status' => 'INDISPONIVEL',
-                'mensagem' => $raw['_motivo'] ?? 'Cobertura indisponível para esta UF/cidade no provedor.',
+                'mensagem' => $raw['_motivo'] ?? 'Certidão não consultada no provedor.',
             ]);
         }
 

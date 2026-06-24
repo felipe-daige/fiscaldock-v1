@@ -145,8 +145,9 @@ it('renderiza resultado consolidado no detalhe para lote finalizado', function (
         ->assertDontSee('>Regime: Lucro Presumido<', false)
         ->assertDontSee('Lucro Presumido/Real')
         ->assertSee('Sucesso')
-        ->assertSee('CND Federal')
-        ->assertSee('<th class="px-3 py-2.5 text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50 whitespace-nowrap">CND Federal</th>', false)
+        // Coluna agrupada "Certidões": as 6 fontes de regularidade viram mini-badges (FED/EST/MUN/...)
+        ->assertSee('<th class="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50">Certidões</th>', false)
+        ->assertSee('CND Federal (Receita/PGFN) · Regular', false)
         ->assertDontSee('>MEI<', false)
         ->assertSee('Consultado em')
         ->assertDontSee("applyConsultaLoteSort(", false);

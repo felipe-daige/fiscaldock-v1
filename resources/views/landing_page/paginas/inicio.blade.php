@@ -1394,7 +1394,7 @@
                             </li>
                         </ul>
                         <div style="margin-top: auto; padding-top: 1.25rem; border-top: 1px solid rgba(255,255,255,0.1);">
-                            <span class="text-[10px] font-medium uppercase tracking-wide whitespace-nowrap" style="background-color: rgba(250,204,21,0.15); color: #facc15; padding: 4px 10px; border-radius: 4px; display: inline-block; border: 1px solid rgba(250,204,21,0.25);">Due Diligence Fiscal</span>
+                            <span class="text-[10px] font-medium uppercase tracking-wide whitespace-nowrap" style="background-color: rgba(250,204,21,0.15); color: #facc15; padding: 4px 10px; border-radius: 4px; display: inline-block; border: 1px solid rgba(250,204,21,0.25);">Compliance Fiscal</span>
                         </div>
                     </div>
                     <div class="shrink-0 flex flex-col items-center gap-3">

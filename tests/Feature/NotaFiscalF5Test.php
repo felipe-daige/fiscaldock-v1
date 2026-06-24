@@ -123,6 +123,35 @@ it('KPI de tributos lê ICMS do C190 e PIS/COFINS só de contribuicoes (P2/P8)',
     expect($t['cofins']['debito'])->toEqual(104.0); // 90 + 14
 });
 
+it('filtra a listagem por CFOP (item-level) e expõe a faceta', function () {
+    // nota nova com item de CFOP distinto (1252) — só ela deve sobrar ao filtrar por 1252
+    $impId = EfdNota::where('user_id', $this->user->id)->where('origem_arquivo', 'fiscal')->value('importacao_id');
+    $alvo = EfdNota::create([
+        'user_id' => $this->user->id, 'cliente_id' => $this->cliente, 'importacao_id' => $impId,
+        'numero' => 4321, 'serie' => '1', 'data_emissao' => '2024-01-18', 'valor_desconto' => 0, 'cancelada' => false,
+        'chave_acesso' => str_pad('B', 44, '1', STR_PAD_LEFT), 'modelo' => '55', 'tipo_operacao' => 'entrada',
+        'origem_arquivo' => 'fiscal', 'valor_total' => 333,
+    ]);
+    DB::table('efd_notas_itens')->insert([
+        'efd_nota_id' => $alvo->id, 'user_id' => $this->user->id, 'numero_item' => 1, 'codigo_item' => 'Z',
+        'quantidade' => 1, 'valor_total' => 333, 'cfop' => 1252, 'valor_icms' => 0, 'valor_pis' => 0,
+        'valor_cofins' => 0, 'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    // faceta deve trazer ambos os CFOPs presentes nos itens
+    $facetas = actingAs($this->user)->get('/app/notas')->assertOk()->viewData('facetas');
+    expect($facetas['cfops'])->toContain('5102')->toContain('1252');
+
+    // filtrando por 1252, só a nota alvo aparece
+    $notas = actingAs($this->user)->get('/app/notas?cfops[]=1252')->assertOk()->viewData('notas');
+    expect($notas->total())->toBe(1);
+    expect($notas->items()[0]['id'])->toBe($alvo->id);
+
+    // CFOP inexistente → lista vazia
+    $vazio = actingAs($this->user)->get('/app/notas?cfops[]=9999')->assertOk()->viewData('notas');
+    expect($vazio->total())->toBe(0);
+});
+
 /**
  * Navegação SPA (data-link → fetch com X-Requested-With) para o detalhe da nota
  * deve servir a PÁGINA CHEIA (efd-nota), igual ao reload direto da URL — e não o

@@ -139,8 +139,8 @@
             $cstsSel = $filtros['csts'] ?? [];
         @endphp
         <form method="GET" class="bg-white rounded border border-gray-300 p-3 mb-4 space-y-3">
-            {{-- linha 1: contexto --}}
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {{-- contexto + CFOP/CST (dropdowns multi-select, alinhados) --}}
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                 <div>
                     <label class="block text-[11px] text-gray-500 mb-1">Cliente</label>
                     <select name="cliente_id" class="w-full text-[13px] py-2.5 px-3 border border-gray-300 rounded">
@@ -166,70 +166,79 @@
                     <label class="block text-[11px] text-gray-500 mb-1">Até</label>
                     <input type="date" name="periodo_ate" value="{{ $filtros['periodo_ate'] ?? '' }}" class="w-full text-[13px] py-2.5 px-3 border border-gray-300 rounded">
                 </div>
-            </div>
 
-            {{-- linha 2: CFOP (largo, c/ descrição) + CST --}}
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
                 {{-- CFOP --}}
-                <div class="lg:col-span-2 border border-gray-300 rounded">
-                    <div class="flex items-center gap-2 px-2.5 py-2 border-b border-gray-200 bg-gray-50">
-                        <span class="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">CFOP</span>
-                        <span id="cfopCount" class="text-[11px] font-semibold" style="color:#1d4ed8">{{ count($cfopsSel) ? count($cfopsSel).' selecionado'.(count($cfopsSel) > 1 ? 's' : '') : '' }}</span>
-                        <input type="text" oninput="catFiltro.buscar('cfop', this.value)" placeholder="buscar código ou descrição…" class="ml-auto text-[12px] py-1.5 px-2.5 border border-gray-300 rounded w-40 sm:w-64">
-                    </div>
-                    <div id="cfopBox" class="max-h-[220px] overflow-y-auto divide-y divide-gray-100">
-                        @forelse($cfopOpcoes as $cf)
-                            <label data-row data-search="{{ strtolower($cf['codigo'].' '.$cf['descricao']) }}" class="flex items-center gap-2 px-2.5 py-1.5 text-[12px] cursor-pointer hover:bg-gray-50">
-                                <input type="checkbox" name="cfops[]" value="{{ $cf['codigo'] }}" onchange="catFiltro.contar('cfop')" @checked(in_array($cf['codigo'], $cfopsSel, true))>
-                                <span class="font-mono font-semibold text-gray-900">{{ $cf['codigo'] }}</span>
-                                @if($cf['tipo'] !== 'indefinido')
-                                    <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase text-white shrink-0" style="background-color: {{ $cf['tipo'] === 'entrada' ? '#1d4ed8' : '#047857' }}">{{ $cf['tipo'] }}</span>
-                                @endif
-                                <span class="text-gray-600 truncate" title="{{ $cf['descricao'] }}">{{ $cf['descricao'] ?: '—' }}</span>
-                            </label>
-                        @empty
-                            <span class="block px-2.5 py-2 text-[11px] text-gray-400">Sem dados no período/filtro.</span>
-                        @endforelse
-                    </div>
-                    @if(count($cfopOpcoes))
-                        <div class="px-2.5 py-1.5 border-t border-gray-200 bg-gray-50 flex gap-3">
-                            <button type="button" onclick="catFiltro.marcar('cfop', true)" class="text-[11px] text-blue-600 cursor-pointer">Marcar visíveis</button>
-                            <button type="button" onclick="catFiltro.marcar('cfop', false)" class="text-[11px] text-gray-500 cursor-pointer">Limpar seleção</button>
+                <div class="relative" data-pop>
+                    <label class="block text-[11px] text-gray-500 mb-1">CFOP</label>
+                    <button type="button" data-pop-toggle class="w-full flex items-center justify-between gap-2 text-[13px] py-2.5 px-3 border border-gray-300 rounded bg-white hover:border-gray-400">
+                        <span class="truncate {{ count($cfopsSel) ? 'text-gray-900 font-medium' : 'text-gray-500' }}">{{ count($cfopsSel) ? count($cfopsSel).' selec.' : 'Todos' }}</span>
+                        <svg data-pop-chevron class="w-4 h-4 text-gray-400 transition-transform shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div data-pop-panel class="hidden absolute z-30 left-0 mt-1 w-80 max-w-[calc(100vw-2.5rem)] bg-white border border-gray-300 rounded shadow-lg">
+                        <div class="flex items-center gap-2 p-2 border-b border-gray-200 bg-gray-50 rounded-t">
+                            <input type="text" oninput="catFiltro.buscar('cfop', this.value)" placeholder="buscar código ou descrição…" class="flex-1 min-w-0 text-[12px] py-1.5 px-2.5 border border-gray-300 rounded">
+                            <span id="cfopCount" class="text-[11px] font-semibold whitespace-nowrap" style="color:#1d4ed8">{{ count($cfopsSel) ? count($cfopsSel).' sel.' : '' }}</span>
                         </div>
-                    @endif
+                        <div id="cfopBox" class="max-h-[240px] overflow-y-auto divide-y divide-gray-100">
+                            @forelse($cfopOpcoes as $cf)
+                                <label data-row data-search="{{ strtolower($cf['codigo'].' '.$cf['descricao']) }}" class="flex items-center gap-2 px-2.5 py-1.5 text-[12px] cursor-pointer hover:bg-gray-50">
+                                    <input type="checkbox" name="cfops[]" value="{{ $cf['codigo'] }}" onchange="catFiltro.contar('cfop')" @checked(in_array($cf['codigo'], $cfopsSel, true))>
+                                    <span class="font-mono font-semibold text-gray-900">{{ $cf['codigo'] }}</span>
+                                    @if($cf['tipo'] !== 'indefinido')
+                                        <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase text-white shrink-0" style="background-color: {{ $cf['tipo'] === 'entrada' ? '#1d4ed8' : '#047857' }}">{{ $cf['tipo'] }}</span>
+                                    @endif
+                                    <span class="text-gray-600 truncate" title="{{ $cf['descricao'] }}">{{ $cf['descricao'] ?: '—' }}</span>
+                                </label>
+                            @empty
+                                <span class="block px-2.5 py-2 text-[11px] text-gray-400">Sem dados no período/filtro.</span>
+                            @endforelse
+                        </div>
+                        @if(count($cfopOpcoes))
+                            <div class="px-2.5 py-1.5 border-t border-gray-200 bg-gray-50 rounded-b flex gap-3">
+                                <button type="button" onclick="catFiltro.marcar('cfop', true)" class="text-[11px] text-blue-600 cursor-pointer">Marcar visíveis</button>
+                                <button type="button" onclick="catFiltro.marcar('cfop', false)" class="text-[11px] text-gray-500 cursor-pointer">Limpar seleção</button>
+                            </div>
+                        @endif
+                    </div>
                 </div>
 
                 {{-- CST --}}
-                <div class="border border-gray-300 rounded">
-                    <div class="flex items-center gap-2 px-2.5 py-2 border-b border-gray-200 bg-gray-50">
-                        <span class="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">CST</span>
-                        <span id="cstCount" class="text-[11px] font-semibold" style="color:#1d4ed8">{{ count($cstsSel) ? count($cstsSel).' selecionado'.(count($cstsSel) > 1 ? 's' : '') : '' }}</span>
-                        <input type="text" oninput="catFiltro.buscar('cst', this.value)" placeholder="buscar…" class="ml-auto text-[12px] py-1.5 px-2.5 border border-gray-300 rounded w-24">
-                    </div>
-                    <div id="cstBox" class="max-h-[220px] overflow-y-auto divide-y divide-gray-100">
-                        @forelse($facetas['csts'] ?? [] as $ct)
-                            <label data-row data-search="{{ strtolower($ct) }}" class="flex items-center gap-2 px-2.5 py-1.5 text-[12px] cursor-pointer hover:bg-gray-50">
-                                <input type="checkbox" name="csts[]" value="{{ $ct }}" onchange="catFiltro.contar('cst')" @checked(in_array($ct, $cstsSel, true))>
-                                <span class="font-mono font-semibold text-gray-900">{{ $ct }}</span>
-                            </label>
-                        @empty
-                            <span class="block px-2.5 py-2 text-[11px] text-gray-400">Sem dados.</span>
-                        @endforelse
-                    </div>
-                    @if(count($facetas['csts'] ?? []))
-                        <div class="px-2.5 py-1.5 border-t border-gray-200 bg-gray-50 flex gap-3">
-                            <button type="button" onclick="catFiltro.marcar('cst', true)" class="text-[11px] text-blue-600 cursor-pointer">Marcar visíveis</button>
-                            <button type="button" onclick="catFiltro.marcar('cst', false)" class="text-[11px] text-gray-500 cursor-pointer">Limpar seleção</button>
+                <div class="relative" data-pop>
+                    <label class="block text-[11px] text-gray-500 mb-1">CST</label>
+                    <button type="button" data-pop-toggle class="w-full flex items-center justify-between gap-2 text-[13px] py-2.5 px-3 border border-gray-300 rounded bg-white hover:border-gray-400">
+                        <span class="truncate {{ count($cstsSel) ? 'text-gray-900 font-medium' : 'text-gray-500' }}">{{ count($cstsSel) ? count($cstsSel).' selec.' : 'Todos' }}</span>
+                        <svg data-pop-chevron class="w-4 h-4 text-gray-400 transition-transform shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div data-pop-panel class="hidden absolute z-30 right-0 lg:left-0 mt-1 w-52 max-w-[calc(100vw-2.5rem)] bg-white border border-gray-300 rounded shadow-lg">
+                        <div class="flex items-center gap-2 p-2 border-b border-gray-200 bg-gray-50 rounded-t">
+                            <input type="text" oninput="catFiltro.buscar('cst', this.value)" placeholder="buscar…" class="flex-1 min-w-0 text-[12px] py-1.5 px-2.5 border border-gray-300 rounded">
+                            <span id="cstCount" class="text-[11px] font-semibold whitespace-nowrap" style="color:#1d4ed8">{{ count($cstsSel) ? count($cstsSel).' sel.' : '' }}</span>
                         </div>
-                    @endif
+                        <div id="cstBox" class="max-h-[240px] overflow-y-auto divide-y divide-gray-100">
+                            @forelse($facetas['csts'] ?? [] as $ct)
+                                <label data-row data-search="{{ strtolower($ct) }}" class="flex items-center gap-2 px-2.5 py-1.5 text-[12px] cursor-pointer hover:bg-gray-50">
+                                    <input type="checkbox" name="csts[]" value="{{ $ct }}" onchange="catFiltro.contar('cst')" @checked(in_array($ct, $cstsSel, true))>
+                                    <span class="font-mono font-semibold text-gray-900">{{ $ct }}</span>
+                                </label>
+                            @empty
+                                <span class="block px-2.5 py-2 text-[11px] text-gray-400">Sem dados.</span>
+                            @endforelse
+                        </div>
+                        @if(count($facetas['csts'] ?? []))
+                            <div class="px-2.5 py-1.5 border-t border-gray-200 bg-gray-50 rounded-b flex gap-3">
+                                <button type="button" onclick="catFiltro.marcar('cst', true)" class="text-[11px] text-blue-600 cursor-pointer">Marcar visíveis</button>
+                                <button type="button" onclick="catFiltro.marcar('cst', false)" class="text-[11px] text-gray-500 cursor-pointer">Limpar seleção</button>
+                            </div>
+                        @endif
+                    </div>
                 </div>
             </div>
 
             {{-- ações --}}
-            <div class="flex items-center gap-2">
-                <button type="submit" class="px-4 py-2 text-[13px] rounded text-white font-semibold cursor-pointer" style="background-color:#1d4ed8">Filtrar</button>
+            <div class="flex items-center gap-2 mt-4 pt-4 border-t border-gray-200">
+                <button type="submit" class="bg-gray-800 text-white hover:bg-gray-700 rounded text-sm font-medium px-4 py-2">Filtrar</button>
                 @if(array_filter($filtros))
-                    <a href="/app/bi/catalogo-itens" data-link class="px-4 py-2 text-[13px] rounded border border-gray-300 text-gray-600">Limpar tudo</a>
+                    <a href="/app/bi/catalogo-itens" data-link class="bg-white border border-gray-300 text-gray-600 hover:bg-gray-50 rounded text-sm font-medium px-4 py-2">Limpar</a>
                 @endif
             </div>
         </form>
@@ -383,4 +392,44 @@ window.catFiltro = window.catFiltro || (function () {
 })();
 catFiltro.contar('cfop');
 catFiltro.contar('cst');
+
+// Dropdowns CFOP/CST: abre/fecha painel ancorado; fecha ao clicar fora/em outro. SPA-safe (cleanup).
+(function () {
+    if (window._cleanupFunctions && window._cleanupFunctions.catalogoItensPops) {
+        window._cleanupFunctions.catalogoItensPops();
+    }
+
+    function fecharPops(exceto) {
+        document.querySelectorAll('[data-pop-panel]').forEach(function (p) {
+            if (p === exceto) return;
+            p.classList.add('hidden');
+            var ch = p.parentElement.querySelector('[data-pop-chevron]');
+            if (ch) ch.style.transform = '';
+        });
+    }
+
+    function handlePopClick(e) {
+        var toggle = e.target.closest('[data-pop-toggle]');
+        if (toggle) {
+            e.preventDefault();
+            var panel = toggle.parentElement.querySelector('[data-pop-panel]');
+            var aberto = !panel.classList.contains('hidden');
+            fecharPops();
+            if (!aberto) {
+                panel.classList.remove('hidden');
+                var ch = toggle.querySelector('[data-pop-chevron]');
+                if (ch) ch.style.transform = 'rotate(180deg)';
+            }
+            return;
+        }
+        if (!e.target.closest('[data-pop-panel]')) fecharPops();
+    }
+
+    document.addEventListener('click', handlePopClick);
+
+    if (!window._cleanupFunctions) window._cleanupFunctions = {};
+    window._cleanupFunctions.catalogoItensPops = function () {
+        document.removeEventListener('click', handlePopClick);
+    };
+})();
 </script>

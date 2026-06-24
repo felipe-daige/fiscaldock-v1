@@ -1,6 +1,7 @@
 @extends('reports.layout')
 
 @section('titulo', 'BI Fiscal — Relatório Executivo')
+@section('rodape_hash', \App\Support\PdfReport::hashDocumento('bi', json_encode($relatorio['periodo'] ?? [])))
 
 @section('conteudo')
     @php

@@ -650,7 +650,7 @@
                     </div>
                     <div>
                         <p class="font-semibold text-gray-900 mb-1">CFOPs que não compõem faturamento</p>
-                        <p class="mb-2">Notas de remessa/retorno de conserto, devolução e uso/consumo geram documento fiscal com valor, mas <strong>não são receita de venda nem compra comercial</strong>. A nota <strong>inteira</strong> é excluída do faturamento/aquisições quando qualquer item carrega um destes CFOPs:</p>
+                        <p class="mb-2">Notas de remessa/retorno de conserto, devolução e uso/consumo geram documento fiscal com valor, mas <strong>não são receita de venda nem compra comercial</strong>. A nota <strong>inteira</strong> sai da base comercial — faturamento, aquisições, volume de notas e ticket médio — quando qualquer item carrega um destes CFOPs. A <strong>carga tributária</strong> (imposto a recolher) <strong>não</strong> é afetada: o tributo dessas operações continua real. CFOPs:</p>
                         <div class="flex flex-wrap gap-1.5">
                             @foreach ($cfopsForaFaturamento as $cfop)
                                 <span class="inline-flex items-center gap-1 rounded px-2 py-1 text-[12px]" style="background-color: #f1f5f9; color: #334155;" title="{{ $cfopLabels[$cfop] ?? '' }}">
