@@ -1104,20 +1104,39 @@ class ConsultaController extends Controller
                 abort(503, 'Exportação XLSX temporariamente indisponível.');
             }
 
-            return $this->reportService->gerarXlsx($lote);
+            return $this->comTokenDownload($this->reportService->gerarXlsx($lote), $request);
         }
 
         if ($formato === 'pdf') {
             $pdf = $this->reportService->gerarPdf($lote);
             $filename = "consulta_lote_{$lote->id}.pdf";
 
-            return $pdf->download($filename);
+            return $this->comTokenDownload($pdf->download($filename), $request);
         }
 
         // CSV (compatível com Excel: separador ";" + BOM UTF-8)
         $csvContent = $this->reportService->gerarCsv($lote);
 
-        return CsvExport::stream("consulta_lote_{$lote->id}.csv", $csvContent);
+        return $this->comTokenDownload(
+            CsvExport::stream("consulta_lote_{$lote->id}.csv", $csvContent),
+            $request
+        );
+    }
+
+    /**
+     * Anexa cookie `bi_download=<token>` à resposta de download quando o request traz
+     * `download_token`. O frontend (<x-download-button>: iframe nativo + poll do cookie)
+     * usa isso para saber que o arquivo chegou e esconder o spinner. httpOnly=false:
+     * o JS precisa ler a PRESENÇA do nome (o valor é criptografado pelo EncryptCookies).
+     */
+    private function comTokenDownload($response, Request $request)
+    {
+        $token = $request->query('download_token');
+        if ($token) {
+            $response->headers->setCookie(cookie('bi_download', (string) $token, 1, '/', null, null, false));
+        }
+
+        return $response;
     }
 
     /**
@@ -1800,10 +1819,21 @@ class ConsultaController extends Controller
             ->get();
 
         $participanteIds = $resultados->pluck('participante_id')->filter()->unique()->values()->all();
+        $clienteIds = $resultados->pluck('cliente_id')->filter()->unique()->values()->all();
         $fiscalResumos = app(\App\Services\Consultas\ParticipanteFiscalResumoService::class)
-            ->paraParticipantes($lote->user_id, $participanteIds, comCfops: true);
+            ->paraParticipantes($lote->user_id, $participanteIds, comCfops: true, comProdutos: true);
+        $clienteResumos = app(\App\Services\Consultas\ClienteFiscalResumoService::class)
+            ->paraClientes($lote->user_id, $clienteIds);
 
-        return $resultados->map(function (ConsultaResultado $resultado) use ($parecerService, $detalhePresenter, $fiscalResumos) {
+        // Fontes de regularidade que o plano deste lote inclui. Usado p/ marcar como "Falhou"
+        // a certidão pedida mas que não retornou (code retry/fatal da InfoSimples → chave ausente)
+        // em vez de exibi-la como "—" (indistinguível de fora do plano).
+        $esperadasCert = array_values(array_intersect(
+            $lote->plano?->consultas_incluidas ?? [],
+            ['cnd_federal', 'cnd_estadual', 'cnd_municipal', 'crf_fgts', 'cndt', 'sintegra'],
+        ));
+
+        return $resultados->map(function (ConsultaResultado $resultado) use ($parecerService, $detalhePresenter, $fiscalResumos, $clienteResumos, $esperadasCert) {
             $parecerResumo = $resultado->isSucesso()
                 ? $parecerService->gerarResumo($resultado->getParecerFiscalPayload())
                 : [];
@@ -1850,11 +1880,14 @@ class ConsultaController extends Controller
                 'cnd_federal_badge' => $cndFederal,
                 'fgts_badge' => $fgts,
                 'cndt_badge' => $cndt,
+                'certidoes' => $detalhePresenter->certidoes($resultado, $esperadasCert),
                 'parecer' => $parecerResumo,
                 'parecer_count' => count($parecerResumo),
-                'detalhe_blocos' => $detalhePresenter->blocos($resultado),
+                'detalhe_blocos' => $detalhePresenter->blocos($resultado, $esperadasCert),
                 'resumo_texto' => $resultado->isSucesso() ? $detalhePresenter->resumoTextual($resultado) : null,
-                'fiscal_resumo' => $resultado->participante_id ? ($fiscalResumos[$resultado->participante_id] ?? null) : null,
+                'fiscal_resumo' => $resultado->participante_id
+                    ? ($fiscalResumos[$resultado->participante_id] ?? null)
+                    : ($resultado->cliente_id ? ($clienteResumos[$resultado->cliente_id] ?? null) : null),
             ];
         });
     }

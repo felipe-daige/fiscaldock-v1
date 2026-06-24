@@ -486,6 +486,7 @@
                                 </button>
                                 <div id="consulta-detalhe-m-{{ $loop->index }}" class="{{ $autoAbrirDetalhe ? '' : 'hidden ' }}mt-3">
                                     @include('autenticado.consulta.partials.detalhe-blocos', ['blocos' => $resultado['detalhe_blocos'] ?? [], 'resumo' => $resultado['resumo_texto'] ?? null, 'certidoes' => $resultado['certidoes'] ?? [], 'cabecalho' => ['razao' => $resultado['razao_social'] ?? null, 'documento' => $resultado['documento_formatado'] ?? null, 'uf' => $resultado['uf'] ?? null, 'situacao' => $resultado['situacao_cadastral'] ?? null]])
+                                    @include('autenticado.consulta.partials.relacionamento-fiscal', ['fiscal' => $resultado['fiscal_resumo'] ?? null])
                                 </div>
                             </div>
                         @endforeach
