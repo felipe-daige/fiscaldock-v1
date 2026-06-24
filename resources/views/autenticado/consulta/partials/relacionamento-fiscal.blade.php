@@ -48,55 +48,35 @@
 
             @if(!empty($fiscal['top_produtos']))
                 @php($pfProds = collect($fiscal['top_produtos']))
-                @php($pfProdId = 'pf-prod-'.bin2hex(random_bytes(4)))
-                <div>
-                    <p class="text-[10px] text-gray-400 uppercase tracking-wide mb-1">Principais produtos negociados</p>
+                <div data-pf-list>
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                        <p class="text-[10px] text-gray-400 uppercase tracking-wide">Principais produtos negociados</p>
+                        @include('autenticado.consulta.partials._panorama-seletor', ['count' => $pfProds->count(), 'default' => $pfVisivel])
+                    </div>
                     <div class="space-y-1">
-                        @foreach($pfProds->take($pfVisivel) as $p)
-                            @include('autenticado.consulta.partials._panorama-produto-linha', ['p' => $p])
+                        @foreach($pfProds as $i => $p)
+                            <div data-pf-row @class(['hidden' => $i >= $pfVisivel])>
+                                @include('autenticado.consulta.partials._panorama-produto-linha', ['p' => $p])
+                            </div>
                         @endforeach
                     </div>
-                    @if($pfProds->count() > $pfVisivel)
-                        <div id="{{ $pfProdId }}" class="hidden space-y-1 mt-1">
-                            @foreach($pfProds->slice($pfVisivel) as $p)
-                                @include('autenticado.consulta.partials._panorama-produto-linha', ['p' => $p])
-                            @endforeach
-                        </div>
-                        <button type="button" data-detalhe-toggle="{{ $pfProdId }}" aria-expanded="false"
-                                class="mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium text-gray-500 hover:text-gray-700 uppercase tracking-wide">
-                            <span>Ver mais ({{ $pfProds->count() - $pfVisivel }})</span>
-                            <svg class="detalhe-chevron w-3 h-3 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                            </svg>
-                        </button>
-                    @endif
                 </div>
             @endif
 
             @if(!empty($fiscal['relacionamentos']))
                 @php($pfRels = collect($fiscal['relacionamentos']))
-                @php($pfRelId = 'pf-rel-'.bin2hex(random_bytes(4)))
-                <div>
-                    <p class="text-[10px] text-gray-400 uppercase tracking-wide mb-1">{{ $fiscal['relacionamentos_titulo'] ?? 'Por empresa' }}</p>
+                <div data-pf-list>
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                        <p class="text-[10px] text-gray-400 uppercase tracking-wide">{{ $fiscal['relacionamentos_titulo'] ?? 'Por empresa' }}</p>
+                        @include('autenticado.consulta.partials._panorama-seletor', ['count' => $pfRels->count(), 'default' => $pfVisivel])
+                    </div>
                     <div class="space-y-1">
-                        @foreach($pfRels->take($pfVisivel) as $rel)
-                            @include('autenticado.consulta.partials._panorama-contraparte-linha', ['rel' => $rel, 'papelHex' => $papelHex, 'papelLabel' => $papelLabel])
+                        @foreach($pfRels as $i => $rel)
+                            <div data-pf-row @class(['hidden' => $i >= $pfVisivel])>
+                                @include('autenticado.consulta.partials._panorama-contraparte-linha', ['rel' => $rel, 'papelHex' => $papelHex, 'papelLabel' => $papelLabel])
+                            </div>
                         @endforeach
                     </div>
-                    @if($pfRels->count() > $pfVisivel)
-                        <div id="{{ $pfRelId }}" class="hidden space-y-1 mt-1">
-                            @foreach($pfRels->slice($pfVisivel) as $rel)
-                                @include('autenticado.consulta.partials._panorama-contraparte-linha', ['rel' => $rel, 'papelHex' => $papelHex, 'papelLabel' => $papelLabel])
-                            @endforeach
-                        </div>
-                        <button type="button" data-detalhe-toggle="{{ $pfRelId }}" aria-expanded="false"
-                                class="mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium text-gray-500 hover:text-gray-700 uppercase tracking-wide">
-                            <span>Ver mais ({{ $pfRels->count() - $pfVisivel }})</span>
-                            <svg class="detalhe-chevron w-3 h-3 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                            </svg>
-                        </button>
-                    @endif
                 </div>
             @endif
 

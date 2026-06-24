@@ -46,23 +46,28 @@ it('degrada sem erro quando fiscal é null', function () {
     expect($html)->toContain('Sem movimentação');
 });
 
-it('mostra "Ver mais (N)" quando produtos excedem o visível e mantém os ocultos no DOM', function () {
-    config(['consultas.panorama_fiscal.visivel' => 2]);
+it('oferece seletor Top N (5/10/Todos) quando a lista excede 5 e marca extras como hidden', function () {
+    config(['consultas.panorama_fiscal.visivel' => 5]);
     $produtos = [];
-    for ($i = 1; $i <= 5; $i++) {
+    for ($i = 1; $i <= 12; $i++) {
         $produtos[] = ['cod_item' => "P{$i}", 'descricao' => "PROD {$i}", 'ncm' => null, 'valor' => $i * 10.0, 'qtd' => $i];
     }
     $html = Blade::render('@include("autenticado.consulta.partials.relacionamento-fiscal", ["fiscal" => $fiscal])', [
         'fiscal' => rfvFiscal(['top_produtos' => $produtos]),
     ]);
 
-    expect($html)->toContain('Ver mais (3)');   // 5 produtos − 2 visíveis
-    expect($html)->toContain('PROD 5');          // item oculto continua no DOM (revelado pelo toggle)
-    expect($html)->toContain('data-detalhe-toggle="pf-prod-'); // reusa o handler inline existente
+    expect($html)->toContain('<select');
+    expect($html)->toContain('Top 5');
+    expect($html)->toContain('Top 10');
+    expect($html)->toContain('Todos (12)');
+    expect($html)->toContain('data-pf-list');
+    expect($html)->toContain('PROD 12');                               // todas as linhas no DOM; controle é client-side
+    expect(substr_count($html, 'data-pf-row'))->toBeGreaterThanOrEqual(12);
+    expect($html)->toContain('value="5" selected');                    // default = visivel(5)
 });
 
-it('não mostra "Ver mais" quando a lista cabe no visível', function () {
+it('não renderiza seletor quando a lista cabe em 5', function () {
     config(['consultas.panorama_fiscal.visivel' => 10]);
-    $html = Blade::render('@include("autenticado.consulta.partials.relacionamento-fiscal", ["fiscal" => $fiscal])', ['fiscal' => rfvFiscal()]);
-    expect($html)->not->toContain('Ver mais');
+    $html = Blade::render('@include("autenticado.consulta.partials.relacionamento-fiscal", ["fiscal" => $fiscal])', ['fiscal' => rfvFiscal()]);  // 1 produto, 1 contraparte
+    expect($html)->not->toContain('<select');
 });
