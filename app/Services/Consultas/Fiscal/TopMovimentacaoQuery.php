@@ -77,7 +77,6 @@ class TopMovimentacaoQuery
         $linhas = DB::table('efd_notas_consolidados as c')
             ->join('efd_notas as n', 'n.id', '=', 'c.efd_nota_id')
             ->where('n.user_id', $userId)
-            ->where('c.user_id', $userId)
             ->where('n.origem_arquivo', 'fiscal')
             ->where('n.cancelada', false)
             ->whereIn("n.{$coluna}", $ids)

@@ -186,8 +186,9 @@ it('com comProdutos=true retorna top produtos e campos do shape único', functio
     expect($f['relacionamentos_titulo'])->toBe('Por empresa');
     expect($f['top_produtos'][0]['cod_item'])->toBe('AGUA');
     expect($f['top_produtos'][0]['ncm'])->toBe('22011000');
-    expect($f['relacionamentos'][0]['nome'])->toBe('EMPRESA A');      // alias de empresa_nome
-    expect($f['relacionamentos'][0]['is_propria'])->toBeTrue();        // alias de is_empresa_propria
+    $relA = collect($f['relacionamentos'])->firstWhere('empresa_id', $d['empresaA']);
+    expect($relA['nome'])->toBe('EMPRESA A');      // alias de empresa_nome
+    expect($relA['is_propria'])->toBeTrue();        // alias de is_empresa_propria
 });
 
 it('sem comProdutos top_produtos fica vazio', function () {
