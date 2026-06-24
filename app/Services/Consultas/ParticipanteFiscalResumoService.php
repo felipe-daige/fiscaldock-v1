@@ -52,8 +52,8 @@ class ParticipanteFiscalResumoService
             ->get(['id', 'razao_social', 'is_empresa_propria'])
             ->keyBy('id');
 
-        $cfopsPorParticipante = $comCfops ? $this->top->cfops($userId, 'participante_id', $ids) : [];
-        $produtosPorParticipante = $comProdutos ? $this->top->produtos($userId, 'participante_id', $ids) : [];
+        $cfopsPorParticipante = $comCfops ? $this->top->cfops($userId, 'participante_id', $ids, $this->panoramaVisivel()) : [];
+        $produtosPorParticipante = $comProdutos ? $this->top->produtos($userId, 'participante_id', $ids, $this->panoramaMaximo()) : [];
 
         $acc = [];
         foreach ($linhas as $l) {

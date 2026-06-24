@@ -55,8 +55,8 @@ class ClienteFiscalResumoService
                 n.tipo_operacao, COALESCE(SUM(n.valor_total), 0) as valor')
             ->get();
 
-        $cfops = $this->top->cfops($userId, 'cliente_id', $ids);
-        $produtos = $this->top->produtos($userId, 'cliente_id', $ids);
+        $cfops = $this->top->cfops($userId, 'cliente_id', $ids, $this->panoramaVisivel());
+        $produtos = $this->top->produtos($userId, 'cliente_id', $ids, $this->panoramaMaximo());
 
         $acc = [];
         foreach ($volume as $v) {
@@ -103,7 +103,7 @@ class ClienteFiscalResumoService
                     'valor_saida' => round($e['valor_saida'], 2),
                 ])
                 ->sortByDesc(fn ($e) => $e['valor_entrada'] + $e['valor_saida'])
-                ->take(10)
+                ->take($this->panoramaMaximo())
                 ->values()
                 ->all();
 

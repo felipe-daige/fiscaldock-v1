@@ -115,3 +115,11 @@ it('cliente sem nota fica ausente; não vaza entre usuários', function () {
     $outro = User::factory()->create();
     expect(app(ClienteFiscalResumoService::class)->paraClientes($outro->id, [$d['cliente']]))->toBe([]);
 });
+
+it('config panorama_fiscal.maximo limita o nº de contrapartes', function () {
+    config(['consultas.panorama_fiscal.maximo' => 1]);  // cfrSetup tem 2 contrapartes
+    $d = cfrSetup();
+    $f = app(ClienteFiscalResumoService::class)->paraClientes($d['user']->id, [$d['cliente']])[$d['cliente']];
+    expect($f['relacionamentos'])->toHaveCount(1);
+    expect($f['empresas_count'])->toBe(2);  // contagem real preservada (só a lista é capada)
+});

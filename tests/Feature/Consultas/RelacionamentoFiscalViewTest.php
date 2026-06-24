@@ -45,3 +45,24 @@ it('degrada sem erro quando fiscal é null', function () {
     $html = Blade::render('@include("autenticado.consulta.partials.relacionamento-fiscal", ["fiscal" => $fiscal])', ['fiscal' => null]);
     expect($html)->toContain('Sem movimentação');
 });
+
+it('mostra "Ver mais (N)" quando produtos excedem o visível e mantém os ocultos no DOM', function () {
+    config(['consultas.panorama_fiscal.visivel' => 2]);
+    $produtos = [];
+    for ($i = 1; $i <= 5; $i++) {
+        $produtos[] = ['cod_item' => "P{$i}", 'descricao' => "PROD {$i}", 'ncm' => null, 'valor' => $i * 10.0, 'qtd' => $i];
+    }
+    $html = Blade::render('@include("autenticado.consulta.partials.relacionamento-fiscal", ["fiscal" => $fiscal])', [
+        'fiscal' => rfvFiscal(['top_produtos' => $produtos]),
+    ]);
+
+    expect($html)->toContain('Ver mais (3)');   // 5 produtos − 2 visíveis
+    expect($html)->toContain('PROD 5');          // item oculto continua no DOM (revelado pelo toggle)
+    expect($html)->toContain('data-detalhe-toggle="pf-prod-'); // reusa o handler inline existente
+});
+
+it('não mostra "Ver mais" quando a lista cabe no visível', function () {
+    config(['consultas.panorama_fiscal.visivel' => 10]);
+    $html = Blade::render('@include("autenticado.consulta.partials.relacionamento-fiscal", ["fiscal" => $fiscal])', ['fiscal' => rfvFiscal()]);
+    expect($html)->not->toContain('Ver mais');
+});

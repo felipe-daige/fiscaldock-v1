@@ -16,9 +16,9 @@ return [
         ],
     ],
 
-    // Gate de cutover: enquanto false, fontes InfoSimples NÃO roteiam pro Laravel
-    // (planos pagos seguem no n8n). Ligar só após pagar/validar o InfoSimples e
-    // confirmar o estorno preciso por fonte. ENV: CONSULTAS_INFOSIMPLES_ATIVO.
+    // Liga/desliga do provider InfoSimples: enquanto false, as fontes InfoSimples
+    // não são consultadas. Ligar só após pagar/validar o InfoSimples e confirmar o
+    // estorno preciso por fonte. ENV: CONSULTAS_INFOSIMPLES_ATIVO.
     'infosimples_ativo' => (bool) env('CONSULTAS_INFOSIMPLES_ATIVO', false),
 
     // GUARD DE TESTE: se NÃO vazio, só estes CNPJs (14 dígitos, CSV) realmente chamam o
@@ -50,7 +50,7 @@ return [
     // Dá feedback textual por fonte mesmo quando várias caem na mesma etapa/grupo (ex: as 3
     // federais). Fallback = a própria chave quando não mapeada.
     'fonte_nome' => [
-        'cadastro' => 'dados cadastrais',
+        'cadastro' => 'Dados Cadastrais',
         'cnd_federal' => 'CND Federal (Receita/PGFN)',
         'cndt' => 'CNDT (débitos trabalhistas)',
         'crf_fgts' => 'CRF FGTS (Caixa)',
@@ -207,5 +207,13 @@ return [
         'cnj_improbidade' => (int) env('CONSULTA_CREDITOS_CNJ_IMPROBIDADE', 2),
         'cnd_municipal' => (int) env('CONSULTA_CREDITOS_CND_MUNICIPAL', 2),
         'protestos' => (int) env('CONSULTA_CREDITOS_PROTESTOS', 2),
+    ],
+
+    // Card "Relacionamento & Movimentação Fiscal" no resultado da consulta.
+    // 'visivel' = itens por lista (produtos/contrapartes) mostrados antes do "ver mais";
+    // 'maximo'  = teto buscado/expandível por lista. CFOPs usam 'visivel' (lista curta).
+    'panorama_fiscal' => [
+        'visivel' => (int) env('CONSULTA_PANORAMA_VISIVEL', 10),
+        'maximo' => (int) env('CONSULTA_PANORAMA_MAXIMO', 30),
     ],
 ];
