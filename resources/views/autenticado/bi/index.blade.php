@@ -29,12 +29,35 @@
                         <option value="3">Últimos 3 meses</option>
                         <option value="1">Este mês</option>
                     </select>
-                    {{-- Exports --}}
-                    <button id="bi-export-xlsx" type="button" class="w-full sm:w-auto px-3 py-2 rounded border border-gray-300 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50">Excel</button>
-                    <button id="bi-export-pdf" type="button" class="w-full sm:w-auto px-3 py-2 rounded border border-gray-300 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50">PDF</button>
+                    {{-- Exports — onclick inline (cache-robusto, não depende do bi.js) --}}
+                    <button type="button"
+                            onclick="location.href='/app/bi/exportar-pdf?cliente_id='+(document.getElementById('filtro-cliente').value||'')+'&meses='+(document.getElementById('filtro-periodo').value||0)"
+                            class="w-full sm:w-auto px-3 py-2 rounded border border-gray-300 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50">PDF</button>
+                    <button type="button"
+                            onclick="document.getElementById('modal-export-bi').classList.remove('hidden')"
+                            class="w-full sm:w-auto px-3 py-2 rounded border border-gray-300 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50">Planilha</button>
                 </div>
             </div>
         </div>
+
+        {{-- Modal de export de planilha (XLSX completo ou CSV por seção em ZIP) --}}
+        <x-modal id="modal-export-bi" titulo="Exportar planilha">
+            <p class="text-[13px] text-gray-600 mb-4">Escolha o formato. O período e o cliente seguem os filtros selecionados.</p>
+            <div class="space-y-2">
+                <button type="button"
+                        onclick="location.href='/app/bi/exportar-xlsx?cliente_id='+(document.getElementById('filtro-cliente').value||'')+'&meses='+(document.getElementById('filtro-periodo').value||0); document.getElementById('modal-export-bi').classList.add('hidden')"
+                        class="w-full text-left px-4 py-3 rounded border border-gray-300 hover:bg-gray-50">
+                    <span class="block text-sm font-semibold text-gray-900">Excel (XLSX)</span>
+                    <span class="block text-[12px] text-gray-500">Relatório completo, uma aba por seção (Resumo, Cobertura, Faturamento, Tributos, Declarado×Computado, CFOP).</span>
+                </button>
+                <button type="button"
+                        onclick="location.href='/app/bi/exportar-csv-zip?cliente_id='+(document.getElementById('filtro-cliente').value||'')+'&meses='+(document.getElementById('filtro-periodo').value||0); document.getElementById('modal-export-bi').classList.add('hidden')"
+                        class="w-full text-left px-4 py-3 rounded border border-gray-300 hover:bg-gray-50">
+                    <span class="block text-sm font-semibold text-gray-900">CSV (ZIP)</span>
+                    <span class="block text-[12px] text-gray-500">Um arquivo .csv por seção, empacotados num .zip.</span>
+                </button>
+            </div>
+        </x-modal>
 
         {{-- Faixa de cobertura de fonte (avisa meses sem EFD ICMS/IPI / PIS-COFINS).
              Sempre começa hidden; renderCobertura() (boot via updateResumoKpis) revela
