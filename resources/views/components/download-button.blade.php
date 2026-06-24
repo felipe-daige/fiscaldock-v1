@@ -6,25 +6,35 @@
 ])
 
 @php
-    // Botão de download do design system. Cache-robusto: TODA a lógica (fetch -> blob
-    // -> <a download> -> toggle do spinner) vive num onclick inline (server-rendered
-    // fresco), sem depender de JS-file cacheado (nginx js=1h + bi.js sem ?v=). Lê os
-    // filtros #filtro-cliente / #filtro-periodo e passa cliente_id + meses (datas
-    // computadas server-side). Sem aspas duplas no JS (o atributo onclick usa aspas duplas).
+    // Botão de download do design system. Cache-robusto (onclick inline, sem JS-file).
+    // Download NATIVO via <iframe> (cookies de sessão vão automático — fetch+blob dava
+    // "Falha" no browser do usuário apesar do 200). Spinner mostrado até o servidor
+    // devolver o arquivo: o controller seta cookie `bi_download=<token>` na resposta e
+    // este JS faz poll do cookie pra esconder o overlay (fallback: timeout 40s).
+    // Lê #filtro-cliente / #filtro-periodo (cliente_id + meses, datas server-side).
+    // Sem aspas duplas no JS (o atributo onclick já usa aspas duplas).
+    // Detecção por PRESENÇA do cookie `bi_download` (não pelo valor): o Laravel
+    // criptografa o valor (EncryptCookies), então o JS não consegue ler o token —
+    // mas o NOME do cookie não é criptografado. Limpa antes de iniciar e faz poll
+    // até o cookie reaparecer (= a resposta do download chegou).
+    $tokExpr = "'d'+Date.now()+Math.floor(Math.random()*1e6)";
     $js = "(function(){"
         . "var ov=document.getElementById('{$overlay}');"
         . "var c=document.getElementById('filtro-cliente');"
         . "var p=document.getElementById('filtro-periodo');"
-        . "var u='{$path}?cliente_id='+((c&&c.value)||'')+'&meses='+((p&&p.value)||0);"
+        . "var tok={$tokExpr};"
+        . "var u='{$path}?cliente_id='+((c&&c.value)||'')+'&meses='+((p&&p.value)||0)+'&download_token='+tok;"
+        . "document.cookie='bi_download=; path=/; max-age=0';"
         . "if(ov)ov.classList.remove('hidden');"
-        . "fetch(u,{headers:{'X-Requested-With':'XMLHttpRequest'}}).then(function(r){if(!r.ok)throw 0;return r.blob();})"
-        . ".then(function(b){"
-        .   "var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='{$filename}';"
-        .   "document.body.appendChild(a);a.click();"
-        .   "setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1000);"
-        .   "if(ov)ov.classList.add('hidden');{$extraOnDone}"
-        . "})"
-        . ".catch(function(){if(ov)ov.classList.add('hidden');alert('Falha ao gerar o arquivo. Tente novamente.');});"
+        . "var f=document.createElement('iframe');f.style.display='none';f.src=u;document.body.appendChild(f);"
+        . "var n=0;var t=setInterval(function(){n++;"
+        .   "if(document.cookie.indexOf('bi_download=')>-1){"
+        .     "clearInterval(t);document.cookie='bi_download=; path=/; max-age=0';"
+        .     "if(ov)ov.classList.add('hidden');{$extraOnDone}setTimeout(function(){f.remove();},60000);"
+        .   "}else if(n>160){"
+        .     "clearInterval(t);if(ov)ov.classList.add('hidden');setTimeout(function(){f.remove();},60000);"
+        .   "}"
+        . "},250);"
         . "})()";
 @endphp
 

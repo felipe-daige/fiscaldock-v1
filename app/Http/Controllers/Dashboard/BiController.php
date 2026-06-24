@@ -331,7 +331,7 @@ class BiController extends Controller
         );
         $filename = 'bi-fiscal-'.now()->format('Ymd').'.xlsx';
 
-        return app(\App\Services\Bi\Export\BiXlsxBuilder::class)->download($rel, $filename);
+        return $this->comTokenDownload(app(\App\Services\Bi\Export\BiXlsxBuilder::class)->download($rel, $filename), $request);
     }
 
     public function exportarPdf(Request $request)
@@ -346,7 +346,10 @@ class BiController extends Controller
         );
         $filename = 'bi-fiscal-'.now()->format('Ymd').'.pdf';
 
-        return \App\Support\PdfReport::render('reports.bi-executivo', ['relatorio' => $rel])->download($filename);
+        return $this->comTokenDownload(
+            \App\Support\PdfReport::render('reports.bi-executivo', ['relatorio' => $rel])->download($filename),
+            $request
+        );
     }
 
     /**
@@ -387,9 +390,25 @@ class BiController extends Controller
 
         $filename = 'bi-fiscal-'.now()->format('Ymd').'.csv.zip';
 
-        return response()->download($tmp, $filename, [
-            'Content-Type' => 'application/zip',
-        ])->deleteFileAfterSend(true);
+        return $this->comTokenDownload(
+            response()->download($tmp, $filename, ['Content-Type' => 'application/zip'])->deleteFileAfterSend(true),
+            $request
+        );
+    }
+
+    /**
+     * Anexa cookie `bi_download=<token>` à resposta de download quando o request traz
+     * `download_token`. O frontend (iframe nativo + poll do cookie) usa isso para saber
+     * que o arquivo chegou e esconder o spinner. httpOnly=false: o JS precisa ler.
+     */
+    private function comTokenDownload($response, Request $request)
+    {
+        $token = $request->get('download_token');
+        if ($token) {
+            $response->headers->setCookie(cookie('bi_download', (string) $token, 1, '/', null, null, false));
+        }
+
+        return $response;
     }
 
     /**

@@ -111,3 +111,26 @@ it('exportar-pdf aceita o param meses (datas computadas server-side)', function 
     $resp->assertOk();
     expect(substr($resp->getContent(), 0, 4))->toBe('%PDF');
 });
+
+it('seta cookie bi_download com o token quando download_token é informado (spinner)', function () {
+    [$uid] = semearBiExport();
+
+    $resp = $this->actingAs(User::find($uid))->get('/app/bi/exportar-pdf?download_token=abc123');
+
+    $resp->assertOk();
+    // O valor vai criptografado (EncryptCookies); o frontend detecta por PRESENÇA do
+    // cookie, não pelo valor. Aqui basta garantir que o cookie é emitido e legível por JS.
+    $cookie = collect($resp->headers->getCookies())->first(fn ($c) => $c->getName() === 'bi_download');
+    expect($cookie)->not->toBeNull();
+    expect($cookie->isHttpOnly())->toBeFalse(); // JS precisa ler (presença) pra esconder o spinner
+    expect($cookie->getValue())->not->toBe(''); // tem algum valor (token criptografado)
+});
+
+it('NÃO seta cookie bi_download sem download_token', function () {
+    [$uid] = semearBiExport();
+
+    $resp = $this->actingAs(User::find($uid))->get('/app/bi/exportar-xlsx');
+
+    $resp->assertOk();
+    expect(collect($resp->headers->getCookies())->first(fn ($c) => $c->getName() === 'bi_download'))->toBeNull();
+});
