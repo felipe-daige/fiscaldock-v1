@@ -81,11 +81,19 @@
             @endif
 
             @if(!empty($fiscal['top_cfops']))
-                <div class="flex flex-wrap items-center gap-1.5">
-                    <span class="text-[10px] text-gray-400 uppercase tracking-wide">Top CFOPs:</span>
-                    @foreach($fiscal['top_cfops'] as $c)
-                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono text-gray-700" style="background-color:#f3f4f6">{{ $c['cfop'] }} <span class="text-gray-400 ml-1">×{{ $c['qtd'] }}</span></span>
-                    @endforeach
+                @php($pfCfops = collect($fiscal['top_cfops']))
+                <div data-pf-list>
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                        <p class="text-[10px] text-gray-400 uppercase tracking-wide">Principais CFOPs</p>
+                        @include('autenticado.consulta.partials._panorama-seletor', ['count' => $pfCfops->count(), 'default' => $pfVisivel])
+                    </div>
+                    <div class="space-y-1">
+                        @foreach($pfCfops as $i => $c)
+                            <div data-pf-row @class(['hidden' => $i >= $pfVisivel])>
+                                @include('autenticado.consulta.partials._panorama-cfop-linha', ['c' => $c])
+                            </div>
+                        @endforeach
+                    </div>
                 </div>
             @endif
         </div>

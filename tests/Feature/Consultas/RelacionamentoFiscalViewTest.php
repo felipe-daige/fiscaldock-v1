@@ -9,7 +9,7 @@ function rfvFiscal(array $over = []): array
         'total_comprado' => 1200.0, 'total_vendido' => 700.0,
         'qtd_entrada' => 2, 'qtd_saida' => 1, 'qtd_notas' => 3,
         'primeira_nota' => '2024-01-05', 'ultima_nota' => '2024-06-20',
-        'top_cfops' => [['cfop' => 1102, 'qtd' => 3]],
+        'top_cfops' => [['cfop' => 1102, 'descricao' => '1102 — Compra para industrialização', 'qtd' => 3, 'valor' => 5000.0]],
         'top_produtos' => [['cod_item' => 'AGUA', 'descricao' => 'AGUA MINERAL 500ML', 'ncm' => '22011000', 'valor' => 1900.0, 'qtd' => 3]],
         'relacionamentos' => [['nome' => 'DISTRIBUIDORA X', 'is_propria' => false, 'papel' => 'fornecedor', 'valor_entrada' => 1200.0, 'valor_saida' => 0.0]],
         'relacionamentos_titulo' => 'Principais contrapartes',
@@ -39,6 +39,25 @@ it('mostra badge de papel quando participante e título Por empresa', function (
     expect($html)->toContain('Por empresa');
     expect($html)->toContain('EMPRESA A');
     expect($html)->toContain('(própria)');
+});
+
+it('CFOP: renderiza descrição + valor + qtd e oferece seletor Top N como produtos', function () {
+    config(['consultas.panorama_fiscal.visivel' => 5]);
+    $cfops = [];
+    for ($i = 1; $i <= 8; $i++) {
+        $cfops[] = ['cfop' => 5100 + $i, 'descricao' => "{$i} — VENDA TIPO {$i}", 'qtd' => $i, 'valor' => $i * 100.0];
+    }
+    $html = Blade::render('@include("autenticado.consulta.partials.relacionamento-fiscal", ["fiscal" => $fiscal])', [
+        'fiscal' => rfvFiscal(['top_cfops' => $cfops]),
+    ]);
+
+    expect($html)->toContain('Principais CFOPs');
+    expect($html)->toContain('VENDA TIPO 1');     // descrição da CFOP
+    expect($html)->toContain('5101');             // código
+    expect($html)->toContain('R$ 100,00');        // valor (não só qtd)
+    expect($html)->toContain('×1');               // qtd
+    expect($html)->toContain('Todos (8)');        // mesmo seletor das outras listas
+    expect($html)->toContain('VENDA TIPO 8');     // todas as linhas no DOM
 });
 
 it('degrada sem erro quando fiscal é null', function () {

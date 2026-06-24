@@ -55,7 +55,7 @@ class ClienteFiscalResumoService
                 n.tipo_operacao, COALESCE(SUM(n.valor_total), 0) as valor')
             ->get();
 
-        $cfops = $this->top->cfops($userId, 'cliente_id', $ids, $this->panoramaVisivel());
+        $cfops = $this->top->cfops($userId, 'cliente_id', $ids, $this->panoramaMaximo());
         $produtos = $this->top->produtos($userId, 'cliente_id', $ids, $this->panoramaMaximo());
 
         $acc = [];

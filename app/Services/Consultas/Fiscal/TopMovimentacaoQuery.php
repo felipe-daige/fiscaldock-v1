@@ -2,6 +2,7 @@
 
 namespace App\Services\Consultas\Fiscal;
 
+use App\Support\Cfop;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -64,7 +65,7 @@ class TopMovimentacaoQuery
     /**
      * @param  'participante_id'|'cliente_id'  $coluna
      * @param  array<int, int>  $ids
-     * @return array<int, array<int, array{cfop:int, qtd:int}>>
+     * @return array<int, array<int, array{cfop:int, descricao:string, qtd:int, valor:float}>>
      */
     public function cfops(int $userId, string $coluna, array $ids, int $limite = 10): array
     {
@@ -82,13 +83,19 @@ class TopMovimentacaoQuery
             ->whereIn("n.{$coluna}", $ids)
             ->whereNotNull('c.cfop')
             ->groupBy("n.{$coluna}", 'c.cfop')
-            ->selectRaw("n.{$coluna} as escopo_id, c.cfop, COUNT(*) as qtd")
+            ->selectRaw("n.{$coluna} as escopo_id, c.cfop, COUNT(*) as qtd,
+                COALESCE(SUM(c.valor_operacao), 0) as valor")
             ->get();
 
         return $linhas
             ->groupBy('escopo_id')
-            ->map(fn ($g) => $g->sortByDesc('qtd')->take($limite)
-                ->map(fn ($r) => ['cfop' => (int) $r->cfop, 'qtd' => (int) $r->qtd])
+            ->map(fn ($g) => $g->sortByDesc('valor')->take($limite)
+                ->map(fn ($r) => [
+                    'cfop' => (int) $r->cfop,
+                    'descricao' => Cfop::descricao((string) $r->cfop),
+                    'qtd' => (int) $r->qtd,
+                    'valor' => round((float) $r->valor, 2),
+                ])
                 ->values()->all())
             ->all();
     }

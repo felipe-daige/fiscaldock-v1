@@ -92,12 +92,14 @@ it('produtos: respeita o limite', function () {
     expect($r[$d['cliente']][0]['cod_item'])->toBe('AGUA');
 });
 
-it('cfops: top por qtd no escopo', function () {
+it('cfops: top por valor no escopo, com descrição e valor', function () {
     $d = tmqSetup();
     $r = app(TopMovimentacaoQuery::class)->cfops($d['user']->id, 'cliente_id', [$d['cliente']]);
     $cfops = $r[$d['cliente']];
-    expect($cfops[0]['cfop'])->toBe(5102);  // 2 ocorrências
+    expect($cfops[0]['cfop'])->toBe(5102);              // 2 ocorrências × valor_operacao 100 = 200 (maior)
     expect($cfops[0]['qtd'])->toBe(2);
+    expect($cfops[0]['valor'])->toEqual(200.0);         // SUM(valor_operacao)
+    expect($cfops[0]['descricao'])->toContain('5102');  // descrição CONFAZ (App\Support\Cfop)
     expect(collect($cfops)->pluck('cfop')->all())->toContain(6108);
 });
 

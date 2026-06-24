@@ -52,7 +52,7 @@ class ParticipanteFiscalResumoService
             ->get(['id', 'razao_social', 'is_empresa_propria'])
             ->keyBy('id');
 
-        $cfopsPorParticipante = $comCfops ? $this->top->cfops($userId, 'participante_id', $ids, $this->panoramaVisivel()) : [];
+        $cfopsPorParticipante = $comCfops ? $this->top->cfops($userId, 'participante_id', $ids, $this->panoramaMaximo()) : [];
         $produtosPorParticipante = $comProdutos ? $this->top->produtos($userId, 'participante_id', $ids, $this->panoramaMaximo()) : [];
 
         $acc = [];
