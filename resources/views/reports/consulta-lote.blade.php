@@ -214,99 +214,13 @@
         </table>
     </div>
 
+    @if(!empty($analise) && !empty($analise['por_fonte']))
+        @include('reports.consulta-lote._analise-agregada', ['analise' => $analise])
+    @endif
+
     @if(!empty($detalhes) && $detalhes->count())
-        <div class="secao">
-            <div class="secao-header">Detalhamento por CNPJ — dados completos e comprovantes</div>
-        </div>
-
         @foreach($detalhes as $d)
-            <div class="cnpj-block">
-                <div class="cnpj-head">
-                    <table style="width: 100%; border-collapse: collapse;">
-                        <tr>
-                            <td style="border: none; padding: 0;">
-                                <span class="doc">{{ $d['documento'] ?: '—' }}</span>
-                                <span class="nome">— {{ \Illuminate\Support\Str::limit($d['razao_social'] ?: 'Sem razão social', 70) }}</span>
-                            </td>
-                            <td style="border: none; padding: 0; text-align: right;">
-                                @if($d['status_consulta'] !== 'sucesso')
-                                    <span class="badge" style="background-color: {{ \App\Support\Reports\ReportTheme::statusHex($d['status_consulta']) }}">{{ strtoupper($d['status_consulta']) }}</span>
-                                @elseif($d['consultado_em'])
-                                    <span class="small" style="color: #d1d5db;">{{ $d['consultado_em'] }}</span>
-                                @endif
-                            </td>
-                        </tr>
-                    </table>
-                </div>
-
-                @if($d['status_consulta'] !== 'sucesso')
-                    <div class="cnpj-resumo">Consulta não concluída: {{ $d['error_message'] ?: 'sem detalhe disponível' }}</div>
-                @else
-                    @if(!empty($d['resumo']))
-                        <div class="cnpj-resumo">{{ $d['resumo'] }}</div>
-                    @endif
-
-                    @if(!empty($d['blocos']))
-                        <table class="cards">
-                            @foreach(array_chunk($d['blocos'], 2) as $par)
-                                <tr>
-                                    @foreach($par as $bloco)
-                                        <td>
-                                            <div class="card">
-                                                <div class="card-head">
-                                                    <table style="width: 100%;">
-                                                        <tr>
-                                                            <td class="card-title">{{ $bloco['titulo'] }}</td>
-                                                            <td style="text-align: right;">
-                                                                @if(!empty($bloco['badge']))
-                                                                    <span class="badge" style="background-color: {{ $bloco['badge']['hex'] }}">{{ $bloco['badge']['label'] }}</span>
-                                                                @endif
-                                                            </td>
-                                                        </tr>
-                                                    </table>
-                                                </div>
-                                                <div class="card-body">
-                                                    @if(!empty($bloco['itens']))
-                                                        <table class="kv">
-                                                            @foreach($bloco['itens'] as $item)
-                                                                <tr>
-                                                                    <td class="k">{{ $item['label'] }}</td>
-                                                                    <td class="v">{{ $item['valor'] }}</td>
-                                                                </tr>
-                                                            @endforeach
-                                                        </table>
-                                                    @endif
-
-                                                    @foreach($bloco['listas'] as $lista)
-                                                        <div class="list-title">{{ $lista['titulo'] }}</div>
-                                                        @foreach($lista['linhas'] as $linha)
-                                                            <div class="list-item">• {{ $linha }}</div>
-                                                        @endforeach
-                                                    @endforeach
-
-                                                    @if(!empty($bloco['mensagem']))
-                                                        <div class="msg">{{ $bloco['mensagem'] }}</div>
-                                                    @endif
-
-                                                    @if(!empty($bloco['comprovante_url']))
-                                                        <div class="comprovante">
-                                                            <a href="{{ $bloco['comprovante_url'] }}">Baixar certidão / comprovante (PDF)</a>
-                                                            <div class="url">{{ $bloco['comprovante_url'] }}</div>
-                                                        </div>
-                                                    @endif
-                                                </div>
-                                            </div>
-                                        </td>
-                                    @endforeach
-                                    @if(count($par) === 1)
-                                        <td></td>
-                                    @endif
-                                </tr>
-                            @endforeach
-                        </table>
-                    @endif
-                @endif
-            </div>
+            @include('reports.consulta-lote._cnpj', ['d' => $d])
         @endforeach
     @endif
 @endsection

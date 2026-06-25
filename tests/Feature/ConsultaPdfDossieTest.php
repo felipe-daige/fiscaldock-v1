@@ -81,4 +81,67 @@ it('PDF do dossiê: render sem exceção + seções de panorama presentes', func
 
     // dompdf gera bytes sem exceção (pega CSS/HTML que o dompdf rejeita)
     expect(app(ConsultaReportService::class)->gerarPdf($lote)->output())->not->toBeEmpty();
-})->skip('integração validada na Task 3 — depende do _cnpj');
+});
+
+function pdfDetLoteSemAcervo(User $user): ConsultaLote
+{
+    $part = Participante::create([
+        'user_id' => $user->id, 'documento' => '22222222000122',
+        'razao_social' => 'SEM ACERVO', 'uf' => 'RJ', 'crt' => '3',
+    ]);
+    $lote = ConsultaLote::create([
+        'user_id' => $user->id, 'plano_id' => dossiePlano()->id, 'status' => ConsultaLote::STATUS_FINALIZADO,
+        'total_participantes' => 1, 'creditos_cobrados' => 0, 'tab_id' => 'tab-sa-'.uniqid(), 'processado_em' => now(),
+    ]);
+    $lote->participantes()->attach([$part->id]);
+    ConsultaResultado::create([
+        'consulta_lote_id' => $lote->id, 'participante_id' => $part->id,
+        'status' => ConsultaResultado::STATUS_SUCESSO,
+        'resultado_dados' => ['razao_social' => 'SEM ACERVO', 'situacao_cadastral' => 'ATIVA'],
+        'consultado_em' => now(),
+    ]);
+
+    return $lote;
+}
+
+it('PDF do dossiê: crédito IBS/CBS com passo a passo (valores batem com o service)', function () {
+    $user = User::factory()->create();
+    [$lote, $part] = dossieLoteComAcervo($user);
+
+    $html = view('reports.consulta-lote', app(ConsultaReportService::class)->dadosRelatorio($lote))->render();
+
+    expect($html)->toContain('Crédito tributário')
+        ->toContain('Crédito potencial')
+        ->toContain('Base');
+
+    // paridade: usa o MESMO credito_reforma que o PDF renderizou (via getDetalhes)
+    $cr = app(ConsultaReportService::class)->getDetalhes($lote)->first()['fiscal_resumo']['credito_reforma'];
+    $potencial = number_format($cr['fornecedor']['credito_potencial'], 2, ',', '.');
+    expect($html)->toContain($potencial);
+});
+
+it('PDF do dossiê: CNPJ sem acervo omite panorama com nota', function () {
+    $user = User::factory()->create();
+    $lote = pdfDetLoteSemAcervo($user);
+
+    $html = view('reports.consulta-lote', app(ConsultaReportService::class)->dadosRelatorio($lote))->render();
+
+    expect($html)->toContain('Sem movimentação no acervo')
+        ->not->toContain('AGUA MINERAL');
+});
+
+it('PDF do dossiê: 1 página por CNPJ (page-break com 2+ CNPJs)', function () {
+    $user = User::factory()->create();
+    [$lote] = dossieLoteComAcervo($user);
+    // 2º CNPJ no mesmo lote → o 2º recebe page-break-before
+    $p2 = Participante::create(['user_id' => $user->id, 'documento' => '33333333000133', 'razao_social' => 'SEGUNDO', 'uf' => 'MG', 'crt' => '3']);
+    $lote->participantes()->attach([$p2->id]);
+    ConsultaResultado::create([
+        'consulta_lote_id' => $lote->id, 'participante_id' => $p2->id,
+        'status' => ConsultaResultado::STATUS_SUCESSO,
+        'resultado_dados' => ['razao_social' => 'SEGUNDO', 'situacao_cadastral' => 'ATIVA'],
+        'consultado_em' => now(),
+    ]);
+    $html = view('reports.consulta-lote', app(ConsultaReportService::class)->dadosRelatorio($lote))->render();
+    expect($html)->toContain('page-break-before');
+});
