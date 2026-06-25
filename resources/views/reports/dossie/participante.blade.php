@@ -33,5 +33,6 @@
 @section('conteudo')
     @include('reports.dossie._resumo')
     @include('reports.dossie._infograficos')
+    @include('reports.dossie._listas-movimentacao', ['top_produtos' => $top_produtos ?? [], 'top_cfops' => $top_cfops ?? []])
     @include('reports.dossie._detalhamento')
 @endsection

@@ -8,7 +8,9 @@ use App\Models\EfdNota;
 use App\Models\MonitoramentoPlano;
 use App\Models\Participante;
 use App\Models\User;
+use App\Services\Participantes\DossieParticipanteBuilder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
 
@@ -50,4 +52,39 @@ it('a view do dossie renderiza secoes de consulta e movimentacao', function () {
         ->and($html)->toContain('Regularidade')
         ->and($html)->toContain('Infográficos')
         ->and($html)->toContain('Detalhamento');
+});
+
+it('dossiê PDF lista principais produtos e CFOP detalhado', function () {
+    $user = User::factory()->create();
+    $p = Participante::create(['user_id' => $user->id, 'documento' => '07863768000138', 'razao_social' => 'ACME LTDA', 'uf' => 'SP', 'crt' => '3']);
+    $cliente = DB::table('clientes')->insertGetId([
+        'user_id' => $user->id, 'razao_social' => 'EMP', 'documento' => '00000000000100',
+        'is_empresa_propria' => true, 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    $imp = EfdImportacao::create(['user_id' => $user->id, 'cliente_id' => $cliente, 'tipo_efd' => 'EFD ICMS/IPI', 'filename' => 'f.txt', 'status' => 'concluido', 'iniciado_em' => now()]);
+    $nota = EfdNota::create([
+        'user_id' => $user->id, 'cliente_id' => $cliente, 'participante_id' => $p->id,
+        'importacao_id' => $imp->id, 'numero' => '1', 'serie' => '1', 'modelo' => '55',
+        'origem_arquivo' => 'fiscal', 'tipo_operacao' => 'entrada', 'valor_total' => 1000,
+        'valor_desconto' => 0, 'cancelada' => false, 'data_emissao' => '2024-05-01',
+    ]);
+    DB::table('efd_notas_itens')->insert([
+        'efd_nota_id' => $nota->id, 'user_id' => $user->id, 'numero_item' => 1,
+        'codigo_item' => 'AGUA', 'descricao' => 'AGUA MINERAL', 'quantidade' => 1,
+        'unidade_medida' => 'UN', 'valor_unitario' => 1000, 'valor_total' => 1000,
+        'cfop' => 1102, 'cst_icms' => '00', 'aliquota_icms' => 18, 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    DB::table('efd_notas_consolidados')->insert([
+        'efd_nota_id' => $nota->id, 'user_id' => $user->id, 'cfop' => 1102, 'cst_icms' => '00',
+        'aliquota_icms' => 18, 'valor_operacao' => 1000, 'valor_bc_icms' => 1000, 'valor_icms' => 180,
+        'valor_bc_icms_st' => 0, 'valor_icms_st' => 0, 'valor_reducao_bc' => 0, 'valor_ipi' => 0,
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    $dados = app(DossieParticipanteBuilder::class)->montar($p);
+    $html = view('reports.dossie.participante', $dados)->render();
+
+    expect($html)->toContain('Principais produtos')
+        ->toContain('AGUA MINERAL')   // descrição do produto do acervo
+        ->toContain('1102');          // CFOP na lista detalhada
 });
