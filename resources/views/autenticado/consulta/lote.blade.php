@@ -489,7 +489,7 @@
                                     <tr id="consulta-detalhe-d-{{ $loop->index }}" class="{{ $autoAbrirDetalhe ? '' : 'hidden' }}">
                                         <td colspan="7" class="px-4 py-4 bg-gray-50/60 border-t border-gray-100">
                                             @include('autenticado.consulta.partials.detalhe-blocos', ['blocos' => $resultado['detalhe_blocos'] ?? [], 'resumo' => $resultado['resumo_texto'] ?? null, 'certidoes' => $resultado['certidoes'] ?? [], 'cabecalho' => ['razao' => $resultado['razao_social'] ?? null, 'documento' => $resultado['documento_formatado'] ?? null, 'uf' => $resultado['uf'] ?? null, 'situacao' => $resultado['situacao_cadastral'] ?? null]])
-                                            @include('autenticado.consulta.partials.relacionamento-fiscal', ['fiscal' => $resultado['fiscal_resumo'] ?? null])
+                                            @include('autenticado.consulta.partials.relacionamento-fiscal', ['fiscal' => $resultado['fiscal_resumo'] ?? null, 'cabecalho' => ['razao' => $resultado['razao_social'] ?? null, 'documento' => $resultado['documento_formatado'] ?? null, 'uf' => $resultado['uf'] ?? null]])
                                         </td>
                                     </tr>
                                 @endforeach
@@ -565,7 +565,7 @@
                                 </button>
                                 <div id="consulta-detalhe-m-{{ $loop->index }}" class="{{ $autoAbrirDetalhe ? '' : 'hidden ' }}mt-3">
                                     @include('autenticado.consulta.partials.detalhe-blocos', ['blocos' => $resultado['detalhe_blocos'] ?? [], 'resumo' => $resultado['resumo_texto'] ?? null, 'certidoes' => $resultado['certidoes'] ?? [], 'cabecalho' => ['razao' => $resultado['razao_social'] ?? null, 'documento' => $resultado['documento_formatado'] ?? null, 'uf' => $resultado['uf'] ?? null, 'situacao' => $resultado['situacao_cadastral'] ?? null]])
-                                    @include('autenticado.consulta.partials.relacionamento-fiscal', ['fiscal' => $resultado['fiscal_resumo'] ?? null])
+                                    @include('autenticado.consulta.partials.relacionamento-fiscal', ['fiscal' => $resultado['fiscal_resumo'] ?? null, 'cabecalho' => ['razao' => $resultado['razao_social'] ?? null, 'documento' => $resultado['documento_formatado'] ?? null, 'uf' => $resultado['uf'] ?? null]])
                                 </div>
                             </div>
                         @endforeach
