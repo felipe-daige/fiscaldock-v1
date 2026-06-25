@@ -62,6 +62,54 @@
             </div>
         </div>
 
+            @if(!empty($fiscal['credito_reforma']))
+                @php($cr = $fiscal['credito_reforma'])
+                @php($crHex = ['verde' => '#047857', 'amarelo' => '#b45309', 'vermelho' => '#b91c1c', 'cinza' => '#6b7280'])
+                <div class="rounded border border-gray-100 bg-white px-2.5 py-2" data-credito-reforma>
+                    <p class="text-[10px] text-gray-400 uppercase tracking-wide mb-1.5">Crédito tributário (IBS/CBS · pleno)</p>
+
+                    @if(!empty($cr['fornecedor']))
+                        @php($f = $cr['fornecedor'])
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="inline-block w-2 h-2 rounded-full" style="background-color: {{ $crHex[$f['flag']] ?? '#6b7280' }}"></span>
+                            <span class="text-xs text-gray-700">
+                                Fornecedor: {{ $f['gera_credito'] }}.
+                                @if($f['credito_em_risco'] !== null)
+                                    <strong class="font-mono">R$ {{ number_format($f['credito_em_risco'], 2, ',', '.') }}</strong> em risco
+                                @else
+                                    <span class="text-gray-500">Regime do fornecedor não consultado — rode a consulta pra estimar o crédito.</span>
+                                @endif
+                            </span>
+                        </div>
+                    @endif
+
+                    @if(!empty($cr['cliente_b2b']))
+                        @php($b = $cr['cliente_b2b'])
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="inline-block w-2 h-2 rounded-full" style="background-color: {{ $crHex[$b['flag']] ?? '#6b7280' }}"></span>
+                            <span class="text-xs text-gray-700">
+                                Você transfere <strong class="font-mono">R$ {{ number_format($b['credito_transferido'], 2, ',', '.') }}</strong> de crédito a este comprador (B2B).
+                            </span>
+                        </div>
+                    @endif
+
+                    @php($crTemRisco = !empty($cr['fornecedor']) && $cr['fornecedor']['credito_em_risco'] !== null)
+                    @php($crTemLegado = !empty($cr['legado']))
+                    @if($crTemRisco || $crTemLegado)
+                    <details class="mt-1">
+                        <summary class="text-[11px] text-blue-600 cursor-pointer select-none">Como calculamos ▸</summary>
+                        @if($crTemRisco)
+                            <p class="text-[10px] text-gray-500 mt-1 font-mono">Potencial pleno: R$ {{ number_format($cr['fornecedor']['credito_potencial'], 2, ',', '.') }} · alíquota {{ number_format($cr['fornecedor']['aliquota'] * 100, 1, ',', '.') }}%</p>
+                        @endif
+                        @if($crTemLegado)
+                            <p class="text-[10px] text-gray-500 mt-1">Regime atual: <strong class="font-mono">R$ {{ number_format($cr['legado']['destacado'], 2, ',', '.') }}</strong> destacado nas entradas (ICMS+PIS+COFINS+IPI).</p>
+                        @endif
+                        @include('autenticado.consulta.partials._credito-reforma-metodologia')
+                    </details>
+                    @endif
+                </div>
+            @endif
+
         <div class="px-3.5 py-3 space-y-3.5">
             @php($pfVisivel = (int) config('consultas.panorama_fiscal.visivel', 10))
 
