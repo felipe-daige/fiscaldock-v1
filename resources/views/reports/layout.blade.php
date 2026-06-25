@@ -22,7 +22,7 @@
         .secao-header .meta { float:right; font-weight:normal; color:#cbd5e1; letter-spacing:.04em; text-transform:none; }
         .secao-body { padding:8px 2px; }
 
-        .badge { color:#fff; padding:1px 6px; border-radius:3px; font-size:8px; font-weight:bold; text-transform:uppercase; }
+        .badge { color:#fff; padding:1px 6px; border-radius:3px; font-size:8px; font-weight:bold; text-transform:uppercase; white-space:nowrap; }
         .mono { font-family:"DejaVu Sans Mono", monospace; }
         table { border-collapse:collapse; width:100%; }
 
@@ -33,6 +33,8 @@
         .center { text-align:center; }
         /* Tabela padrão: th claro com régua slate, td hairline, zebra leve */
         .table th { background:#f9fafb; border-bottom:1.5px solid #1f2937; padding:6px 5px; text-align:left; font-size:7.5px; color:#6b7280; text-transform:uppercase; letter-spacing:.08em; }
+        .table th.right { text-align:right; }
+        .table th.center { text-align:center; }
         .table td { border-bottom:1px solid #f3f4f6; padding:5px; vertical-align:top; font-size:8px; color:#374151; }
         .table tbody tr:nth-child(even) td { background:#fbfbfc; }
         /* Card padrão: hairline + faixa-topo slate (sem caixa pesada) */

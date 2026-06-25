@@ -23,7 +23,8 @@
                 @if($consulta['tem'])
                     @foreach(array_slice($consulta['blocos'], 0, 6) as $b)
                         @if(!empty($b['badge']))
-                            <span class="badge" style="background-color: {{ $b['badge']['hex'] }}">{{ $b['titulo'] }}: {{ $b['badge']['label'] }}</span>
+                            <span class="badge" style="background-color: {{ $b['badge']['hex'] }}; display:inline-block; margin:0 0 3px 0;">{{ $b['titulo'] }}: {{ $b['badge']['label'] }}</span><br>
+
                         @endif
                     @endforeach
                 @else
