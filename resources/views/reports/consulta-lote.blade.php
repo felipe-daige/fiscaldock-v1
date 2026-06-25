@@ -66,7 +66,7 @@
     .msg { font-size: 7px; color: #6b7280; font-style: italic; border-left: 2px solid #e5e7eb; padding-left: 5px; margin-top: 5px; }
     .comprovante { margin-top: 6px; font-size: 8px; }
     .comprovante a { color: #1d4ed8; text-decoration: underline; font-weight: bold; }
-    .comprovante .url { font-family: DejaVu Sans Mono, monospace; font-size: 6px; color: #9ca3af; word-wrap: break-word; overflow-wrap: break-word; margin-top: 1px; }
+    .comprovante .url { font-family: DejaVu Sans Mono, monospace; font-size: 6px; color: #9ca3af; word-break: break-all; margin-top: 1px; }
 </style>
 @endpush
 
