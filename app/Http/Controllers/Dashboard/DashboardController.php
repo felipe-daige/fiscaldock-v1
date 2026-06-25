@@ -12,6 +12,7 @@ use App\Models\CreditTransaction;
 use App\Models\EfdImportacao;
 use App\Models\Participante;
 use App\Services\AlertaCentralService;
+use App\Services\Consultas\Fiscal\TopMovimentacaoQuery;
 use App\Services\Consultas\ResultadoDetalhePresenter;
 use App\Services\Dashboard\DashboardDataService;
 use App\Services\NotaFiscalService;
@@ -480,6 +481,10 @@ class DashboardController extends Controller
             'notasEntityId' => $cliente->id,
         ];
 
+        $topMov = app(TopMovimentacaoQuery::class);
+        $viewData['top_produtos'] = $topMov->produtos((int) Auth::id(), 'cliente_id', [$cliente->id], 10)[$cliente->id] ?? [];
+        $viewData['top_cfops'] = $topMov->cfops((int) Auth::id(), 'cliente_id', [$cliente->id], 10)[$cliente->id] ?? [];
+
         if ($this->isAjaxRequest($request)) {
             // Modal requests send Accept: application/json — return JSON for the modal to populate
             if ($request->wantsJson() || $request->expectsJson()) {
@@ -912,7 +917,7 @@ class DashboardController extends Controller
         $pricing = $this->pricingCatalogService->getCommercialSummaryForUser($user);
 
         // KPI 1: Saldo atual
-        $saldoAtual = (int) $user->credits;
+        $saldoAtual = (float) $user->credits;
 
         // KPI 2: Creditos usados no mes
         $creditosUsadosMes = ConsultaLote::where('user_id', $user->id)
@@ -998,7 +1003,7 @@ class DashboardController extends Controller
         $user = Auth::user();
         $pricing = $this->pricingCatalogService->getCommercialSummaryForUser($user);
 
-        $saldoAtual = (int) $user->credits;
+        $saldoAtual = (float) $user->credits;
 
         $totalRecebido = (int) CreditTransaction::where('user_id', $user->id)
             ->where('amount', '>', 0)
@@ -1164,9 +1169,9 @@ class DashboardController extends Controller
             'started_at' => $user->trial_started_at,
             'expires_at' => $expiresAt,
             'days_remaining' => $isActive && $expiresAt ? max(0, now()->diffInDays($expiresAt, false)) : 0,
-            'granted' => (int) $user->trial_credits_granted,
-            'remaining' => (int) $user->trial_credits_remaining,
-            'expired' => (int) $user->trial_credits_expired,
+            'granted' => (float) $user->trial_credits_granted,
+            'remaining' => (float) $user->trial_credits_remaining,
+            'expired' => (float) $user->trial_credits_expired,
         ];
     }
 }

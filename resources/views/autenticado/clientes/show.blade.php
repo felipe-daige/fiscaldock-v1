@@ -149,6 +149,8 @@
                         'entityId' => $notasEntityId,
                     ])
                 </div>
+
+                @include('autenticado.monitoramento._movimentacao-listas', ['top_produtos' => $top_produtos ?? [], 'top_cfops' => $top_cfops ?? []])
             </div>
 
             <div class="space-y-6">
