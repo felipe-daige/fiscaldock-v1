@@ -101,6 +101,55 @@ class TopMovimentacaoQuery
     }
 
     /**
+     * Maiores notas (por valor) de cada escopo, separadas por tipo_operacao.
+     * Top-N por (escopo, tipo) via window function — não puxa todas as notas pro PHP.
+     *
+     * @param  'participante_id'|'cliente_id'  $coluna
+     * @param  array<int, int>  $ids
+     * @return array<int, array{entrada: array<int, array{modelo:?string, numero:?string, serie:?string, data:?string, chave:?string, valor:float}>, saida: array<int, array{modelo:?string, numero:?string, serie:?string, data:?string, chave:?string, valor:float}>}>
+     */
+    public function notas(int $userId, string $coluna, array $ids, int $limite = 30): array
+    {
+        $this->assertColuna($coluna);
+        $ids = array_values(array_unique(array_filter($ids)));
+        if ($ids === []) {
+            return [];
+        }
+
+        $sub = DB::table('efd_notas as n')
+            ->where('n.user_id', $userId)
+            ->where('n.origem_arquivo', 'fiscal')
+            ->where('n.cancelada', false)
+            ->whereIn("n.{$coluna}", $ids)
+            ->selectRaw("n.{$coluna} as escopo_id, n.tipo_operacao, n.modelo, n.numero,
+                n.serie, n.data_emissao, n.chave_acesso, n.valor_total,
+                ROW_NUMBER() OVER (PARTITION BY n.{$coluna}, n.tipo_operacao
+                    ORDER BY n.valor_total DESC NULLS LAST, n.id) as rn");
+
+        $linhas = DB::query()->fromSub($sub, 't')->where('rn', '<=', $limite)->get();
+
+        return $linhas
+            ->groupBy('escopo_id')
+            ->map(function ($g) {
+                $porTipo = $g->groupBy('tipo_operacao')
+                    ->map(fn ($notas) => $notas->sortByDesc('valor_total')->map(fn ($r) => [
+                        'modelo' => $r->modelo !== null ? (string) $r->modelo : null,
+                        'numero' => $r->numero !== null ? (string) $r->numero : null,
+                        'serie' => $r->serie !== null ? (string) $r->serie : null,
+                        'data' => $r->data_emissao ? substr((string) $r->data_emissao, 0, 10) : null,
+                        'chave' => $r->chave_acesso !== null && $r->chave_acesso !== '' ? (string) $r->chave_acesso : null,
+                        'valor' => round((float) $r->valor_total, 2),
+                    ])->values()->all());
+
+                return [
+                    'entrada' => $porTipo->get('entrada', []),
+                    'saida' => $porTipo->get('saida', []),
+                ];
+            })
+            ->all();
+    }
+
+    /**
      * Crédito DESTACADO (regime atual) nas ENTRADAS de cada escopo, somando
      * ICMS+IPI (consolidado C190) e PIS+COFINS (itens). Gate: só conta entradas
      * cujo comprador (clientes.crt = 3, Regime Normal) credita — Simples/MEI ficam de fora.

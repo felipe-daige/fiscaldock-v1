@@ -124,3 +124,67 @@ it('não vaza produtos nem cfops entre usuários', function () {
     expect(app(TopMovimentacaoQuery::class)->produtos($outro->id, 'cliente_id', [$d['cliente']]))->toBe([]);
     expect(app(TopMovimentacaoQuery::class)->cfops($outro->id, 'cliente_id', [$d['cliente']]))->toBe([]);
 });
+
+function tmqNota(array $d, string $op, float $v, string $mod = '55', ?string $chave = null): int
+{
+    return EfdNota::create([
+        'user_id' => $d['user']->id, 'cliente_id' => $d['cliente'], 'participante_id' => $d['part'],
+        'importacao_id' => EfdImportacao::where('user_id', $d['user']->id)->value('id'),
+        'numero' => (string) random_int(1, 1_000_000), 'serie' => '1', 'modelo' => $mod,
+        'origem_arquivo' => 'fiscal', 'tipo_operacao' => $op, 'valor_total' => $v,
+        'valor_desconto' => 0, 'cancelada' => false, 'data_emissao' => '2024-05-02',
+        'chave_acesso' => $chave,
+    ])->id;
+}
+
+it('notas: top por valor separado por entrada/saida no escopo', function () {
+    $d = tmqSetup();
+    tmqNota($d, 'saida', 900.0, '55', str_repeat('9', 44));
+    tmqNota($d, 'saida', 400.0);
+    tmqNota($d, 'entrada', 700.0);
+
+    $r = app(TopMovimentacaoQuery::class)->notas($d['user']->id, 'participante_id', [$d['part']]);
+
+    expect($r)->toHaveKey($d['part']);
+    $ent = $r[$d['part']]['entrada'];
+    $sai = $r[$d['part']]['saida'];
+
+    expect($ent[0]['valor'])->toEqual(1300.0);   // maior entrada (nota do setup)
+    expect($ent[1]['valor'])->toEqual(700.0);
+    expect($sai[0]['valor'])->toEqual(900.0);     // maior saída
+    expect($sai[1]['valor'])->toEqual(400.0);
+    expect($sai[0]['modelo'])->toBe('55');
+    expect($sai[0]['chave'])->toBe(str_repeat('9', 44));
+});
+
+it('notas: respeita o limite por tipo', function () {
+    $d = tmqSetup();
+    tmqNota($d, 'saida', 100.0);
+    tmqNota($d, 'saida', 200.0);
+    tmqNota($d, 'saida', 300.0);
+
+    $r = app(TopMovimentacaoQuery::class)->notas($d['user']->id, 'participante_id', [$d['part']], 2);
+    expect($r[$d['part']]['saida'])->toHaveCount(2);
+    expect($r[$d['part']]['saida'][0]['valor'])->toEqual(300.0);
+});
+
+it('notas: exclui canceladas e outra origem; não vaza entre usuários', function () {
+    $d = tmqSetup();
+    EfdNota::create([
+        'user_id' => $d['user']->id, 'cliente_id' => $d['cliente'], 'participante_id' => $d['part'],
+        'importacao_id' => EfdImportacao::where('user_id', $d['user']->id)->value('id'),
+        'numero' => '999', 'serie' => '1', 'modelo' => '55', 'origem_arquivo' => 'fiscal',
+        'tipo_operacao' => 'saida', 'valor_total' => 99999, 'valor_desconto' => 0,
+        'cancelada' => true, 'data_emissao' => '2024-05-04',
+    ]);
+
+    $r = app(TopMovimentacaoQuery::class)->notas($d['user']->id, 'participante_id', [$d['part']]);
+    expect(collect($r[$d['part']]['saida'])->pluck('valor'))->not->toContain(99999.0);
+
+    $outro = App\Models\User::factory()->create();
+    expect(app(TopMovimentacaoQuery::class)->notas($outro->id, 'participante_id', [$d['part']]))->toBe([]);
+});
+
+it('notas: ids vazios retornam array vazio', function () {
+    expect(app(TopMovimentacaoQuery::class)->notas(1, 'cliente_id', []))->toBe([]);
+});
