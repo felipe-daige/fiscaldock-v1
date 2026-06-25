@@ -767,6 +767,12 @@ class ParticipanteController extends Controller
         $data['top_produtos'] = $topMov->produtos($participante->user_id, 'participante_id', [$participante->id], 10)[$participante->id] ?? [];
         $data['top_cfops'] = $topMov->cfops($participante->user_id, 'participante_id', [$participante->id], 10)[$participante->id] ?? [];
 
+        $scoreCalc = $ultimaConsulta?->calcularScore();
+        $data['score'] = $scoreCalc;
+        $data['score_detalhamento'] = $scoreCalc
+            ? app(\App\Services\RiskScoreService::class)->detalhar($scoreCalc['scores'])
+            : [];
+
         if ($this->isAjaxRequest($request)) {
             $renderedView = view($participanteView, $data)->render();
 
