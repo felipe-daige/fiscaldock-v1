@@ -427,14 +427,12 @@
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
                                                     </svg>
                                                 </button>
-                                                <div class="min-w-0">
+                                                <div class="min-w-0 max-w-[280px]">
                                                     <div class="text-sm text-gray-900">
                                                         @if(!empty($resultado['participante_id']))
-                                                            <a href="/app/participante/{{ $resultado['participante_id'] }}" data-link class="text-gray-900 hover:text-gray-600 hover:underline font-medium">
-                                                                {{ $resultado['razao_social'] ?: 'Sem razão social' }}
-                                                            </a>
+                                                            <a href="/app/participante/{{ $resultado['participante_id'] }}" data-link title="{{ $resultado['razao_social'] }}" class="block truncate text-gray-900 hover:text-gray-600 hover:underline font-medium">{{ $resultado['razao_social'] ?: 'Sem razão social' }}</a>
                                                         @else
-                                                            {{ $resultado['razao_social'] ?: 'Sem razão social' }}
+                                                            <span class="block truncate font-medium" title="{{ $resultado['razao_social'] }}">{{ $resultado['razao_social'] ?: 'Sem razão social' }}</span>
                                                         @endif
                                                     </div>
                                                     <div class="text-[11px] text-gray-500 mt-1 font-mono">
@@ -508,9 +506,9 @@
                                     <div class="min-w-0">
                                         <p class="text-sm">
                                             @if(!empty($resultado['participante_id']))
-                                                <a href="/app/participante/{{ $resultado['participante_id'] }}" data-link class="text-gray-900 hover:text-gray-600 hover:underline font-medium">{{ $resultado['razao_social'] ?: 'Sem razão social' }}</a>
+                                                <a href="/app/participante/{{ $resultado['participante_id'] }}" data-link title="{{ $resultado['razao_social'] }}" class="block truncate text-gray-900 hover:text-gray-600 hover:underline font-medium">{{ $resultado['razao_social'] ?: 'Sem razão social' }}</a>
                                             @else
-                                                <span class="text-gray-900 font-medium">{{ $resultado['razao_social'] ?: 'Sem razão social' }}</span>
+                                                <span class="block truncate text-gray-900 font-medium" title="{{ $resultado['razao_social'] }}">{{ $resultado['razao_social'] ?: 'Sem razão social' }}</span>
                                             @endif
                                         </p>
                                         <p class="text-[11px] text-gray-500 mt-1 font-mono">{{ $resultado['documento_formatado'] ?: '—' }}@if(!empty($resultado['uf'])) · {{ $resultado['uf'] }}@endif</p>
