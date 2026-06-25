@@ -4,7 +4,10 @@ namespace App\Services;
 
 use App\Models\ConsultaLote;
 use App\Models\ConsultaResultado;
+use App\Services\Consultas\ClienteFiscalResumoService;
+use App\Services\Consultas\ParticipanteFiscalResumoService;
 use App\Services\Consultas\ResultadoDetalhePresenter;
+use App\Services\Reforma\CreditoReformaCardService;
 use App\Support\CsvExport;
 use Illuminate\Support\Collection;
 
@@ -41,13 +44,17 @@ class ConsultaReportService
     public function dadosRelatorio(ConsultaLote $lote): array
     {
         $resultados = $this->getResultadosFormatados($lote);
+        $detalhes = $this->getDetalhes($lote);
 
         return [
             'lote' => $lote,
             'plano' => $lote->plano,
             'resultados' => $resultados,
             'resumo' => $this->calcularResumo($resultados),
-            'detalhes' => $this->getDetalhes($lote),
+            'detalhes' => $detalhes,
+            'analise' => $this->detalhePresenter->analiseLote(
+                $detalhes->map(fn ($d) => ['detalhe_blocos' => $d['blocos']])->all()
+            ),
             'gerado_em' => now()->format('d/m/Y H:i'),
         ];
     }
@@ -93,28 +100,56 @@ class ConsultaReportService
             ['cnd_federal', 'cnd_estadual', 'cnd_municipal', 'crf_fgts', 'cndt', 'sintegra'],
         ));
 
-        return $lote->resultados()
-            ->with(['participante', 'cliente'])
-            ->get()
-            ->map(function (ConsultaResultado $resultado) use ($esperadasCert) {
-                $alvo = $resultado->participante ?? $resultado->cliente;
-                $dados = $resultado->resultado_dados ?? [];
+        $resultados = $lote->resultados()
+            ->with(['participante', 'participante.score', 'cliente'])
+            ->get();
 
-                return [
-                    'documento' => $this->formatarCnpj($alvo?->documento),
-                    'razao_social' => $dados['razao_social'] ?? $alvo?->razao_social,
-                    'nome_fantasia' => $dados['nome_fantasia'] ?? $alvo?->nome_fantasia,
-                    'status_consulta' => $resultado->status,
-                    'error_message' => $resultado->publicErrorMessage(),
-                    'consultado_em' => $resultado->consultado_em?->format('d/m/Y H:i'),
-                    'resumo' => $resultado->status === ConsultaResultado::STATUS_SUCESSO
-                        ? $this->detalhePresenter->resumoTextual($resultado)
-                        : null,
-                    'blocos' => $resultado->status === ConsultaResultado::STATUS_SUCESSO
-                        ? $this->detalhePresenter->blocos($resultado, $esperadasCert)
-                        : [],
-                ];
-            });
+        $participanteIds = $resultados->pluck('participante_id')->filter()->unique()->values()->all();
+        $clienteIds = $resultados->pluck('cliente_id')->filter()->unique()->values()->all();
+
+        $fiscalResumos = app(ParticipanteFiscalResumoService::class)
+            ->paraParticipantes($lote->user_id, $participanteIds, comCfops: true, comProdutos: true, comNotas: true);
+        $clienteResumos = app(ClienteFiscalResumoService::class)
+            ->paraClientes($lote->user_id, $clienteIds);
+        $creditoService = app(CreditoReformaCardService::class);
+
+        return $resultados->map(function (ConsultaResultado $resultado) use ($esperadasCert, $fiscalResumos, $clienteResumos, $creditoService, $lote) {
+            $alvo = $resultado->participante ?? $resultado->cliente;
+            $dados = $resultado->resultado_dados ?? [];
+
+            $fiscalResumo = $resultado->participante_id
+                ? ($fiscalResumos[$resultado->participante_id] ?? null)
+                : ($resultado->cliente_id ? ($clienteResumos[$resultado->cliente_id] ?? null) : null);
+
+            if ($fiscalResumo !== null && $resultado->participante_id && $resultado->participante) {
+                $fiscalResumo['credito_reforma'] = $creditoService
+                    ->montar($lote->user_id, $resultado->participante, $fiscalResumo, $dados);
+            }
+
+            $situacao = trim((string) $resultado->getDado('situacao_cadastral'));
+
+            return [
+                'participante_id' => $resultado->participante_id,
+                'cliente_id' => $resultado->cliente_id,
+                'documento' => $this->formatarCnpj($alvo?->documento),
+                'razao_social' => $dados['razao_social'] ?? $alvo?->razao_social,
+                'nome_fantasia' => $dados['nome_fantasia'] ?? $alvo?->nome_fantasia,
+                'uf' => $alvo?->uf ?: ($dados['endereco']['uf'] ?? null),
+                'situacao_cadastral' => $situacao !== '' ? $situacao : '—',
+                'regime_tributario' => $resultado->getRegimeTributarioLabel() ?: '—',
+                'status' => $resultado->status,
+                'status_consulta' => $resultado->status,
+                'error_message' => $resultado->publicErrorMessage(),
+                'consultado_em' => $resultado->consultado_em?->format('d/m/Y H:i'),
+                'resumo' => $resultado->status === ConsultaResultado::STATUS_SUCESSO
+                    ? $this->detalhePresenter->resumoTextual($resultado)
+                    : null,
+                'blocos' => $resultado->status === ConsultaResultado::STATUS_SUCESSO
+                    ? $this->detalhePresenter->blocos($resultado, $esperadasCert)
+                    : [],
+                'fiscal_resumo' => $fiscalResumo,
+            ];
+        });
     }
 
     /**

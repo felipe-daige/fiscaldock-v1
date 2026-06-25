@@ -113,3 +113,29 @@ it('view PDF renderiza detalhamento completo com links de comprovante clicaveis'
         ->toContain('CNDT')
         ->toContain('SINTEGRA');
 });
+
+it('getDetalhes traz fiscal_resumo e credito_reforma com identificação por CNPJ', function () {
+    $user = User::factory()->create();
+    $lote = pdfDetLote($user);
+    pdfDetResultado($lote, $user);
+
+    $d = app(ConsultaReportService::class)->getDetalhes($lote)->first();
+
+    expect($d)->toHaveKeys(['participante_id', 'uf', 'situacao_cadastral', 'regime_tributario', 'status', 'fiscal_resumo']);
+    expect($d['uf'])->toBe('SP');
+    expect($d['situacao_cadastral'])->toBe('ATIVA');
+    expect($d['status'])->toBe(App\Models\ConsultaResultado::STATUS_SUCESSO);
+    // sem acervo EFD nesse fixture → fiscal_resumo null, sem erro
+    expect($d['fiscal_resumo'])->toBeNull();
+});
+
+it('dadosRelatorio inclui chave analise com por_fonte', function () {
+    $user = User::factory()->create();
+    $lote = pdfDetLote($user);
+    pdfDetResultado($lote, $user);
+
+    $dados = app(ConsultaReportService::class)->dadosRelatorio($lote);
+
+    expect($dados)->toHaveKey('analise');
+    expect($dados['analise']['por_fonte'])->toBeArray();
+});
