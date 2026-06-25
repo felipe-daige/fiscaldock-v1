@@ -28,12 +28,12 @@
     @endforeach
 </div>
 
-@php($sitBase = array_sum($sit))
 <div class="panorama-bloco">
     <div class="list-title">Situação cadastral</div>
     @if(empty($sit))
         <div class="msg">—</div>
     @else
+        @php($sitBase = array_sum($sit))
         @foreach(collect($sit)->sortDesc()->all() as $situacao => $n)
             @include('reports.consulta-lote._barra-linha', ['label' => $situacao ?: '—', 'n' => (int) $n, 'pct' => $sitBase > 0 ? round(100 * $n / $sitBase, 1) : 0, 'hex' => \App\Support\Reports\ReportTheme::statusHex((string) $situacao)])
         @endforeach
