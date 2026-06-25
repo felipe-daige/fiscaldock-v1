@@ -56,6 +56,7 @@ class ConsultaReportService
                 $detalhes->map(fn ($d) => ['detalhe_blocos' => $d['blocos']])->all()
             ),
             'gerado_em' => now()->format('d/m/Y H:i'),
+            'emitente' => $this->emitenteDoLote($lote),
         ];
     }
 
@@ -225,6 +226,17 @@ class ConsultaReportService
                 'dados_completos' => $dados,
             ];
         });
+    }
+
+    /** Emitente do relatório: razão social da empresa própria (CNPJ 14 díg) ou nome do usuário. */
+    private function emitenteDoLote(ConsultaLote $lote): string
+    {
+        $empresa = \App\Models\Cliente::where('user_id', $lote->user_id)
+            ->empresaPropria()
+            ->whereRaw("length(regexp_replace(coalesce(documento, ''), '[^0-9]', '', 'g')) = 14")
+            ->value('razao_social');
+
+        return $empresa ?: ($lote->user?->name ?? 'FiscalDock');
     }
 
     /**

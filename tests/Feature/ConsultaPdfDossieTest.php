@@ -207,3 +207,26 @@ it('PDF do dossiê: panorama não quebra com lote só-erro', function () {
     expect($html)->toContain('Distribuição de risco');
     expect(app(ConsultaReportService::class)->gerarPdf($lote)->output())->not->toBeEmpty();
 });
+
+it('dadosRelatorio inclui emitente = razão da empresa própria, com fallback', function () {
+    $user = User::factory()->create(['name' => 'Contador Fulano']);
+    // empresa própria com CNPJ 14 díg
+    DB::table('clientes')->insert([
+        'user_id' => $user->id, 'razao_social' => 'MINHA CONTABILIDADE LTDA', 'documento' => '99888777000166',
+        'is_empresa_propria' => true, 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    $lote = ConsultaLote::create([
+        'user_id' => $user->id, 'plano_id' => dossiePlano()->id, 'status' => ConsultaLote::STATUS_FINALIZADO,
+        'total_participantes' => 0, 'creditos_cobrados' => 0, 'tab_id' => 'tab-emi-'.uniqid(), 'processado_em' => now(),
+    ]);
+
+    expect(app(ConsultaReportService::class)->dadosRelatorio($lote)['emitente'])->toBe('MINHA CONTABILIDADE LTDA');
+
+    // sem empresa própria → fallback pro nome do usuário
+    $user2 = User::factory()->create(['name' => 'Sem Empresa']);
+    $lote2 = ConsultaLote::create([
+        'user_id' => $user2->id, 'plano_id' => dossiePlano()->id, 'status' => ConsultaLote::STATUS_FINALIZADO,
+        'total_participantes' => 0, 'creditos_cobrados' => 0, 'tab_id' => 'tab-emi2-'.uniqid(), 'processado_em' => now(),
+    ]);
+    expect(app(ConsultaReportService::class)->dadosRelatorio($lote2)['emitente'])->toBe('Sem Empresa');
+});
