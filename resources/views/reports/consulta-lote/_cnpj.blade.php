@@ -16,71 +16,70 @@
     @if($d['status_consulta'] !== 'sucesso')
         <div class="secao"><div class="secao-body"><div class="msg">Consulta não concluída: {{ $d['error_message'] ?: 'sem detalhe disponível' }}.</div></div></div>
     @else
-        {{-- Certidões & comprovantes --}}
-        @if(!empty($d['blocos']))
-            <div class="secao">
-                <div class="secao-header">Certidões &amp; comprovantes</div>
-                <div class="secao-body">
-                    <table class="cards">
-                        @foreach(array_chunk($d['blocos'], 2) as $par)
+        {{-- Certidões & comprovantes (empilhadas full-width; certidão canônica não consultada consta marcada) --}}
+        @php($certCanonicas = ['cnd_federal' => 'CND Federal', 'cnd_estadual' => 'CND Estadual', 'cnd_municipal' => 'CND Municipal', 'crf_fgts' => 'CRF FGTS', 'cndt' => 'CNDT', 'sintegra' => 'SINTEGRA'])
+        @php($chavesPresentes = collect($d['blocos'] ?? [])->pluck('chave')->filter()->all())
+        <div class="secao">
+            <div class="secao-header">Certidões &amp; comprovantes</div>
+            <div class="secao-body">
+                @foreach($d['blocos'] as $bloco)
+                    <div class="cert" style="border-left-color: {{ $bloco['badge']['hex'] ?? '#9ca3af' }}">
+                        <table style="width:100%; border-collapse:collapse;">
                             <tr>
-                                @foreach($par as $bloco)
-                                    <td>
-                                        <div class="card">
-                                            <div class="card-head">
-                                                <table style="width: 100%;">
-                                                    <tr>
-                                                        <td class="card-title">{{ $bloco['titulo'] }}</td>
-                                                        <td style="text-align: right;">
-                                                            @if(!empty($bloco['badge']))
-                                                                <span class="badge" style="background-color: {{ $bloco['badge']['hex'] }}">{{ $bloco['badge']['label'] }}</span>
-                                                            @endif
-                                                        </td>
-                                                    </tr>
-                                                </table>
-                                            </div>
-                                            <div class="card-body">
-                                                @if(!empty($bloco['itens']))
-                                                    <table class="kv">
-                                                        @foreach($bloco['itens'] as $item)
-                                                            <tr>
-                                                                <td class="k">{{ $item['label'] }}</td>
-                                                                <td class="v">{{ $item['valor'] }}</td>
-                                                            </tr>
-                                                        @endforeach
-                                                    </table>
-                                                @endif
-
-                                                @foreach(($bloco['listas'] ?? []) as $lista)
-                                                    <div class="list-title">{{ $lista['titulo'] }}</div>
-                                                    @foreach($lista['linhas'] as $linha)
-                                                        <div class="list-item">• {{ $linha }}</div>
-                                                    @endforeach
-                                                @endforeach
-
-                                                @if(!empty($bloco['mensagem']))
-                                                    <div class="msg">{{ $bloco['mensagem'] }}</div>
-                                                @endif
-
-                                                @if(!empty($bloco['comprovante_url']))
-                                                    <div class="comprovante">
-                                                        <a href="{{ $bloco['comprovante_url'] }}">Baixar certidão / comprovante (PDF)</a>
-                                                        <div class="url">{{ $bloco['comprovante_url'] }}</div>
-                                                    </div>
-                                                @endif
-                                            </div>
-                                        </div>
-                                    </td>
-                                @endforeach
-                                @if(count($par) === 1)
-                                    <td></td>
-                                @endif
+                                <td class="card-title" style="border:none; padding:0;">{{ $bloco['titulo'] }}</td>
+                                <td style="border:none; padding:0; text-align:right;">
+                                    @if(!empty($bloco['badge']))
+                                        <span class="badge" style="background-color: {{ $bloco['badge']['hex'] }}">{{ $bloco['badge']['label'] }}</span>
+                                    @endif
+                                </td>
                             </tr>
+                        </table>
+                        @if(!empty($bloco['itens']))
+                            <table class="kv" style="width:100%;">
+                                @foreach($bloco['itens'] as $item)
+                                    <tr>
+                                        <td class="k" style="width:28%;">{{ $item['label'] }}</td>
+                                        <td class="v">{{ $item['valor'] }}</td>
+                                    </tr>
+                                @endforeach
+                            </table>
+                        @endif
+
+                        @foreach(($bloco['listas'] ?? []) as $lista)
+                            <div class="list-title">{{ $lista['titulo'] }}</div>
+                            @foreach($lista['linhas'] as $linha)
+                                <div class="list-item">• {{ $linha }}</div>
+                            @endforeach
                         @endforeach
-                    </table>
-                </div>
+
+                        @if(!empty($bloco['mensagem']))
+                            <div class="msg">{{ $bloco['mensagem'] }}</div>
+                        @endif
+
+                        @if(!empty($bloco['comprovante_url']))
+                            <div class="comprovante">
+                                <a href="{{ $bloco['comprovante_url'] }}">Baixar certidão / comprovante (PDF)</a>
+                                <div class="url">{{ $bloco['comprovante_url'] }}</div>
+                            </div>
+                        @endif
+                    </div>
+                @endforeach
+
+                @foreach($certCanonicas as $chave => $label)
+                    @if(! in_array($chave, $chavesPresentes, true))
+                        <div class="cert" style="border-left-color: #9ca3af">
+                            <table style="width:100%; border-collapse:collapse;">
+                                <tr>
+                                    <td class="card-title" style="border:none; padding:0;">{{ $label }}</td>
+                                    <td style="border:none; padding:0; text-align:right;"><span class="badge" style="background-color: #9ca3af">Não consultada</span></td>
+                                </tr>
+                            </table>
+                            <div class="msg">Esta certidão não foi consultada neste lote.</div>
+                        </div>
+                    @endif
+                @endforeach
             </div>
-        @endif
+        </div>
 
         {{-- Parecer --}}
         @if(!empty($d['resumo']))

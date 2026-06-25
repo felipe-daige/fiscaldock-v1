@@ -11,8 +11,8 @@
 @push('estilos')
 <style>
     .muted { color: #6b7280; }
-    /* dossiê: cada seção é um box que não parte entre páginas (escopo deste PDF) */
-    .secao { page-break-inside: avoid; }
+    /* dossiê: certidão empilhada full-width (mais espaço lateral); cada bloco não parte entre páginas */
+    .cert { border: 1px solid #e5e7eb; border-left: 3px solid #9ca3af; padding: 5px 8px; margin-bottom: 6px; page-break-inside: avoid; }
     .table th {
         background: #f9fafb;
         border-bottom: 1.5px solid #1f2937;

@@ -130,6 +130,32 @@ it('PDF do dossiê: CNPJ sem acervo omite panorama com nota', function () {
         ->not->toContain('AGUA MINERAL');
 });
 
+it('PDF do dossiê: certidão canônica não consultada consta marcada no relatório', function () {
+    $user = User::factory()->create();
+    $plano = MonitoramentoPlano::porCodigo('gratuito') ?? dossiePlano();
+    $part = Participante::create([
+        'user_id' => $user->id, 'documento' => '44444444000144',
+        'razao_social' => 'SO CADASTRO', 'uf' => 'SP', 'crt' => '3',
+    ]);
+    $lote = ConsultaLote::create([
+        'user_id' => $user->id, 'plano_id' => $plano->id, 'status' => ConsultaLote::STATUS_FINALIZADO,
+        'total_participantes' => 1, 'creditos_cobrados' => 0, 'tab_id' => 'tab-nc-'.uniqid(), 'processado_em' => now(),
+    ]);
+    $lote->participantes()->attach([$part->id]);
+    ConsultaResultado::create([
+        'consulta_lote_id' => $lote->id, 'participante_id' => $part->id,
+        'status' => ConsultaResultado::STATUS_SUCESSO,
+        'resultado_dados' => ['razao_social' => 'SO CADASTRO', 'situacao_cadastral' => 'ATIVA'],  // nenhuma certidão
+        'consultado_em' => now(),
+    ]);
+
+    $html = view('reports.consulta-lote', app(ConsultaReportService::class)->dadosRelatorio($lote))->render();
+
+    expect($html)->toContain('Não consultada')
+        ->toContain('CRF FGTS')
+        ->toContain('CND Municipal');
+});
+
 it('PDF do dossiê: 1 página por CNPJ (page-break com 2+ CNPJs)', function () {
     $user = User::factory()->create();
     [$lote] = dossieLoteComAcervo($user);
