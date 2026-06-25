@@ -4,6 +4,7 @@ namespace App\Services\Participantes;
 
 use App\Models\ConsultaResultado;
 use App\Models\Participante;
+use App\Services\Consultas\Fiscal\TopMovimentacaoQuery;
 use App\Services\Consultas\ResultadoDetalhePresenter;
 
 /**
@@ -15,6 +16,7 @@ final class DossieParticipanteBuilder
     public function __construct(
         private ParticipanteMovimentacaoService $movimentacao,
         private ResultadoDetalhePresenter $presenter,
+        private TopMovimentacaoQuery $top,
     ) {}
 
     public function montar(Participante $p): array
@@ -47,6 +49,8 @@ final class DossieParticipanteBuilder
                 'por_cst' => $this->movimentacao->porCst($p),
                 'impostos' => $this->movimentacao->impostos($p),
             ],
+            'top_produtos' => $this->top->produtos($p->user_id, 'participante_id', [$p->id], 10)[$p->id] ?? [],
+            'top_cfops' => $this->top->cfops($p->user_id, 'participante_id', [$p->id], 10)[$p->id] ?? [],
         ];
     }
 }
