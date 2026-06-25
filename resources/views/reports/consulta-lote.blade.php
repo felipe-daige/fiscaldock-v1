@@ -11,6 +11,8 @@
 @push('estilos')
 <style>
     .muted { color: #6b7280; }
+    /* dossiê: cada seção é um box que não parte entre páginas (escopo deste PDF) */
+    .secao { page-break-inside: avoid; }
     .table th {
         background: #f9fafb;
         border-bottom: 1.5px solid #1f2937;
