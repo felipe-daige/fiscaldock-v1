@@ -208,6 +208,19 @@ it('PDF do dossiê: panorama não quebra com lote só-erro', function () {
     expect(app(ConsultaReportService::class)->gerarPdf($lote)->output())->not->toBeEmpty();
 });
 
+it('PDF do dossiê: capa com título, emitente e veredito', function () {
+    $user = User::factory()->create();
+    [$lote] = dossieLoteComAcervo($user);  // cria a empresa própria 'EMPRESA PROPRIA' (doc 14 díg)
+
+    $html = view('reports.consulta-lote', app(ConsultaReportService::class)->dadosRelatorio($lote))->render();
+
+    expect($html)->toContain('Relatório de Consulta Fiscal')
+        ->toContain('EMPRESA PROPRIA')   // emitente = empresa própria do fixture
+        ->toContain('consultados')        // faixa veredito
+        ->toContain('regulares')
+        ->toContain('uso restrito');      // nota confidencial
+});
+
 it('dadosRelatorio inclui emitente = razão da empresa própria, com fallback', function () {
     $user = User::factory()->create(['name' => 'Contador Fulano']);
     // empresa própria com CNPJ 14 díg

@@ -66,29 +66,12 @@
     .msg { font-size: 7px; color: #6b7280; font-style: italic; border-left: 2px solid #e5e7eb; padding-left: 5px; margin-top: 5px; }
     .comprovante { margin-top: 6px; font-size: 8px; }
     .comprovante a { color: #1d4ed8; text-decoration: underline; font-weight: bold; }
-    .comprovante .url { font-family: DejaVu Sans Mono, monospace; font-size: 6px; color: #9ca3af; word-break: break-all; margin-top: 1px; }
+    .comprovante .url { font-family: DejaVu Sans Mono, monospace; font-size: 6px; color: #9ca3af; word-wrap: break-word; overflow-wrap: break-word; margin-top: 1px; }
 </style>
 @endpush
 
 @section('conteudo')
-    {{-- Resumo do Lote --}}
-    <div class="secao">
-        <div class="secao-header">Resumo do Lote</div>
-        <div class="secao-body">
-            <table class="lote-kv">
-                <tr>
-                    <td class="k">Lote</td>
-                    <td class="v mono">#{{ $lote->id }}</td>
-                    <td class="k">Plano</td>
-                    <td class="v">{{ $plano->nome ?? 'N/A' }}</td>
-                    <td class="k">Total de CNPJs</td>
-                    <td class="v">{{ $resumo['total'] }}</td>
-                    <td class="k">Gerado em</td>
-                    <td class="v">{{ $gerado_em }}</td>
-                </tr>
-            </table>
-        </div>
-    </div>
+    @include('reports.consulta-lote._capa', ['plano' => $plano, 'lote' => $lote, 'resumo' => $resumo, 'analise' => $analise ?? [], 'gerado_em' => $gerado_em, 'emitente' => $emitente ?? 'FiscalDock'])
 
     {{-- Resumo Operacional --}}
     <div class="secao">
