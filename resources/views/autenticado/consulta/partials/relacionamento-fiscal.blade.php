@@ -193,10 +193,10 @@
             @endif
 
             @if(!empty($fiscal['top_notas_entrada']) || !empty($fiscal['top_notas_saida']))
-                @php($pfNotasVisivel = (int) config('consultas.panorama_fiscal.notas_visivel', 5))
+                @php($pfNotasVisivel = (int) config('consultas.panorama_fiscal.notas_visivel', 10))
                 <div>
                     <p class="text-[10px] text-slate-400 uppercase tracking-wide mb-1">Maiores notas</p>
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                         @foreach(['entrada' => 'Entradas (comprado)', 'saida' => 'Saídas (vendido)'] as $tipo => $titulo)
                             @php($lista = collect($fiscal['top_notas_' . $tipo] ?? []))
                             <div data-pf-list>
