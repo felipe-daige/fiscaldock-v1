@@ -14,6 +14,7 @@
     /* dossiê: certidão empilhada full-width (mais espaço lateral); cada bloco não parte entre páginas */
     .cert { border: 1px solid #e5e7eb; border-left: 3px solid #9ca3af; padding: 5px 8px; margin-bottom: 6px; page-break-inside: avoid; }
     .badge { white-space: nowrap; }
+    .panorama-bloco { margin-bottom: 8px; page-break-inside: avoid; }
     .table th {
         background: #f9fafb;
         border-bottom: 1.5px solid #1f2937;
@@ -92,14 +93,7 @@
     {{-- Resumo Operacional --}}
     <div class="secao">
         <div class="secao-header">Resumo Operacional</div>
-        @include('reports.partials._kpi-strip', ['itens' => [
-            ['label' => 'Total Consultado', 'valor' => $resumo['total']],
-            ['label' => 'Sucesso', 'valor' => $resumo['sucesso']],
-            ['label' => 'Erros', 'valor' => $resumo['erro']],
-            ['label' => 'Score Médio', 'valor' => $resumo['score_medio']],
-            ['label' => 'CND Federal OK', 'valor' => $resumo['cnd_federal']['negativa'] ?? 0],
-            ['label' => 'CND Federal Restrita', 'valor' => $resumo['cnd_federal']['positiva'] ?? 0],
-        ]])
+        @include('reports.consulta-lote._panorama-lote', ['resumo' => $resumo, 'analise' => $analise ?? []])
     </div>
 
     {{-- Resultados --}}

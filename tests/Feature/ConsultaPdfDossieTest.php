@@ -171,3 +171,39 @@ it('PDF do dossiê: 1 página por CNPJ (page-break com 2+ CNPJs)', function () {
     $html = view('reports.consulta-lote', app(ConsultaReportService::class)->dadosRelatorio($lote))->render();
     expect($html)->toContain('page-break-before');
 });
+
+it('PDF do dossiê: Resumo Operacional vira panorama de risco', function () {
+    $user = User::factory()->create();
+    [$lote] = dossieLoteComAcervo($user);
+
+    $html = view('reports.consulta-lote', app(ConsultaReportService::class)->dadosRelatorio($lote))->render();
+
+    expect($html)->toContain('Distribuição de risco')
+        ->toContain('Regularidade fiscal')
+        ->toContain('Situação cadastral')
+        ->toContain('ATIVA')        // situação do fixture
+        ->toContain('Score Médio'); // KPI compacto mantido
+});
+
+it('PDF do dossiê: panorama não quebra com lote só-erro', function () {
+    $user = User::factory()->create();
+    $plano = dossiePlano();
+    $part = Participante::create([
+        'user_id' => $user->id, 'documento' => '55555555000155',
+        'razao_social' => 'FALHA', 'uf' => 'SP', 'crt' => '3',
+    ]);
+    $lote = ConsultaLote::create([
+        'user_id' => $user->id, 'plano_id' => $plano->id, 'status' => ConsultaLote::STATUS_FINALIZADO,
+        'total_participantes' => 1, 'creditos_cobrados' => 0, 'tab_id' => 'tab-err-'.uniqid(), 'processado_em' => now(),
+    ]);
+    $lote->participantes()->attach([$part->id]);
+    ConsultaResultado::create([
+        'consulta_lote_id' => $lote->id, 'participante_id' => $part->id,
+        'status' => ConsultaResultado::STATUS_ERRO, 'error_message' => 'timeout',
+        'resultado_dados' => [], 'consultado_em' => now(),
+    ]);
+
+    $html = view('reports.consulta-lote', app(ConsultaReportService::class)->dadosRelatorio($lote))->render();
+    expect($html)->toContain('Distribuição de risco');
+    expect(app(ConsultaReportService::class)->gerarPdf($lote)->output())->not->toBeEmpty();
+});
