@@ -106,7 +106,7 @@ class TopMovimentacaoQuery
      *
      * @param  'participante_id'|'cliente_id'  $coluna
      * @param  array<int, int>  $ids
-     * @return array<int, array{entrada: array<int, array{modelo:?string, numero:?string, serie:?string, data:?string, chave:?string, valor:float}>, saida: array<int, array{modelo:?string, numero:?string, serie:?string, data:?string, chave:?string, valor:float}>}>
+     * @return array<int, array{entrada: array<int, array{modelo:?string, numero:?string, serie:?string, data:?string, chave:?string, cfop:?int, valor:float}>, saida: array<int, array{modelo:?string, numero:?string, serie:?string, data:?string, chave:?string, cfop:?int, valor:float}>}>
      */
     public function notas(int $userId, string $coluna, array $ids, int $limite = 30): array
     {
@@ -121,16 +121,31 @@ class TopMovimentacaoQuery
             ->where('n.origem_arquivo', 'fiscal')
             ->where('n.cancelada', false)
             ->whereIn("n.{$coluna}", $ids)
-            ->selectRaw("n.{$coluna} as escopo_id, n.tipo_operacao, n.modelo, n.numero,
+            ->selectRaw("n.id, n.{$coluna} as escopo_id, n.tipo_operacao, n.modelo, n.numero,
                 n.serie, n.data_emissao, n.chave_acesso, n.valor_total,
                 ROW_NUMBER() OVER (PARTITION BY n.{$coluna}, n.tipo_operacao
                     ORDER BY n.valor_total DESC NULLS LAST, n.id) as rn");
 
         $linhas = DB::query()->fromSub($sub, 't')->where('rn', '<=', $limite)->get();
+        if ($linhas->isEmpty()) {
+            return [];
+        }
+
+        // CFOP dominante (maior valor_operacao no C190 consolidado) por nota.
+        $cfopPorNota = DB::table('efd_notas_consolidados')
+            ->where('user_id', $userId)
+            ->whereIn('efd_nota_id', $linhas->pluck('id')->all())
+            ->whereNotNull('cfop')
+            ->groupBy('efd_nota_id', 'cfop')
+            ->selectRaw('efd_nota_id, cfop, COALESCE(SUM(valor_operacao), 0) as valor')
+            ->get()
+            ->groupBy('efd_nota_id')
+            ->map(fn ($g) => (int) $g->sortByDesc('valor')->first()->cfop)
+            ->all();
 
         return $linhas
             ->groupBy('escopo_id')
-            ->map(function ($g) {
+            ->map(function ($g) use ($cfopPorNota) {
                 $porTipo = $g->groupBy('tipo_operacao')
                     ->map(fn ($notas) => $notas->sortByDesc('valor_total')->map(fn ($r) => [
                         'modelo' => $r->modelo !== null ? (string) $r->modelo : null,
@@ -138,6 +153,7 @@ class TopMovimentacaoQuery
                         'serie' => $r->serie !== null ? (string) $r->serie : null,
                         'data' => $r->data_emissao ? substr((string) $r->data_emissao, 0, 10) : null,
                         'chave' => $r->chave_acesso !== null && $r->chave_acesso !== '' ? (string) $r->chave_acesso : null,
+                        'cfop' => $cfopPorNota[$r->id] ?? null,
                         'valor' => round((float) $r->valor_total, 2),
                     ])->values()->all());
 

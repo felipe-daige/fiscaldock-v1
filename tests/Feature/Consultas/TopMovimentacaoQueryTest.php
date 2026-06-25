@@ -157,6 +157,15 @@ it('notas: top por valor separado por entrada/saida no escopo', function () {
     expect($sai[0]['chave'])->toBe(str_repeat('9', 44));
 });
 
+it('notas: anexa o CFOP dominante (maior valor C190) de cada nota', function () {
+    $d = tmqSetup();              // n1 entrada 1300 com consolidados 5102(Σ200) + 6108(Σ100)
+    tmqNota($d, 'saida', 900.0);  // sem consolidados → cfop null
+
+    $r = app(TopMovimentacaoQuery::class)->notas($d['user']->id, 'participante_id', [$d['part']]);
+    expect($r[$d['part']]['entrada'][0]['cfop'])->toBe(5102);  // dominante por valor_operacao
+    expect($r[$d['part']]['saida'][0]['cfop'])->toBeNull();    // nota sem C190
+});
+
 it('notas: respeita o limite por tipo', function () {
     $d = tmqSetup();
     tmqNota($d, 'saida', 100.0);

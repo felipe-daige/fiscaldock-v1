@@ -94,10 +94,10 @@ it('não renderiza seletor quando a lista cabe em 5', function () {
 it('renderiza o bloco Maiores notas com as linhas de entrada e saída', function () {
     $fiscal = rfvFiscal([
         'top_notas_entrada' => [
-            ['modelo' => '55', 'numero' => '12345', 'serie' => '1', 'data' => '2024-05-01', 'chave' => str_repeat('3', 44), 'valor' => 1300.0],
+            ['modelo' => '55', 'numero' => '12345', 'serie' => '1', 'data' => '2024-05-01', 'chave' => str_repeat('3', 44), 'cfop' => 5102, 'valor' => 1300.0],
         ],
         'top_notas_saida' => [
-            ['modelo' => '57', 'numero' => '777', 'serie' => '2', 'data' => '2024-05-02', 'chave' => null, 'valor' => 900.0],
+            ['modelo' => '57', 'numero' => '777', 'serie' => '2', 'data' => '2024-05-02', 'chave' => null, 'cfop' => null, 'valor' => 900.0],
         ],
     ]);
     $html = Blade::render('@include("autenticado.consulta.partials.relacionamento-fiscal", ["fiscal" => $fiscal])', ['fiscal' => $fiscal]);
@@ -106,5 +106,6 @@ it('renderiza o bloco Maiores notas com as linhas de entrada e saída', function
     expect($html)->toContain('12345');           // número da nota de entrada
     expect($html)->toContain('NF-e');             // label modelo 55
     expect($html)->toContain('CT-e');             // label modelo 57
+    expect($html)->toContain('CFOP 5102');        // CFOP dominante da nota
     expect($html)->toContain('1.300,00');         // valor formatado
 });
