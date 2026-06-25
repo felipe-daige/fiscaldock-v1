@@ -1863,6 +1863,7 @@ class ConsultaController extends Controller
         $resultados = $lote->resultados()
             ->with([
                 'participante:id,documento,razao_social,uf,crt,regime_tributario',
+                'participante.score',
                 'cliente:id,documento,razao_social,uf',
             ])
             ->orderByDesc('consultado_em')
@@ -1884,7 +1885,7 @@ class ConsultaController extends Controller
             ['cnd_federal', 'cnd_estadual', 'cnd_municipal', 'crf_fgts', 'cndt', 'sintegra'],
         ));
 
-        return $resultados->map(function (ConsultaResultado $resultado) use ($parecerService, $detalhePresenter, $fiscalResumos, $clienteResumos, $esperadasCert) {
+        return $resultados->map(function (ConsultaResultado $resultado) use ($parecerService, $detalhePresenter, $fiscalResumos, $clienteResumos, $esperadasCert, $lote) {
             $parecerResumo = $resultado->isSucesso()
                 ? $parecerService->gerarResumo($resultado->getParecerFiscalPayload())
                 : [];
@@ -1939,6 +1940,10 @@ class ConsultaController extends Controller
                 'fiscal_resumo' => $resultado->participante_id
                     ? ($fiscalResumos[$resultado->participante_id] ?? null)
                     : ($resultado->cliente_id ? ($clienteResumos[$resultado->cliente_id] ?? null) : null),
+                'credito_reforma' => $resultado->participante_id && $participante
+                    ? app(\App\Services\Reforma\CreditoReformaCardService::class)
+                        ->montar($lote->user_id, $participante, $fiscalResumos[$resultado->participante_id] ?? [])
+                    : null,
             ];
         });
     }
