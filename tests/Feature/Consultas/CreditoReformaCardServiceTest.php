@@ -45,6 +45,20 @@ it('lente cliente B2B: crédito que MINHA empresa transfere ao comprador (regime
     expect($r)->not->toHaveKey('fornecedor');
 });
 
+it('fornecedor: usa o regime da consulta (resultado_dados) quando participante não tem regime nem score', function () {
+    $user = User::factory()->create();
+    // sem crt/regime nas colunas, sem score persistido — só a consulta sabe o regime
+    $part = Participante::create(['user_id' => $user->id, 'documento' => '44444444000144',
+        'razao_social' => 'F SEM REGIME', 'origem_tipo' => 'MANUAL']);
+
+    $resumo = ['qtd_entrada' => 2, 'qtd_saida' => 0, 'total_comprado' => 100000.0, 'relacionamentos' => []];
+    $r = $this->svc->montar($user->id, $part, $resumo, ['regime_tributario' => 'Lucro Real']);
+
+    expect($r['fornecedor']['flag'])->toBe('verde');            // Regime Normal, não cinza
+    expect($r['fornecedor']['credito_em_risco'])->toBe(0.0);    // integral
+    expect($r['fornecedor']['gera_credito'])->toBe('Gera crédito integral');
+});
+
 it('sem movimentação retorna null', function () {
     $user = User::factory()->create();
     $part = Participante::create(['user_id' => $user->id, 'documento' => '33333333000133',

@@ -23,9 +23,10 @@ class CreditoReformaCardService
 
     /**
      * @param  array<string, mixed>  $fiscalResumo  saída de ParticipanteFiscalResumoService
+     * @param  array<string, mixed>  $resultadoDados  resultado_dados da consulta (regime do CNPJ consultado)
      * @return array<string, mixed>|null
      */
-    public function montar(int $userId, Participante $participante, array $fiscalResumo): ?array
+    public function montar(int $userId, Participante $participante, array $fiscalResumo, array $resultadoDados = []): ?array
     {
         $out = [];
 
@@ -35,6 +36,7 @@ class CreditoReformaCardService
                 (float) ($fiscalResumo['total_comprado'] ?? 0),
                 $participante->score?->score_credito_reforma,
                 null, // pleno (2033)
+                $resultadoDados, // regime da consulta tem precedência sobre as colunas (vazias) do participante
             );
         }
 

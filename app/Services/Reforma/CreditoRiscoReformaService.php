@@ -67,22 +67,24 @@ class CreditoRiscoReformaService
      * Crédito IBS/CBS de UM fornecedor dado seu volume de entradas — usado na tela de detalhe.
      *   potencial = volume × alíquota ; em risco = potencial × (1 − fator do regime).
      *
-     * O regime mora no resultado da consulta (persistido em `score_credito_reforma`), não nas
-     * colunas do participante. Por isso `$scoreCredito` (o score persistido) é a fonte de verdade:
-     * fator = (100 − score)/100. Sem ele, cai para as colunas do alvo (`crt`/`regime_tributario`).
+     * O regime mora no resultado da consulta (persistido em `score_credito_reforma` OU nos
+     * `$dados` do `resultado_dados`), não nas colunas do participante (Laravel não atualiza
+     * participante). Precedência: `$scoreCredito` persistido → `$dados` da consulta → colunas
+     * do alvo. Sem nenhum → "regime não identificado" (fator null, cinza).
      *
+     * @param  array<string, mixed>  $dados  resultado_dados da consulta (regime_tributario/crt/mei/...)
      * @return array{score: int|null, fator: float|null, gera_credito: string, credito_potencial: float, credito_em_risco: float|null, flag: string}
      */
-    public function creditoParticipante(?Model $alvo, float $volume, ?int $scoreCredito = null, ?int $ano = null): array
+    public function creditoParticipante(?Model $alvo, float $volume, ?int $scoreCredito = null, ?int $ano = null, array $dados = []): array
     {
         $aliquota = $this->aliquotaPara($ano);
         $fator = $scoreCredito !== null
             ? (100 - $scoreCredito) / 100.0
-            : $this->score->fatorCreditoRegime($alvo, []);
+            : $this->score->fatorCreditoRegime($alvo, $dados);
         $potencial = round($volume * $aliquota, 2);
 
         return [
-            'score' => $scoreCredito ?? $this->score->scoreCreditoReforma([], $alvo),
+            'score' => $scoreCredito ?? $this->score->scoreCreditoReforma($dados, $alvo),
             'aliquota' => $aliquota,
             'fator' => $fator,
             'gera_credito' => $this->geraLabel($fator),

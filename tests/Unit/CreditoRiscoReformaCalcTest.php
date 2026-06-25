@@ -87,3 +87,16 @@ it('usa o score_credito_reforma persistido sobre colunas vazias (consistência l
     expect($r3['credito_em_risco'])->toBe(18550.0); // 26500 * (1 - 0.3)
     expect($r3['flag'])->toBe('amarelo');
 });
+
+// O regime de um CNPJ CONSULTADO vive em resultado_dados, NÃO nas colunas do participante
+// (Laravel não atualiza participante). Se score e colunas estão vazios mas a consulta trouxe
+// o regime, o cálculo deve usar $dados — senão cai em "regime não identificado" (cinza) errado.
+it('deriva o regime do $dados da consulta quando colunas do alvo e score estão vazios', function () {
+    $r = $this->svc->creditoParticipante(new Participante([]), 100000, null, null, ['regime_tributario' => 'Lucro Real']);
+
+    expect($r['fator'])->toBe(1.0);                  // Regime Normal => integral
+    expect($r['credito_em_risco'])->toBe(0.0);
+    expect($r['flag'])->toBe('verde');
+    expect($r['gera_credito'])->toBe('Gera crédito integral');
+    expect($r['score'])->toBe(0);                    // 0 = gera crédito integral
+});

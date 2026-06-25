@@ -1920,7 +1920,7 @@ class ConsultaController extends Controller
 
             if ($fiscalResumo !== null && $resultado->participante_id && $participante) {
                 $fiscalResumo['credito_reforma'] = app(\App\Services\Reforma\CreditoReformaCardService::class)
-                    ->montar($lote->user_id, $participante, $fiscalResumo);
+                    ->montar($lote->user_id, $participante, $fiscalResumo, $resultado->resultado_dados ?? []);
             }
 
             return [
