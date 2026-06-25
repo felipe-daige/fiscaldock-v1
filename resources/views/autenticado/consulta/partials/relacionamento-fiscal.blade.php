@@ -95,7 +95,7 @@
 
                     @php($crTemRisco = !empty($cr['fornecedor']) && $cr['fornecedor']['credito_em_risco'] !== null)
                     @php($crTemLegado = !empty($cr['legado']))
-                    @if($crTemRisco || $crTemLegado)
+                    @if(!empty($cr['fornecedor']) || !empty($cr['cliente_b2b']))
                     <details class="mt-1">
                         <summary class="text-[11px] text-blue-600 cursor-pointer select-none">Como calculamos ▸</summary>
                         @if($crTemRisco)

@@ -1914,6 +1914,15 @@ class ConsultaController extends Controller
                 ?: ($resultado->getDado('razao_social') ?: $resultado->getDado('nome_fantasia')));
             $uf = $participante?->uf ?: ($cliente?->uf ?: ($enderecoConsulta['uf'] ?? null));
 
+            $fiscalResumo = $resultado->participante_id
+                ? ($fiscalResumos[$resultado->participante_id] ?? null)
+                : ($resultado->cliente_id ? ($clienteResumos[$resultado->cliente_id] ?? null) : null);
+
+            if ($fiscalResumo !== null && $resultado->participante_id && $participante) {
+                $fiscalResumo['credito_reforma'] = app(\App\Services\Reforma\CreditoReformaCardService::class)
+                    ->montar($lote->user_id, $participante, $fiscalResumo);
+            }
+
             return [
                 'participante_id' => $participante?->id,
                 'cliente_id' => $cliente?->id,
@@ -1937,13 +1946,7 @@ class ConsultaController extends Controller
                 'parecer_count' => count($parecerResumo),
                 'detalhe_blocos' => $detalhePresenter->blocos($resultado, $esperadasCert),
                 'resumo_texto' => $resultado->isSucesso() ? $detalhePresenter->resumoTextual($resultado) : null,
-                'fiscal_resumo' => $resultado->participante_id
-                    ? ($fiscalResumos[$resultado->participante_id] ?? null)
-                    : ($resultado->cliente_id ? ($clienteResumos[$resultado->cliente_id] ?? null) : null),
-                'credito_reforma' => $resultado->participante_id && $participante
-                    ? app(\App\Services\Reforma\CreditoReformaCardService::class)
-                        ->montar($lote->user_id, $participante, $fiscalResumos[$resultado->participante_id] ?? [])
-                    : null,
+                'fiscal_resumo' => $fiscalResumo,
             ];
         });
     }

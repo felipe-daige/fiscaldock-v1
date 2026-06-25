@@ -41,5 +41,7 @@ it('regime não identificado (cinza) esconde o R$ em risco e mostra o gancho de 
     $html = view('autenticado.consulta.partials.relacionamento-fiscal', compact('fiscal'))->render();
 
     expect($html)->toContain('Regime do fornecedor não consultado');
-    expect($html)->not->toContain('em risco');
+    expect($html)->toContain('Como calculamos');
+    expect($html)->toContain('Art. 47');
+    expect($html)->not->toContain('</strong> em risco');
 });

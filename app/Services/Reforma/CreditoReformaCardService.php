@@ -45,9 +45,11 @@ class CreditoReformaCardService
             }
         }
 
-        $destacado = $this->top->creditosDestacados($userId, 'participante_id', [$participante->id]);
-        if (($destacado[$participante->id] ?? 0) > 0) {
-            $out['legado'] = ['destacado' => $destacado[$participante->id]];
+        if ((int) ($fiscalResumo['qtd_entrada'] ?? 0) > 0) {
+            $destacado = $this->top->creditosDestacados($userId, 'participante_id', [$participante->id]);
+            if (($destacado[$participante->id] ?? 0) > 0) {
+                $out['legado'] = ['destacado' => $destacado[$participante->id]];
+            }
         }
 
         return $out === [] ? null : $out;

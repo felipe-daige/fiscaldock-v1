@@ -83,6 +83,7 @@ class CreditoRiscoReformaService
 
         return [
             'score' => $scoreCredito ?? $this->score->scoreCreditoReforma([], $alvo),
+            'aliquota' => $aliquota,
             'fator' => $fator,
             'gera_credito' => $this->geraLabel($fator),
             'credito_potencial' => $potencial,
