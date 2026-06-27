@@ -80,6 +80,59 @@
                     </div>
                 </div>
             @endif
+        @elseif ($chave === 'contrapartes')
+            @php $sec = $relatorio['secoes']['contrapartes'] ?? null; @endphp
+            @if ($sec && ! empty($sec['itens']))
+                @php
+                    $itens = $sec['itens'];
+                    $maxVol = collect($itens)->max('volume') ?: 0;
+                    $temPapel = ($sec['modo'] ?? '') === 'cliente';
+                    $badgeHex = ['baixo' => '#16a34a', 'medio' => '#f59e0b', 'alto' => '#ea580c', 'critico' => '#dc2626'];
+                @endphp
+                <div class="secao">
+                    <div class="secao-header">{{ $sec['titulo'] }}</div>
+                    <div class="secao-body">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    @if ($temPapel)<th>Papel</th>@endif
+                                    <th>CNPJ</th>
+                                    <th>Razão social</th>
+                                    <th class="center">Score</th>
+                                    <th class="right">Volume</th>
+                                    <th class="right">Notas</th>
+                                    <th>Principais CFOPs</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($itens as $it)
+                                    @php $hex = $badgeHex[$it['classificacao']] ?? '#9ca3af'; @endphp
+                                    <tr>
+                                        @if ($temPapel)<td>{{ $it['papel'] }}</td>@endif
+                                        <td class="mono">{{ $it['cnpj'] }}</td>
+                                        <td>{{ $it['razao'] }}</td>
+                                        <td class="center">
+                                            @if ($it['classificacao'])
+                                                <span class="badge" style="background-color:{{ $hex }}">{{ $it['classificacao'] }}{{ $it['score_total'] !== null ? ' '.$it['score_total'] : '' }}</span>
+                                            @else
+                                                <span class="muted small">—</span>
+                                            @endif
+                                        </td>
+                                        <td class="right">
+                                            <div style="font-weight:bold;">R$ {{ $it['volume_brl'] }}</div>
+                                            <div style="background:#f3f4f6;height:5px;width:100%;">
+                                                <div style="background-color:#2563eb;height:5px;width:{{ $maxVol > 0 ? (int) round($it['volume'] / $maxVol * 100) : 0 }}%;"></div>
+                                            </div>
+                                        </td>
+                                        <td class="right">{{ $it['notas'] }}</td>
+                                        <td class="small">{{ count($it['cfops']) ? implode(' · ', $it['cfops']) : '—' }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            @endif
         @else
             @php $sec = $relatorio['secoes'][$chave] ?? null; @endphp
             @if ($sec)

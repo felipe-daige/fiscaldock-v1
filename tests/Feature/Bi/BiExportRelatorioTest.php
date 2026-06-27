@@ -40,7 +40,12 @@ it('relatorioCompleto traz kpis, cobertura e as 4 secoes', function () {
     expect($rel['kpis'])->toHaveKeys(['faturamento', 'aquisicoes', 'tributos', 'saldo_liquido', 'total_notas', 'aliquota_media']);
     expect($rel['secoes'])->toHaveKeys(['faturamento', 'tributos', 'apuracao-notas', 'cfop']);
     foreach ($rel['secoes'] as $sec) {
-        expect($sec)->toHaveKeys(['titulo', 'colunas', 'linhas']);
+        // seções enriquecidas (ex.: contrapartes) têm 'itens'; seções tabulares têm 'colunas'+'linhas'
+        if (isset($sec['colunas'])) {
+            expect($sec)->toHaveKeys(['titulo', 'colunas', 'linhas']);
+        } else {
+            expect($sec)->toHaveKey('titulo');
+        }
     }
 });
 

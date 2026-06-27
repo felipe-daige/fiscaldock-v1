@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Services\Consultas\Fiscal\TopMovimentacaoQuery;
 use App\Support\CsvExport;
+use Illuminate\Support\Facades\DB;
 
 class BiExportService
 {
@@ -98,13 +99,13 @@ class BiExportService
         }
 
         // Seções enriquecidas (P+C)
-        $secoes['participantes'] = $this->datasetParticipantes($userId, $ini, $fim, $cli);
+        $secoes['contrapartes'] = $this->datasetContrapartes($userId, $ini, $fim, $cli);
         $secoes['top-notas'] = $this->datasetTopNotas($userId, $ini, $fim, $cli);
         $secoes['catalogo'] = $this->datasetCatalogo($userId, $cli);
         $secoes['uf'] = $this->datasetUf($userId, $ini, $fim, $cli);
         $secoes['devolucoes'] = $this->datasetDevolucoes($userId, $ini, $fim, $cli);
 
-        $ordem = ['faturamento', 'tributos', 'apuracao-notas', 'cfop', 'participantes', 'top-notas', 'catalogo', 'uf', 'devolucoes'];
+        $ordem = ['faturamento', 'tributos', 'apuracao-notas', 'contrapartes', 'cfop', 'top-notas', 'catalogo', 'uf', 'devolucoes'];
         $scoreCarteira = null;
 
         // Seções user-wide — só portfólio (sem fonte cliente-scoped)
@@ -142,32 +143,78 @@ class BiExportService
         ];
     }
 
-    private function datasetParticipantes(int $userId, ?string $ini, ?string $fim, ?int $cli): array
+    /**
+     * Contrapartes (carteira: participantes de saída; cliente: clientes+fornecedores
+     * daquele cliente) enriquecidas com score de risco + top 3 CFOPs.
+     * No modo cliente as contrapartes vêm agregadas por CNPJ (XML+EFD) — resolve-se
+     * o participante por documento (best-effort): com match anexa score+CFOPs; sem
+     * match fica só com volume/notas (cfops=[], score nulo).
+     */
+    private function datasetContrapartes(int $userId, ?string $ini, ?string $fim, ?int $cli): array
     {
         if ($cli === null) {
-            $colunas = ['CNPJ/CPF', 'Razão social', 'Regime', 'Situação', 'Volume', 'Qtd notas', 'Ticket médio'];
-            $linhas = array_map(fn ($r) => [
-                $r['cnpj_cpf'], $r['razao_social'], $r['regime'] ?: '—',
-                ($r['irregular'] ? '⚠ ' : '').($r['situacao'] ?: '—'),
-                $this->brl($r['total_valor']), $r['total_notas'], $this->brl($r['ticket_medio']),
-            ], $this->bi->getRankingParticipantes($userId, 'S', $ini, $fim, 10));
+            $rank = $this->bi->getRankingParticipantes($userId, 'S', $ini, $fim, 10);
+            $ids = array_values(array_filter(array_column($rank, 'participante_id')));
+            $scores = $this->bi->scoresPorParticipante($userId, $ids);
+            $cfops = $this->topMov->cfops($userId, 'participante_id', $ids, 3);
 
-            return ['titulo' => 'Top participantes (carteira)', 'colunas' => $colunas, 'linhas' => $linhas];
+            $itens = array_map(function ($r) use ($scores, $cfops) {
+                $pid = (int) $r['participante_id'];
+
+                return [
+                    'papel' => null,
+                    'cnpj' => (string) $r['cnpj_cpf'],
+                    'razao' => $r['razao_social'] ?: '—',
+                    'score_total' => $scores[$pid]['score_total'] ?? null,
+                    'classificacao' => $scores[$pid]['classificacao'] ?? null,
+                    'volume' => (float) $r['total_valor'],
+                    'volume_brl' => $this->brl((float) $r['total_valor']),
+                    'notas' => (int) $r['total_notas'],
+                    'ticket_brl' => $this->brl((float) $r['ticket_medio']),
+                    'cfops' => array_map(fn ($c) => (string) $c['cfop'], $cfops[$pid] ?? []),
+                ];
+            }, $rank);
+
+            return ['titulo' => 'Principais contrapartes', 'modo' => 'portfolio', 'itens' => $itens];
         }
 
-        // Modo cliente: contrapartes daquele cliente (clientes/saída + fornecedores/entrada)
-        $clientes = $this->bi->getTopClientes($userId, 10, $ini, $fim, $cli);
-        $forn = $this->bi->getTopFornecedores($userId, 10, $ini, $fim, $cli);
-        $colsC = ['Papel', 'CNPJ/CPF', 'Razão social', 'Volume', 'Qtd notas'];
-        $linhas = [];
-        foreach ($clientes as $r) {
-            $linhas[] = ['Cliente', $r['cnpj'], $r['razao_social'] ?: '—', $this->brl($r['total']), $r['qtd_notas']];
+        // Modo cliente: clientes (saída) + fornecedores (entrada), best-effort por CNPJ
+        $brutos = [];
+        foreach ($this->bi->getTopClientes($userId, 10, $ini, $fim, $cli) as $r) {
+            $brutos[] = ['papel' => 'Cliente', 'r' => $r];
         }
-        foreach ($forn as $r) {
-            $linhas[] = ['Fornecedor', $r['cnpj'], $r['razao_social'] ?: '—', $this->brl($r['total']), $r['qtd_notas']];
+        foreach ($this->bi->getTopFornecedores($userId, 10, $ini, $fim, $cli) as $r) {
+            $brutos[] = ['papel' => 'Fornecedor', 'r' => $r];
         }
 
-        return ['titulo' => 'Principais contrapartes', 'colunas' => $colsC, 'linhas' => $linhas];
+        $cnpjs = array_values(array_unique(array_filter(array_map(fn ($x) => $x['r']['cnpj'] ?? null, $brutos))));
+        $partPorDoc = $cnpjs === []
+            ? []
+            : DB::table('participantes')->where('user_id', $userId)
+                ->whereIn('documento', $cnpjs)->pluck('id', 'documento')->all();
+        $pids = array_values(array_map('intval', $partPorDoc));
+        $scores = $this->bi->scoresPorParticipante($userId, $pids);
+        $cfops = $this->topMov->cfops($userId, 'participante_id', $pids, 3);
+
+        $itens = array_map(function ($x) use ($partPorDoc, $scores, $cfops) {
+            $r = $x['r'];
+            $pid = isset($partPorDoc[$r['cnpj']]) ? (int) $partPorDoc[$r['cnpj']] : null;
+
+            return [
+                'papel' => $x['papel'],
+                'cnpj' => (string) $r['cnpj'],
+                'razao' => $r['razao_social'] ?: '—',
+                'score_total' => $pid !== null ? ($scores[$pid]['score_total'] ?? null) : null,
+                'classificacao' => $pid !== null ? ($scores[$pid]['classificacao'] ?? null) : null,
+                'volume' => (float) $r['total'],
+                'volume_brl' => $this->brl((float) $r['total']),
+                'notas' => (int) $r['qtd_notas'],
+                'ticket_brl' => null,
+                'cfops' => $pid !== null ? array_map(fn ($c) => (string) $c['cfop'], $cfops[$pid] ?? []) : [],
+            ];
+        }, $brutos);
+
+        return ['titulo' => 'Principais contrapartes', 'modo' => 'cliente', 'itens' => $itens];
     }
 
     private function datasetTopNotas(int $userId, ?string $ini, ?string $fim, ?int $cli): array

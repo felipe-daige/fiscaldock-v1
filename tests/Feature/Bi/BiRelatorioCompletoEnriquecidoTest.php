@@ -12,7 +12,7 @@ it('portfólio inclui seções user-wide (riscos + score da carteira)', function
     $rel = app(BiExportService::class)->relatorioCompleto($user->id, null, null, null);
 
     expect($rel['modo'])->toBe('portfolio')
-        ->and($rel['secoes'])->toHaveKeys(['participantes', 'top-notas', 'catalogo', 'uf', 'devolucoes', 'riscos-notas', 'riscos-fornecedores'])
+        ->and($rel['secoes'])->toHaveKeys(['contrapartes', 'top-notas', 'catalogo', 'uf', 'devolucoes', 'riscos-notas', 'riscos-fornecedores'])
         ->and($rel['score_carteira'])->not->toBeNull()
         ->and($rel['ordem_secoes'])->toContain('score-carteira');
 });
@@ -26,7 +26,7 @@ it('modo cliente omite seções user-wide e marca modo=cliente', function () {
     $rel = app(BiExportService::class)->relatorioCompleto($user->id, null, null, $cli);
 
     expect($rel['modo'])->toBe('cliente')
-        ->and($rel['secoes'])->toHaveKeys(['participantes', 'top-notas', 'catalogo', 'uf', 'devolucoes'])
+        ->and($rel['secoes'])->toHaveKeys(['contrapartes', 'top-notas', 'catalogo', 'uf', 'devolucoes'])
         ->and($rel['secoes'])->not->toHaveKey('riscos-notas')
         ->and($rel['secoes'])->not->toHaveKey('riscos-fornecedores')
         ->and($rel['score_carteira'])->toBeNull()
