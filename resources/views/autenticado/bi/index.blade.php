@@ -31,9 +31,9 @@
                     </select>
                     {{-- Exports — <x-download-button> (onclick inline cache-robusto + spinner) --}}
                     @php $dataArq = now()->format('Ymd'); @endphp
-                    <x-download-button path="/app/bi/exportar-pdf" filename="bi-fiscal-{{ $dataArq }}.pdf"
-                                       overlay="download-overlay-bi"
-                                       class="w-full sm:w-auto px-3 py-2 rounded border border-gray-300 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50">PDF</x-download-button>
+                    <button type="button"
+                            onclick="document.getElementById('modal-export-bi-pdf').classList.remove('hidden')"
+                            class="w-full sm:w-auto px-3 py-2 rounded border border-gray-300 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50">PDF</button>
                     <button type="button"
                             onclick="document.getElementById('modal-export-bi').classList.remove('hidden')"
                             class="w-full sm:w-auto px-3 py-2 rounded border border-gray-300 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50">Planilha</button>
@@ -63,6 +63,29 @@
                     <span class="block text-[12px] text-gray-500">Um arquivo .csv por seção, empacotados num .zip.</span>
                 </x-download-button>
             </div>
+        </x-modal>
+
+        {{-- Modal de escopo do PDF: carteira inteira ou 1 cliente (empresa própria no topo) --}}
+        <x-modal id="modal-export-bi-pdf" titulo="Gerar relatório PDF">
+            <p class="text-[13px] text-gray-600 mb-3">Escolha o escopo do relatório. O período segue o filtro selecionado.</p>
+            <label class="block text-[11px] text-gray-500 mb-1">Cliente</label>
+            <select id="export-pdf-cliente" class="w-full text-[13px] py-2.5 px-3 border border-gray-300 rounded mb-4">
+                <option value="">Todos os clientes (carteira)</option>
+                @foreach($clientes ?? [] as $cliente)
+                    @if($cliente->is_empresa_propria)
+                        <option value="{{ $cliente->id }}">★ {{ $cliente->nome }} (Minha Empresa)</option>
+                    @else
+                        <option value="{{ $cliente->id }}">{{ $cliente->nome }}</option>
+                    @endif
+                @endforeach
+            </select>
+            <x-download-button path="/app/bi/exportar-pdf" filename="bi-fiscal-{{ $dataArq }}.pdf"
+                               overlay="download-overlay-bi"
+                               clienteSelect="export-pdf-cliente"
+                               extraOnDone="document.getElementById('modal-export-bi-pdf').classList.add('hidden');"
+                               class="block w-full text-center px-4 py-3 rounded bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800">
+                Gerar PDF
+            </x-download-button>
         </x-modal>
 
         {{-- Faixa de cobertura de fonte (avisa meses sem EFD ICMS/IPI / PIS-COFINS).

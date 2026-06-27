@@ -4,6 +4,7 @@
     'overlay' => 'download-overlay',
     'extraOnDone' => '',
     'query' => '',
+    'clienteSelect' => 'filtro-cliente',
 ])
 
 @php
@@ -24,7 +25,7 @@
     $tokExpr = "'d'+Date.now()+Math.floor(Math.random()*1e6)";
     $js = "(function(){"
         . "var ov=document.getElementById('{$overlay}');"
-        . "var c=document.getElementById('filtro-cliente');"
+        . "var c=document.getElementById('{$clienteSelect}');"
         . "var p=document.getElementById('filtro-periodo');"
         . "var tok={$tokExpr};"
         . "var qs=[];"
