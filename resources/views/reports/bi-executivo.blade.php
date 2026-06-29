@@ -25,7 +25,7 @@
             'cfop' => [0, 2, '#7c3aed'],
             'uf' => [0, 1, '#0891b2'],
             'catalogo' => [1, 3, '#0d9488'],
-            'devolucoes' => [0, 1, '#b45309'],
+            'devolucoes' => [0, 1, '#be185d'],
         ];
     @endphp
 

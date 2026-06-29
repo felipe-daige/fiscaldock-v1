@@ -21,7 +21,7 @@ it('contrapartes no portfólio trazem score + top CFOPs e vêm antes do cfop', f
         'created_at' => now(), 'updated_at' => now(),
     ]);
     DB::table('participante_scores')->insert([
-        'user_id' => $user->id, 'cliente_id' => $cli, 'participante_id' => $part,
+        'user_id' => $user->id, 'participante_id' => $part,
         'score_total' => 80, 'classificacao' => 'baixo', 'created_at' => now(), 'updated_at' => now(),
     ]);
     $imp = EfdImportacao::create([
@@ -71,7 +71,7 @@ it('contrapartes no modo cliente resolvem score por CNPJ best-effort', function 
         'documento' => '33333333000133', 'origem_tipo' => 'MANUAL', 'created_at' => now(), 'updated_at' => now(),
     ]);
     DB::table('participante_scores')->insert([
-        'user_id' => $user->id, 'cliente_id' => $cli, 'participante_id' => $part,
+        'user_id' => $user->id, 'participante_id' => $part,
         'score_total' => 40, 'classificacao' => 'alto', 'created_at' => now(), 'updated_at' => now(),
     ]);
     $imp = EfdImportacao::create([

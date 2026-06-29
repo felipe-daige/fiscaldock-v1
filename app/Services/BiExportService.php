@@ -159,7 +159,7 @@ class BiExportService
             $cfops = $this->topMov->cfops($userId, 'participante_id', $ids, 3);
 
             $itens = array_map(function ($r) use ($scores, $cfops) {
-                $pid = (int) $r['participante_id'];
+                $pid = $r['participante_id'] !== null ? (int) $r['participante_id'] : null;
 
                 return [
                     'papel' => null,
@@ -188,6 +188,9 @@ class BiExportService
         }
 
         $cnpjs = array_values(array_unique(array_filter(array_map(fn ($x) => $x['r']['cnpj'] ?? null, $brutos))));
+        // Best-effort: resolve por documento escopado só ao user (não ao $cli). Se o mesmo
+        // CNPJ for participante sob mais de um cliente, pluck mantém o último — score/CFOPs
+        // podem vir de outra relação. Aceitável no caso comum (empresa própria / 1 cliente).
         $partPorDoc = $cnpjs === []
             ? []
             : DB::table('participantes')->where('user_id', $userId)

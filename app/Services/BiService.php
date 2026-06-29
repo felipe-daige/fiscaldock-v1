@@ -838,7 +838,7 @@ class BiService
         return DB::table('participante_scores')
             ->where('user_id', $userId)
             ->whereIn('participante_id', $ids)
-            ->orderByDesc('id')
+            ->orderBy('id')
             ->get(['participante_id', 'score_total', 'classificacao'])
             ->keyBy('participante_id')
             ->map(fn ($r) => [

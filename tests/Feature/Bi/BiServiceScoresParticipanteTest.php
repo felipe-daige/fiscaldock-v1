@@ -21,7 +21,7 @@ it('mapeia score_total + classificacao por participante, omitindo quem não tem 
     $semScore = $mkPart('22222222000122');
 
     DB::table('participante_scores')->insert([
-        'user_id' => $user->id, 'cliente_id' => $cli, 'participante_id' => $comScore,
+        'user_id' => $user->id, 'participante_id' => $comScore,
         'score_total' => 72, 'classificacao' => 'medio', 'created_at' => now(), 'updated_at' => now(),
     ]);
 
