@@ -342,6 +342,13 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureNaoBloqueado::class, \App\
             Route::post('/usuarios/{id}/admin', [\App\Http\Controllers\Dashboard\AdminUsuarioAcaoController::class, 'admin'])->name('usuarios.admin')->where('id', '[0-9]+');
             Route::post('/usuarios/{id}/impersonar', [\App\Http\Controllers\Dashboard\AdminUsuarioAcaoController::class, 'impersonar'])->name('usuarios.impersonar')->where('id', '[0-9]+');
             Route::get('/auditoria', [\App\Http\Controllers\Dashboard\AdminUsuarioAcaoController::class, 'auditoria'])->name('auditoria');
+
+            // Pendências/notas operacionais do operador FiscalDock
+            Route::get('/pendencias', [\App\Http\Controllers\Dashboard\AdminPendenciaController::class, 'index'])->name('pendencias.index');
+            Route::post('/pendencias', [\App\Http\Controllers\Dashboard\AdminPendenciaController::class, 'store'])->name('pendencias.store');
+            Route::post('/pendencias/{pendencia}/resolver', [\App\Http\Controllers\Dashboard\AdminPendenciaController::class, 'resolver'])->name('pendencias.resolver')->where('pendencia', '[0-9]+');
+            Route::post('/pendencias/{pendencia}/reabrir', [\App\Http\Controllers\Dashboard\AdminPendenciaController::class, 'reabrir'])->name('pendencias.reabrir')->where('pendencia', '[0-9]+');
+            Route::delete('/pendencias/{pendencia}', [\App\Http\Controllers\Dashboard\AdminPendenciaController::class, 'destroy'])->name('pendencias.destroy')->where('pendencia', '[0-9]+');
         });
 
     // Painel admin — parâmetros comerciais (§6.1, somente operador FiscalDock)
