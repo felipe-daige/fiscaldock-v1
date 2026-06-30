@@ -149,3 +149,11 @@ it('GET /app/bi/exportar-pdf?cliente_id baixa pdf em modo cliente', function () 
     expect($resp->headers->get('content-type'))->toContain('application/pdf');
     expect(substr($resp->getContent(), 0, 4))->toBe('%PDF');
 });
+
+it('payload do relatório expõe cobertura_consulta e a_recolher para os avisos', function () {
+    [$uid] = semearBiExport();
+    $rel = app(\App\Services\BiExportService::class)->relatorioCompleto($uid, null, null, null);
+
+    expect($rel['cobertura_consulta'])->toHaveKeys(['total', 'sem_consulta', 'sem_uf'])
+        ->and($rel)->toHaveKey('a_recolher_brl');
+});

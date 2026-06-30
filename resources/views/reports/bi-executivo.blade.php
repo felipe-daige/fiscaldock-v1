@@ -36,7 +36,8 @@
             @include('reports.partials._kpi-strip', ['itens' => [
                 ['label' => 'Faturamento', 'valor' => 'R$ '.$k['faturamento']],
                 ['label' => 'Aquisições', 'valor' => 'R$ '.$k['aquisicoes']],
-                ['label' => 'Tributos', 'valor' => 'R$ '.$k['tributos']],
+                ['label' => 'Tributos (débito s/ saída)', 'valor' => 'R$ '.$k['tributos']],
+                ['label' => 'A recolher (apurado)', 'valor' => 'R$ '.($relatorio['a_recolher_brl'] ?? '0,00')],
                 ['label' => 'Saldo líquido', 'valor' => 'R$ '.$k['saldo_liquido']],
             ]])
         </div>
@@ -134,11 +135,26 @@
                 </div>
             @endif
         @else
-            @php $sec = $relatorio['secoes'][$chave] ?? null; @endphp
+            @php
+                $sec = $relatorio['secoes'][$chave] ?? null;
+                $cc = $relatorio['cobertura_consulta'] ?? ['total' => 0, 'sem_consulta' => 0, 'sem_uf' => 0];
+            @endphp
             @if ($sec)
                 <div class="secao">
                     <div class="secao-header">{{ $sec['titulo'] }}</div>
                     <div class="secao-body">
+                        @if (in_array($chave, ['riscos-notas', 'riscos-fornecedores'], true) && empty($sec['linhas']) && ($cc['sem_consulta'] ?? 0) > 0)
+                            <div style="background-color:#fffbeb;border:1px solid #fde68a;padding:6px;font-size:9px;color:#92400e;">
+                                &#9888; {{ $cc['sem_consulta'] }} de {{ $cc['total'] }} participantes nunca consultados — risco não avaliado (sem dado de certidão/cadastro).
+                            </div>
+                        @endif
+
+                        @if ($chave === 'uf' && ($cc['sem_uf'] ?? 0) > 0)
+                            <div style="background-color:#fffbeb;border:1px solid #fde68a;padding:6px;font-size:9px;color:#92400e;margin-bottom:6px;">
+                                &#9888; {{ $cc['sem_uf'] }} participantes sem UF no cadastro — distribuição geográfica incompleta (consulte o CNPJ para enriquecer).
+                            </div>
+                        @endif
+
                         @if (isset($barras[$chave]) && ! empty($sec['linhas']))
                             @include('reports.partials._bar-chart', ['itens' => $svc->barChartItens($sec['linhas'], $barras[$chave][0], $barras[$chave][1], $barras[$chave][2])])
                         @endif
