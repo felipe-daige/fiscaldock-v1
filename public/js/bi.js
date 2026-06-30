@@ -190,9 +190,9 @@
             const efd = resumo.kpis_efd || {};
             setKpi('kpi-aquisicoes-notas', (efd.total_entradas_notas || 0).toLocaleString('pt-BR') + ' notas recebidas');
             setKpi('kpi-tributacao-efd', formatCompactCurrency(efd.carga_tributaria || 0));
-            setKpi('kpi-saldo', formatCompactCurrency(efd.saldo_liquido || 0));
-            setKpi('kpi-saldo-entradas', formatCompactCurrency(efd.total_entradas_valor || 0));
-            setKpi('kpi-saldo-saidas', formatCompactCurrency(efd.total_saidas_valor || 0));
+            setKpi('kpi-saldo', formatCompactCurrency(resumo.saldo_liquido || 0));
+            setKpi('kpi-saldo-entradas', formatCompactCurrency(resumo.total_compras || 0));
+            setKpi('kpi-saldo-saidas', formatCompactCurrency(resumo.total_vendas || 0));
             setKpi('kpi-sec-participantes', efd.participantes_ativos || 0);
             setKpi('kpi-sec-risco', efd.notas_em_risco || 0);
             setKpi('kpi-sec-sem-itens', efd.notas_sem_itens || 0);

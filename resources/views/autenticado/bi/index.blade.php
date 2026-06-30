@@ -124,7 +124,7 @@
 
                 {{-- Tributação --}}
                 <div class="p-4 sm:p-6 hover:bg-gray-50/50 transition-colors">
-                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1 sm:mb-2">Tributação</p>
+                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1 sm:mb-2">Tributos (débito s/ saída)</p>
                     <p class="text-lg font-bold text-gray-900" id="kpi-tributacao">{{ $compactBrl($resumo['total_tributos'] ?? 0) }}</p>
                     <p class="text-[11px] text-gray-500 mt-1">Carga bruta: <span id="kpi-tributacao-efd" class="font-medium text-gray-700">{{ $compactBrl($resumoEfd['carga_tributaria'] ?? 0) }}</span></p>
                     <p class="text-[11px] text-gray-500">A recolher: <span id="kpi-tributacao-arecolher" class="font-medium text-gray-700">{{ $compactBrl($resumo['total_a_recolher'] ?? 0) }}</span></p>
@@ -133,10 +133,10 @@
                 {{-- Saldo Líquido --}}
                 <div class="p-4 sm:p-6 hover:bg-gray-50/50 transition-colors">
                     <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1 sm:mb-2">Saldo Líquido</p>
-                    @php $saldoLiquido = ($resumoEfd['saldo_liquido'] ?? 0); @endphp
+                    @php $saldoLiquido = ($resumo['saldo_liquido'] ?? 0); @endphp
                     <p class="text-lg font-bold {{ $saldoLiquido >= 0 ? 'text-gray-900' : 'text-rose-600' }}" id="kpi-saldo">{{ $compactBrl($saldoLiquido) }}</p>
-                    <p class="text-[11px] text-gray-500 mt-1">Entradas: <span id="kpi-saldo-entradas" class="font-medium text-gray-700">{{ $compactBrl($resumoEfd['total_entradas_valor'] ?? 0) }}</span></p>
-                    <p class="text-[11px] text-gray-500">Saídas: <span id="kpi-saldo-saidas" class="font-medium text-gray-700">{{ $compactBrl($resumoEfd['total_saidas_valor'] ?? 0) }}</span></p>
+                    <p class="text-[11px] text-gray-500 mt-1">Entradas: <span id="kpi-saldo-entradas" class="font-medium text-gray-700">{{ $compactBrl($resumo['total_compras'] ?? 0) }}</span></p>
+                    <p class="text-[11px] text-gray-500">Saídas: <span id="kpi-saldo-saidas" class="font-medium text-gray-700">{{ $compactBrl($resumo['total_vendas'] ?? 0) }}</span></p>
                 </div>
 
             </div>
