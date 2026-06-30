@@ -373,38 +373,58 @@ class BiService
      */
     public function getDevolucoes(int $userId, ?string $dataInicio = null, ?string $dataFim = null, ?int $clienteId = null): array
     {
-        $query = XmlNota::where('user_id', $userId)
-            ->where('finalidade', XmlNota::FINALIDADE_DEVOLUCAO);
-
-        if ($dataInicio) {
-            $query->where('data_emissao', '>=', $dataInicio);
-        }
-
-        if ($dataFim) {
-            $query->where('data_emissao', '<=', $dataFim);
-        }
-
-        if ($clienteId) {
-            $query->where('cliente_id', $clienteId);
-        }
-
-        return $query->select(
-            DB::raw("DATE_TRUNC('month', data_emissao) as mes"),
-            DB::raw('SUM(valor_total) as valor_devolucoes'),
-            DB::raw('COUNT(*) as qtd_devolucoes')
-        )
+        // XML: notas com finalidade = devolução (acervo do contador).
+        $xml = XmlNota::where('user_id', $userId)
+            ->where('finalidade', XmlNota::FINALIDADE_DEVOLUCAO)
+            ->when($dataInicio, fn ($q) => $q->where('data_emissao', '>=', $dataInicio))
+            ->when($dataFim, fn ($q) => $q->where('data_emissao', '<=', $dataFim))
+            ->when($clienteId, fn ($q) => $q->where('cliente_id', $clienteId))
+            ->selectRaw("DATE_TRUNC('month', data_emissao) as mes, SUM(valor_total) as valor, COUNT(*) as qtd")
             ->groupBy(DB::raw("DATE_TRUNC('month', data_emissao)"))
-            ->orderBy('mes')
-            ->get()
-            ->map(function ($item) {
-                return [
-                    'mes' => $item->mes,
-                    'mes_formatado' => $item->mes ? date('m/Y', strtotime($item->mes)) : null,
-                    'valor_devolucoes' => (float) $item->valor_devolucoes,
-                    'qtd_devolucoes' => (int) $item->qtd_devolucoes,
-                ];
-            })
-            ->toArray();
+            ->get();
+
+        // EFD: C190 (consolidado, perfil B) com CFOP de devolução (CONFAZ). Só origem
+        // 'fiscal' tem C190 → sem dobra de origem. Valor = valor_operacao das linhas
+        // de devolução; qtd = notas distintas. cfops_devolucao = config canônico.
+        $cfopsDevol = (array) config('efd.cfops_devolucao', []);
+        $efd = collect();
+        if ($cfopsDevol !== []) {
+            $efd = DB::table('efd_notas_consolidados as c')
+                ->join('efd_notas as n', 'n.id', '=', 'c.efd_nota_id')
+                ->where('n.user_id', $userId)
+                ->where('n.origem_arquivo', 'fiscal')
+                ->where('n.cancelada', false)
+                ->whereIn('c.cfop', $cfopsDevol)
+                ->whereNotNull('n.data_emissao')
+                ->when($dataInicio, fn ($q) => $q->where('n.data_emissao', '>=', $dataInicio))
+                ->when($dataFim, fn ($q) => $q->where('n.data_emissao', '<=', $dataFim))
+                ->when($clienteId, fn ($q) => $q->where('n.cliente_id', $clienteId))
+                ->selectRaw("DATE_TRUNC('month', n.data_emissao) as mes, SUM(c.valor_operacao) as valor, COUNT(DISTINCT n.id) as qtd")
+                ->groupBy(DB::raw("DATE_TRUNC('month', n.data_emissao)"))
+                ->get();
+        }
+
+        // Merge por mês (chave = string do mês).
+        $porMes = [];
+        foreach ([$xml, $efd] as $fonte) {
+            foreach ($fonte as $r) {
+                $k = (string) $r->mes;
+                if (! isset($porMes[$k])) {
+                    $porMes[$k] = ['mes' => $r->mes, 'valor' => 0.0, 'qtd' => 0];
+                }
+                $porMes[$k]['valor'] += (float) $r->valor;
+                $porMes[$k]['qtd'] += (int) $r->qtd;
+            }
+        }
+
+        ksort($porMes);
+
+        return array_values(array_map(fn ($m) => [
+            'mes' => $m['mes'],
+            'mes_formatado' => $m['mes'] ? date('m/Y', strtotime($m['mes'])) : null,
+            'valor_devolucoes' => round($m['valor'], 2),
+            'qtd_devolucoes' => $m['qtd'],
+        ], $porMes));
     }
 
     /**
