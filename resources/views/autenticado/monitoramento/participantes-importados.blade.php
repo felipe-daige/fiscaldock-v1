@@ -89,52 +89,9 @@
                 <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Filtros</span>
             </div>
             <div class="p-4">
-            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
-                <div>
-                    <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Importação</label>
-                    <select name="importacao" id="filtro-importacao" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                        <option value="">Todas as importações</option>
-                        @foreach($importacoes ?? [] as $imp)
-                            <option value="{{ $imp->id }}" {{ ($filtros['importacao'] ?? '') == $imp->id ? 'selected' : '' }}>
-                                {{ $imp->filename ?? 'Importacao #' . $imp->id }} - {{ $imp->created_at?->format('d/m/Y H:i') ?? '-' }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div>
-                    <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Cliente</label>
-                    <select name="cliente" id="filtro-cliente" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                        <option value="">Todos os clientes</option>
-                        @foreach($clientes ?? [] as $cli)
-                            <option value="{{ $cli->id }}" {{ ($filtros['cliente'] ?? '') == $cli->id ? 'selected' : '' }}>
-                                {{ $cli->razao_social }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div>
-                    <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Origem</label>
-                    <select name="origem" id="filtro-origem" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                        <option value="">Todas as origens</option>
-                        @foreach($origens ?? [] as $ori)
-                            <option value="{{ $ori }}" {{ ($filtros['origem'] ?? '') == $ori ? 'selected' : '' }}>
-                                {{ str_replace('_', ' ', $ori) }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div>
-                    <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Tipo de Documento</label>
-                    <select name="tipo_documento" id="filtro-tipo-documento" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                        <option value="">Todos</option>
-                        <option value="CNPJ" {{ ($filtros['tipo_documento'] ?? '') === 'CNPJ' ? 'selected' : '' }}>CNPJ</option>
-                        <option value="CPF" {{ ($filtros['tipo_documento'] ?? '') === 'CPF' ? 'selected' : '' }}>CPF</option>
-                    </select>
-                </div>
-
+            {{-- Grupo 1: Identificação --}}
+            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Identificação</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                 <div>
                     <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Buscar</label>
                     <div class="relative">
@@ -151,47 +108,122 @@
                         </svg>
                     </div>
                 </div>
-
+                <div>
+                    <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Tipo de pessoa</label>
+                    <select name="tipo_documento" id="filtro-tipo-documento" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                        <option value="">Todos</option>
+                        <option value="CNPJ" {{ ($filtros['tipo_documento'] ?? '') === 'CNPJ' ? 'selected' : '' }}>Pessoa Jurídica (CNPJ)</option>
+                        <option value="CPF" {{ ($filtros['tipo_documento'] ?? '') === 'CPF' ? 'selected' : '' }}>Pessoa Física (CPF)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">UF</label>
+                    <select name="uf" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                        <option value="">Todas</option>
+                        @foreach($ufs ?? [] as $ufOpt)
+                            <option value="{{ $ufOpt }}" {{ ($filtros['uf'] ?? '') == $ufOpt ? 'selected' : '' }}>{{ $ufOpt }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Situação cadastral</label>
+                    <select name="situacao" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                        <option value="">Todas</option>
+                        <option value="ATIVA" {{ ($filtros['situacao'] ?? '') == 'ATIVA' ? 'selected' : '' }}>Ativa</option>
+                        <option value="BAIXADA" {{ ($filtros['situacao'] ?? '') == 'BAIXADA' ? 'selected' : '' }}>Baixada</option>
+                        <option value="SUSPENSA" {{ ($filtros['situacao'] ?? '') == 'SUSPENSA' ? 'selected' : '' }}>Suspensa</option>
+                        <option value="INAPTA" {{ ($filtros['situacao'] ?? '') == 'INAPTA' ? 'selected' : '' }}>Inapta</option>
+                    </select>
+                </div>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mt-4 pt-4 border-t border-gray-200">
+
+            {{-- Grupo 2: Consulta & risco --}}
+            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2 mt-4 pt-4 border-t border-gray-200">Consulta &amp; risco</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 <div>
-                <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Relação fiscal</label>
-                <select name="relacao" id="filtro-relacao" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                    <option value="">Relação: Todas</option>
-                    <option value="fornecedor" {{ ($filtros['relacao'] ?? '') == 'fornecedor' ? 'selected' : '' }}>Fornecedor</option>
-                    <option value="cliente" {{ ($filtros['relacao'] ?? '') == 'cliente' ? 'selected' : '' }}>Cliente</option>
-                    <option value="ambos" {{ ($filtros['relacao'] ?? '') == 'ambos' ? 'selected' : '' }}>Fornecedor e cliente</option>
-                    <option value="sem_movimentacao" {{ ($filtros['relacao'] ?? '') == 'sem_movimentacao' ? 'selected' : '' }}>Sem movimentação</option>
-                </select>
+                    <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Status da consulta</label>
+                    <select name="status_consulta" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                        <option value="">Qualquer status</option>
+                        <option value="nunca" {{ ($filtros['status_consulta'] ?? '') === 'nunca' ? 'selected' : '' }}>Nunca consultado</option>
+                        <option value="desatualizada" {{ ($filtros['status_consulta'] ?? '') === 'desatualizada' ? 'selected' : '' }}>Desatualizada (+30 dias)</option>
+                        <option value="recente" {{ ($filtros['status_consulta'] ?? '') === 'recente' ? 'selected' : '' }}>Recente (até 30 dias)</option>
+                    </select>
                 </div>
                 <div>
-                <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Regime</label>
-                <select name="regime" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                    <option value="">Regime: Todos</option>
-                    <option value="simples nacional" {{ ($filtros['regime'] ?? '') == 'simples nacional' ? 'selected' : '' }}>Simples Nacional</option>
-                    <option value="lucro presumido" {{ ($filtros['regime'] ?? '') == 'lucro presumido' ? 'selected' : '' }}>Lucro Presumido</option>
-                    <option value="lucro real" {{ ($filtros['regime'] ?? '') == 'lucro real' ? 'selected' : '' }}>Lucro Real</option>
-                    <option value="mei" {{ ($filtros['regime'] ?? '') == 'mei' ? 'selected' : '' }}>MEI</option>
-                </select>
+                    <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Regularidade (CND)</label>
+                    <select name="regularidade" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                        <option value="">Todas</option>
+                        <option value="regular" {{ ($filtros['regularidade'] ?? '') === 'regular' ? 'selected' : '' }}>Regular</option>
+                        <option value="irregular" {{ ($filtros['regularidade'] ?? '') === 'irregular' ? 'selected' : '' }}>Irregular</option>
+                        <option value="indeterminada" {{ ($filtros['regularidade'] ?? '') === 'indeterminada' ? 'selected' : '' }}>Indeterminada</option>
+                        <option value="nao_consultado" {{ ($filtros['regularidade'] ?? '') === 'nao_consultado' ? 'selected' : '' }}>Não consultado</option>
+                    </select>
                 </div>
                 <div>
-                <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Situação</label>
-                <select name="situacao" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                    <option value="">Situação: Todos</option>
-                    <option value="ATIVA" {{ ($filtros['situacao'] ?? '') == 'ATIVA' ? 'selected' : '' }}>Ativa</option>
-                    <option value="BAIXADA" {{ ($filtros['situacao'] ?? '') == 'BAIXADA' ? 'selected' : '' }}>Baixada</option>
-                    <option value="SUSPENSA" {{ ($filtros['situacao'] ?? '') == 'SUSPENSA' ? 'selected' : '' }}>Suspensa</option>
-                    <option value="INAPTA" {{ ($filtros['situacao'] ?? '') == 'INAPTA' ? 'selected' : '' }}>Inapta</option>
-                </select>
+                    <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Monitoramento</label>
+                    <select name="monitorado" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                        <option value="">Todos</option>
+                        <option value="sim" {{ ($filtros['monitorado'] ?? '') === 'sim' ? 'selected' : '' }}>Monitorado</option>
+                        <option value="nao" {{ ($filtros['monitorado'] ?? '') === 'nao' ? 'selected' : '' }}>Não monitorado</option>
+                    </select>
+                </div>
+            </div>
+
+            {{-- Grupo 3: Fiscal & origem --}}
+            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2 mt-4 pt-4 border-t border-gray-200">Fiscal &amp; origem</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                <div>
+                    <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Regime</label>
+                    <select name="regime" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                        <option value="">Todos</option>
+                        <option value="simples nacional" {{ ($filtros['regime'] ?? '') == 'simples nacional' ? 'selected' : '' }}>Simples Nacional</option>
+                        <option value="lucro presumido" {{ ($filtros['regime'] ?? '') == 'lucro presumido' ? 'selected' : '' }}>Lucro Presumido</option>
+                        <option value="lucro real" {{ ($filtros['regime'] ?? '') == 'lucro real' ? 'selected' : '' }}>Lucro Real</option>
+                        <option value="mei" {{ ($filtros['regime'] ?? '') == 'mei' ? 'selected' : '' }}>MEI</option>
+                    </select>
                 </div>
                 <div>
-                <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">UF</label>
-                <select name="uf" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                    <option value="">UF: Todos</option>
-                    @foreach($ufs ?? [] as $ufOpt)
-                        <option value="{{ $ufOpt }}" {{ ($filtros['uf'] ?? '') == $ufOpt ? 'selected' : '' }}>{{ $ufOpt }}</option>
-                    @endforeach
-                </select>
+                    <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Relação fiscal</label>
+                    <select name="relacao" id="filtro-relacao" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                        <option value="">Todas</option>
+                        <option value="fornecedor" {{ ($filtros['relacao'] ?? '') == 'fornecedor' ? 'selected' : '' }}>Fornecedor</option>
+                        <option value="cliente" {{ ($filtros['relacao'] ?? '') == 'cliente' ? 'selected' : '' }}>Cliente</option>
+                        <option value="ambos" {{ ($filtros['relacao'] ?? '') == 'ambos' ? 'selected' : '' }}>Fornecedor e cliente</option>
+                        <option value="sem_movimentacao" {{ ($filtros['relacao'] ?? '') == 'sem_movimentacao' ? 'selected' : '' }}>Sem movimentação</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Origem</label>
+                    <select name="origem" id="filtro-origem" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                        <option value="">Todas as origens</option>
+                        @foreach($origens ?? [] as $ori)
+                            <option value="{{ $ori }}" {{ ($filtros['origem'] ?? '') == $ori ? 'selected' : '' }}>
+                                {{ str_replace('_', ' ', $ori) }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Cliente</label>
+                    <select name="cliente" id="filtro-cliente" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                        <option value="">Todos os clientes</option>
+                        @foreach($clientes ?? [] as $cli)
+                            <option value="{{ $cli->id }}" {{ ($filtros['cliente'] ?? '') == $cli->id ? 'selected' : '' }}>
+                                {{ $cli->razao_social }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Importação</label>
+                    <select name="importacao" id="filtro-importacao" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                        <option value="">Todas as importações</option>
+                        @foreach($importacoes ?? [] as $imp)
+                            <option value="{{ $imp->id }}" {{ ($filtros['importacao'] ?? '') == $imp->id ? 'selected' : '' }}>
+                                {{ $imp->filename ?? 'Importacao #' . $imp->id }} - {{ $imp->created_at?->format('d/m/Y H:i') ?? '-' }}
+                            </option>
+                        @endforeach
+                    </select>
                 </div>
             </div>
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4 pt-4 border-t border-gray-200">
@@ -849,6 +881,9 @@
                     var filtroSituacao = formFiltros ? formFiltros.querySelector('select[name="situacao"]') : null;
                     var filtroUf = formFiltros ? formFiltros.querySelector('select[name="uf"]') : null;
                     var filtroRelacao = formFiltros ? formFiltros.querySelector('select[name="relacao"]') : null;
+                    var filtroStatusConsulta = formFiltros ? formFiltros.querySelector('select[name="status_consulta"]') : null;
+                    var filtroRegularidade = formFiltros ? formFiltros.querySelector('select[name="regularidade"]') : null;
+                    var filtroMonitorado = formFiltros ? formFiltros.querySelector('select[name="monitorado"]') : null;
 
                     if (filtroImportacao && filtroImportacao.value) params.set('importacao', filtroImportacao.value);
                     if (filtroCliente && filtroCliente.value) params.set('cliente', filtroCliente.value);
@@ -859,6 +894,9 @@
                     if (filtroSituacao && filtroSituacao.value) params.set('situacao', filtroSituacao.value);
                     if (filtroUf && filtroUf.value) params.set('uf', filtroUf.value);
                     if (filtroRelacao && filtroRelacao.value) params.set('relacao', filtroRelacao.value);
+                    if (filtroStatusConsulta && filtroStatusConsulta.value) params.set('status_consulta', filtroStatusConsulta.value);
+                    if (filtroRegularidade && filtroRegularidade.value) params.set('regularidade', filtroRegularidade.value);
+                    if (filtroMonitorado && filtroMonitorado.value) params.set('monitorado', filtroMonitorado.value);
 
                     var url = '/app/participantes/todos-ids' + (params.toString() ? '?' + params.toString() : '');
                     var res = await fetch(url, {

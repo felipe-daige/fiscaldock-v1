@@ -66,23 +66,75 @@
                     <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Filtros</span>
                 </div>
                 <div class="p-4">
+                    {{-- Grupo 1: Identificação --}}
+                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Identificação</p>
                     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                         <div>
-                            <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Status</label>
-                            <select name="status" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                            <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Buscar</label>
+                            <input
+                                type="text"
+                                name="busca"
+                                value="{{ $filtros['busca'] ?? '' }}"
+                                placeholder="Nome, CNPJ ou CPF..."
+                                class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                            >
+                        </div>
+                        <div>
+                            <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Tipo de pessoa</label>
+                            <select name="tipo" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
                                 <option value="">Todos</option>
-                                <option value="ativos" {{ ($filtros['status'] ?? '') === 'ativos' ? 'selected' : '' }}>Ativos</option>
-                                <option value="inativos" {{ ($filtros['status'] ?? '') === 'inativos' ? 'selected' : '' }}>Inativos</option>
+                                <option value="PJ" {{ ($filtros['tipo'] ?? '') === 'PJ' ? 'selected' : '' }}>Pessoa Jurídica (CNPJ)</option>
+                                <option value="PF" {{ ($filtros['tipo'] ?? '') === 'PF' ? 'selected' : '' }}>Pessoa Física (CPF)</option>
                             </select>
                         </div>
                         <div>
-                            <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Tipo</label>
-                            <select name="tipo" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                                <option value="">Todos</option>
-                                <option value="PJ" {{ ($filtros['tipo'] ?? '') === 'PJ' ? 'selected' : '' }}>Pessoa Jurídica</option>
-                                <option value="PF" {{ ($filtros['tipo'] ?? '') === 'PF' ? 'selected' : '' }}>Pessoa Física</option>
+                            <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">UF</label>
+                            <select name="uf" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                                <option value="">Todas</option>
+                                @foreach($ufs ?? [] as $uf)
+                                    <option value="{{ $uf }}" {{ ($filtros['uf'] ?? '') === $uf ? 'selected' : '' }}>{{ $uf }}</option>
+                                @endforeach
                             </select>
                         </div>
+                        <div>
+                            <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Situação cadastral</label>
+                            <select name="situacao" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                                <option value="">Todas</option>
+                                <option value="ATIVA" {{ ($filtros['situacao'] ?? '') === 'ATIVA' ? 'selected' : '' }}>Ativa</option>
+                                <option value="BAIXADA" {{ ($filtros['situacao'] ?? '') === 'BAIXADA' ? 'selected' : '' }}>Baixada</option>
+                                <option value="SUSPENSA" {{ ($filtros['situacao'] ?? '') === 'SUSPENSA' ? 'selected' : '' }}>Suspensa</option>
+                                <option value="INAPTA" {{ ($filtros['situacao'] ?? '') === 'INAPTA' ? 'selected' : '' }}>Inapta</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {{-- Grupo 2: Consulta & risco --}}
+                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2 mt-4 pt-4 border-t border-gray-200">Consulta &amp; risco</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Status da consulta</label>
+                            <select name="status_consulta" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                                <option value="">Qualquer status</option>
+                                <option value="nunca" {{ ($filtros['status_consulta'] ?? '') === 'nunca' ? 'selected' : '' }}>Nunca consultado</option>
+                                <option value="desatualizada" {{ ($filtros['status_consulta'] ?? '') === 'desatualizada' ? 'selected' : '' }}>Desatualizada (+30 dias)</option>
+                                <option value="recente" {{ ($filtros['status_consulta'] ?? '') === 'recente' ? 'selected' : '' }}>Recente (até 30 dias)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Regularidade (CND)</label>
+                            <select name="regularidade" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                                <option value="">Todas</option>
+                                <option value="regular" {{ ($filtros['regularidade'] ?? '') === 'regular' ? 'selected' : '' }}>Regular</option>
+                                <option value="irregular" {{ ($filtros['regularidade'] ?? '') === 'irregular' ? 'selected' : '' }}>Irregular</option>
+                                <option value="indeterminada" {{ ($filtros['regularidade'] ?? '') === 'indeterminada' ? 'selected' : '' }}>Indeterminada</option>
+                                <option value="nao_consultado" {{ ($filtros['regularidade'] ?? '') === 'nao_consultado' ? 'selected' : '' }}>Não consultado</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {{-- Grupo 3: Fiscal & origem --}}
+                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2 mt-4 pt-4 border-t border-gray-200">Fiscal &amp; origem</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                         <div>
                             <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Regime</label>
                             <select name="regime" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
@@ -94,24 +146,11 @@
                             </select>
                         </div>
                         <div>
-                            <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Situação</label>
-                            <select name="situacao" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                            <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Cadastro</label>
+                            <select name="status" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
                                 <option value="">Todos</option>
-                                <option value="ATIVA" {{ ($filtros['situacao'] ?? '') === 'ATIVA' ? 'selected' : '' }}>Ativa</option>
-                                <option value="BAIXADA" {{ ($filtros['situacao'] ?? '') === 'BAIXADA' ? 'selected' : '' }}>Baixada</option>
-                                <option value="SUSPENSA" {{ ($filtros['situacao'] ?? '') === 'SUSPENSA' ? 'selected' : '' }}>Suspensa</option>
-                                <option value="INAPTA" {{ ($filtros['situacao'] ?? '') === 'INAPTA' ? 'selected' : '' }}>Inapta</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-200">
-                        <div>
-                            <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">UF</label>
-                            <select name="uf" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                                <option value="">Todas</option>
-                                @foreach($ufs ?? [] as $uf)
-                                    <option value="{{ $uf }}" {{ ($filtros['uf'] ?? '') === $uf ? 'selected' : '' }}>{{ $uf }}</option>
-                                @endforeach
+                                <option value="ativos" {{ ($filtros['status'] ?? '') === 'ativos' ? 'selected' : '' }}>Ativos</option>
+                                <option value="inativos" {{ ($filtros['status'] ?? '') === 'inativos' ? 'selected' : '' }}>Inativos</option>
                             </select>
                         </div>
                         <div>
@@ -121,37 +160,6 @@
                                 @foreach($importacoes ?? [] as $imp)
                                     <option value="{{ $imp->id }}" {{ (string)($filtros['importacao'] ?? '') === (string)$imp->id ? 'selected' : '' }}>{{ $imp->filename }} · {{ $imp->tipo_efd }} · {{ $imp->created_at?->format('d/m/Y') }}</option>
                                 @endforeach
-                            </select>
-                        </div>
-                        <div>
-                            <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Buscar</label>
-                            <input
-                                type="text"
-                                name="busca"
-                                value="{{ $filtros['busca'] ?? '' }}"
-                                placeholder="Nome, CNPJ ou CPF..."
-                                class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
-                            >
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-200">
-                        <div>
-                            <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Regularidade (CND)</label>
-                            <select name="regularidade" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                                <option value="">Regularidade: Todas</option>
-                                <option value="regular" {{ ($filtros['regularidade'] ?? '') === 'regular' ? 'selected' : '' }}>Regular</option>
-                                <option value="irregular" {{ ($filtros['regularidade'] ?? '') === 'irregular' ? 'selected' : '' }}>Irregular</option>
-                                <option value="indeterminada" {{ ($filtros['regularidade'] ?? '') === 'indeterminada' ? 'selected' : '' }}>Indeterminada</option>
-                                <option value="nao_consultado" {{ ($filtros['regularidade'] ?? '') === 'nao_consultado' ? 'selected' : '' }}>Não consultado</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Status da consulta</label>
-                            <select name="status_consulta" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                                <option value="">Qualquer status</option>
-                                <option value="nunca" {{ ($filtros['status_consulta'] ?? '') === 'nunca' ? 'selected' : '' }}>Nunca consultado</option>
-                                <option value="desatualizada" {{ ($filtros['status_consulta'] ?? '') === 'desatualizada' ? 'selected' : '' }}>Desatualizada (+30 dias)</option>
-                                <option value="recente" {{ ($filtros['status_consulta'] ?? '') === 'recente' ? 'selected' : '' }}>Recente (até 30 dias)</option>
                             </select>
                         </div>
                     </div>

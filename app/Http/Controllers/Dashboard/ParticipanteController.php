@@ -378,10 +378,21 @@ class ParticipanteController extends Controller
         $relacaoValida = ['fornecedor', 'cliente', 'ambos', 'sem_movimentacao'];
         $relacao = in_array($request->get('relacao'), $relacaoValida, true) ? $request->get('relacao') : null;
 
+        // Filtros de consulta/risco (whitelist) — alinhados com /app/clientes.
+        $stValida = ['nunca', 'desatualizada', 'recente'];
+        $statusConsulta = in_array($request->get('status_consulta'), $stValida, true) ? $request->get('status_consulta') : null;
+        $regValida = ['regular', 'irregular', 'indeterminada', 'nao_consultado'];
+        $regularidade = in_array($request->get('regularidade'), $regValida, true) ? $request->get('regularidade') : null;
+        $monitorado = in_array($request->get('monitorado'), ['sim', 'nao'], true) ? $request->get('monitorado') : null;
+
+        $resumoService = app(\App\Services\Consultas\ParticipanteFiscalResumoService::class);
+
         // Papel de cada participante com movimentação (1 query) — serve o filtro de
         // relação E o badge por linha.
-        $papeis = app(\App\Services\Consultas\ParticipanteFiscalResumoService::class)
-            ->papelPorParticipante($userId);
+        $papeis = $resumoService->papelPorParticipante($userId);
+
+        // Regularidade por participante (só quando o filtro é usado).
+        $regularidadeMap = $regularidade !== null ? $resumoService->regularidadePorParticipante($userId) : [];
 
         // Query de participantes com filtros
         $participantesQuery = Participante::where('user_id', $userId)
@@ -424,6 +435,29 @@ class ParticipanteController extends Controller
                         fn (string $papel) => in_array($papel, $alvo, true)
                     )));
                 }
+            })
+            ->when($statusConsulta, function ($q) use ($statusConsulta) {
+                $corte = Carbon::now()->subDays(30);
+                match ($statusConsulta) {
+                    'nunca' => $q->whereNull('ultima_consulta_em'),
+                    'recente' => $q->where('ultima_consulta_em', '>=', $corte),
+                    'desatualizada' => $q->where('ultima_consulta_em', '<', $corte),
+                    default => null,
+                };
+            })
+            ->when($regularidade, function ($q) use ($regularidade, $regularidadeMap) {
+                if ($regularidade === 'nao_consultado') {
+                    $q->whereNotIn('id', array_keys($regularidadeMap));
+                } else {
+                    $q->whereIn('id', array_keys(array_filter(
+                        $regularidadeMap,
+                        fn (string $c) => $c === $regularidade
+                    )));
+                }
+            })
+            ->when($monitorado, function ($q) use ($monitorado) {
+                $ativa = fn ($sub) => $sub->whereIn('status', ['ativo', 'pausado']);
+                $monitorado === 'sim' ? $q->whereHas('assinaturas', $ativa) : $q->whereDoesntHave('assinaturas', $ativa);
             })
             ->orderBy('created_at', 'desc');
 
@@ -590,6 +624,9 @@ class ParticipanteController extends Controller
                 'uf' => $uf,
                 'tipo_documento' => $tipoDocumento,
                 'relacao' => $relacao,
+                'status_consulta' => $statusConsulta,
+                'regularidade' => $regularidade,
+                'monitorado' => $monitorado,
             ],
             'credits' => $this->creditService->getBalance($user),
         ];
@@ -644,6 +681,28 @@ class ParticipanteController extends Controller
                         fn (string $papel) => in_array($papel, $alvo, true)
                     )));
                 }
+            })
+            ->when(in_array($request->status_consulta, ['nunca', 'desatualizada', 'recente'], true), function ($q) use ($request) {
+                $corte = Carbon::now()->subDays(30);
+                match ($request->status_consulta) {
+                    'nunca' => $q->whereNull('ultima_consulta_em'),
+                    'recente' => $q->where('ultima_consulta_em', '>=', $corte),
+                    'desatualizada' => $q->where('ultima_consulta_em', '<', $corte),
+                    default => null,
+                };
+            })
+            ->when(in_array($request->regularidade, ['regular', 'irregular', 'indeterminada', 'nao_consultado'], true), function ($q) use ($request, $userId) {
+                $map = app(\App\Services\Consultas\ParticipanteFiscalResumoService::class)
+                    ->regularidadePorParticipante($userId);
+                if ($request->regularidade === 'nao_consultado') {
+                    $q->whereNotIn('id', array_keys($map));
+                } else {
+                    $q->whereIn('id', array_keys(array_filter($map, fn (string $c) => $c === $request->regularidade)));
+                }
+            })
+            ->when(in_array($request->monitorado, ['sim', 'nao'], true), function ($q) use ($request) {
+                $ativa = fn ($sub) => $sub->whereIn('status', ['ativo', 'pausado']);
+                $request->monitorado === 'sim' ? $q->whereHas('assinaturas', $ativa) : $q->whereDoesntHave('assinaturas', $ativa);
             })
             ->pluck('id');
 
