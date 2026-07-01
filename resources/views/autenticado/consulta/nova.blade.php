@@ -199,7 +199,7 @@
                                                 @if ($pd['gratuito'])
                                                     Gratuito
                                                 @else
-                                                    {{ \App\Support\Dinheiro::brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) $pd['creditos'])) }}/CNPJ
+                                                    {{ \App\Support\Dinheiro::brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((float) $pd['creditos'])) }}/CNPJ
                                                 @endif
                                             </td>
                                             <td class="py-2 px-3 text-gray-500">{{ $pd['casos_uso'][0] ?? '—' }}</td>
@@ -224,8 +224,8 @@
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div class="border border-gray-300 rounded p-3">
-                                <p class="text-sm font-semibold text-gray-900">1 crédito = R$ {{ number_format($creditUnitPrice ?? 0.20, 2, ',', '.') }}</p>
-                                <p class="text-[11px] text-gray-500 mt-1">Escada comercial atual: Validação {{ \App\Support\Dinheiro::brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency(15)) }}, Licitação {{ \App\Support\Dinheiro::brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency(20)) }}, Compliance {{ \App\Support\Dinheiro::brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency(25)) }} por CNPJ.</p>
+                                <p class="text-sm font-semibold text-gray-900">Preço por CNPJ consultado</p>
+                                <p class="text-[11px] text-gray-500 mt-1">Escada comercial atual: Validação {{ \App\Support\Dinheiro::brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency(3)) }}, Licitação {{ \App\Support\Dinheiro::brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency(4)) }}, Compliance {{ \App\Support\Dinheiro::brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency(5)) }} por CNPJ.</p>
                             </div>
                             <div class="border border-gray-300 rounded p-3">
                                 <p class="text-sm font-semibold text-gray-900">Cobrança só na confirmação</p>
@@ -233,7 +233,7 @@
                             </div>
                             <div class="border border-gray-300 rounded p-3">
                                 <p class="text-sm font-semibold text-gray-900">Estorno automático em falha</p>
-                                <p class="text-[11px] text-gray-500 mt-1">Se o provedor externo falhar em algum CNPJ, os créditos correspondentes voltam para sua conta.</p>
+                                <p class="text-[11px] text-gray-500 mt-1">Se o provedor externo falhar em algum CNPJ, o valor correspondente volta para sua conta.</p>
                             </div>
                         </div>
                     </div>
@@ -294,7 +294,7 @@
                             <p class="text-[10px] font-semibold uppercase tracking-wide" style="color: #047857">Saldo</p>
                             <span class="text-[9px] font-bold uppercase tracking-wide text-white px-1.5 py-0.5 rounded" style="background-color: #047857">Saldo</span>
                         </div>
-                        <p class="text-xl font-bold mt-0.5" style="color: #047857">{{ \App\Support\Dinheiro::brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) ($credits ?? 0))) }}</p>
+                        <p class="text-xl font-bold mt-0.5" style="color: #047857">{{ \App\Support\Dinheiro::brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((float) ($credits ?? 0))) }}</p>
                         <p class="text-[11px] mt-1" style="color: #065f46">Disponível para consulta</p>
                     </div>
                 </div>
@@ -347,9 +347,9 @@
             </div>
 
             {{-- Layout 2 colunas --}}
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-                {{-- Coluna Esquerda: Filtros e Lista de Participantes (2/3) --}}
-                <div class="lg:col-span-2">
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
+                {{-- Coluna Esquerda: Filtros e Lista de Participantes (3/4) --}}
+                <div class="lg:col-span-3">
                     <div class="bg-white rounded border border-gray-300 overflow-hidden">
                         {{-- Tab Bar --}}
                         <div class="bg-gray-50 px-4 py-2 border-b border-gray-200">
@@ -395,77 +395,171 @@
 
                             {{-- Filtros --}}
                             <div class="px-4 py-4 border-b border-gray-200">
+                                <p class="text-xs text-gray-600 mb-3">Selecione os CNPJs que quer consultar e refine com os filtros abaixo.</p>
+
+                                {{-- Básico --}}
                                 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
-                                    <input
-                                        type="text"
-                                        id="filtro-busca"
-                                        placeholder="Buscar documento, razão social ou fantasia..."
-                                        class="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-700 focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
-                                    >
-                                    <select id="filtro-origem" class="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-700 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                                        <option value="">Todas as origens</option>
-                                        <option value="NFE">NF-e</option>
-                                        <option value="NFSE">NFS-e</option>
-                                        <option value="CTE">CT-e</option>
-                                        <option value="SPED_EFD_FISCAL">EFD Fiscal</option>
-                                        <option value="SPED_EFD_CONTRIB">EFD Contribuições</option>
-                                        <option value="MANUAL">Manual</option>
-                                    </select>
-                                    <select id="filtro-tipo-documento" class="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-700 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                                        <option value="">Todos os tipos</option>
-                                        <option value="PJ">PJ</option>
-                                        <option value="PF">PF</option>
-                                    </select>
-                                    <select id="filtro-situacao-cadastral" class="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-700 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                                        <option value="">Todas as situações</option>
-                                        <option value="ATIVA">Ativa</option>
-                                        <option value="BAIXADA">Baixada</option>
-                                        <option value="INAPTA">Inapta</option>
-                                        <option value="SUSPENSA">Suspensa</option>
-                                        <option value="NULA">Nula</option>
-                                    </select>
-                                    <select id="filtro-uf" class="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-700 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                                        <option value="">Todas as UFs</option>
-                                        @foreach(($participantesUfs ?? collect()) as $uf)
-                                            <option value="{{ $uf }}">{{ $uf }}</option>
-                                        @endforeach
-                                    </select>
-                                    <select id="filtro-cliente" class="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-700 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                                        <option value="">Todos os clientes</option>
-                                        @foreach($clientes as $cliente)
-                                            <option value="{{ $cliente->id }}">{{ $cliente->razao_social ?? $cliente->nome }}</option>
-                                        @endforeach
-                                    </select>
-                                    <select id="filtro-grupo" class="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-700 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                                        <option value="">Todos os grupos</option>
-                                        @foreach($grupos as $grupo)
-                                            <option value="{{ $grupo->id }}">{{ $grupo->nome }}</option>
-                                        @endforeach
-                                    </select>
-                                    <select id="filtro-relacao" class="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-700 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                                        <option value="">Todas as relações</option>
-                                        <option value="fornecedor">Fornecedor</option>
-                                        <option value="cliente">Cliente</option>
-                                        <option value="ambos">Fornecedor e cliente</option>
-                                        <option value="sem_movimentacao">Sem movimentação</option>
-                                    </select>
-                                    <div class="flex gap-2">
-                                        <select id="filtro-valor-op" class="w-28 px-2 py-2 border border-gray-300 rounded text-sm text-gray-700 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                                            <option value="min">Valor ≥</option>
-                                            <option value="max">Valor ≤</option>
-                                        </select>
-                                        <input type="number" id="filtro-valor" min="0" step="0.01" inputmode="decimal" placeholder="Valor movimentado (R$)" class="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded text-sm text-gray-700 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                                    <div>
+                                        <label class="block text-[11px] text-gray-500 mb-1">Buscar</label>
+                                        <input type="text" id="filtro-busca" placeholder="CNPJ, razão social ou fantasia"
+                                            class="w-full px-3 py-2.5 border border-gray-300 rounded text-[13px] text-gray-700 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
                                     </div>
-                                    <div class="flex gap-2">
-                                        <select id="filtro-qtd-op" class="w-28 px-2 py-2 border border-gray-300 rounded text-sm text-gray-700 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                                            <option value="min">Notas ≥</option>
-                                            <option value="max">Notas ≤</option>
+                                    <div>
+                                        <label class="block text-[11px] text-gray-500 mb-1">Situação cadastral</label>
+                                        <select id="filtro-situacao-cadastral" class="w-full px-3 py-2.5 border border-gray-300 rounded text-[13px] text-gray-700 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                                            <option value="">Todas as situações</option>
+                                            @foreach(($participantesSituacoes ?? collect(['ATIVA','BAIXADA','INAPTA','SUSPENSA','NULA'])) as $sit)
+                                                <option value="{{ $sit }}">{{ ucfirst(mb_strtolower($sit)) }}</option>
+                                            @endforeach
                                         </select>
-                                        <input type="number" id="filtro-qtd" min="0" step="1" inputmode="numeric" placeholder="Qtd. de notas" class="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded text-sm text-gray-700 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
                                     </div>
-                                    <button type="button" id="btn-limpar-filtros-participantes" class="w-full inline-flex items-center justify-center px-4 py-2 bg-white border border-gray-300 text-gray-600 hover:bg-gray-50 rounded text-sm font-medium">
-                                        Limpar filtros
+                                    <div>
+                                        <label class="flex items-center gap-1 text-[11px] text-gray-500 mb-1">
+                                            Status da consulta
+                                            <span class="filtro-help" data-help="Há quanto tempo você consultou esse CNPJ. Útil pra achar quem precisa re-consultar.">?</span>
+                                        </label>
+                                        <select id="filtro-status-consulta" class="w-full px-3 py-2.5 border border-gray-300 rounded text-[13px] text-gray-700 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                                            <option value="">Qualquer status</option>
+                                            <option value="nunca">Nunca consultado</option>
+                                            <option value="desatualizada">Desatualizada (+30 dias)</option>
+                                            <option value="recente">Recente (até 30 dias)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[11px] text-gray-500 mb-1">Ordenar por</label>
+                                        <select id="filtro-ordenar" class="w-full px-3 py-2.5 border border-gray-300 rounded text-[13px] text-gray-700 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                                            <option value="razao">Razão social (A–Z)</option>
+                                            <option value="ultima_consulta">Última consulta (mais antiga)</option>
+                                            <option value="valor">Maior valor movimentado</option>
+                                            <option value="qtd">Mais notas</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                {{-- Toggle avançados --}}
+                                <div class="mt-3">
+                                    <button type="button" id="btn-toggle-avancados" class="inline-flex items-center gap-1.5 text-[13px] text-gray-600 hover:text-gray-900 font-medium">
+                                        <svg id="icon-avancados" class="w-3.5 h-3.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                        Filtros avançados
+                                        <span id="badge-avancados" class="hidden text-[10px] text-white rounded-full px-1.5 py-0.5" style="background-color:#374151;">0</span>
                                     </button>
+                                </div>
+
+                                {{-- Avançados (colapsado) --}}
+                                <div id="filtros-avancados" class="hidden mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+                                    <div>
+                                        <label class="block text-[11px] text-gray-500 mb-1">Origem</label>
+                                        <select id="filtro-origem" class="w-full px-3 py-2.5 border border-gray-300 rounded text-[13px] text-gray-700 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                                            <option value="">Todas as origens</option>
+                                            <option value="NFE">NF-e</option>
+                                            <option value="NFSE">NFS-e</option>
+                                            <option value="CTE">CT-e</option>
+                                            <option value="SPED_EFD_FISCAL">EFD Fiscal</option>
+                                            <option value="SPED_EFD_CONTRIB">EFD Contribuições</option>
+                                            <option value="MANUAL">Manual</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[11px] text-gray-500 mb-1">Tipo de pessoa</label>
+                                        <select id="filtro-tipo-documento" class="w-full px-3 py-2.5 border border-gray-300 rounded text-[13px] text-gray-700 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                                            <option value="">Todos os tipos</option>
+                                            <option value="PJ">Pessoa Jurídica</option>
+                                            <option value="PF">Pessoa Física</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[11px] text-gray-500 mb-1">UF</label>
+                                        <select id="filtro-uf" class="w-full px-3 py-2.5 border border-gray-300 rounded text-[13px] text-gray-700 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                                            <option value="">Todas as UFs</option>
+                                            @foreach(($participantesUfs ?? collect()) as $uf)
+                                                <option value="{{ $uf }}">{{ $uf }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[11px] text-gray-500 mb-1">Cliente</label>
+                                        <select id="filtro-cliente" class="w-full px-3 py-2.5 border border-gray-300 rounded text-[13px] text-gray-700 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                                            <option value="">Todos os clientes</option>
+                                            @foreach($clientes as $cliente)
+                                                <option value="{{ $cliente->id }}">{{ $cliente->razao_social ?? $cliente->nome }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[11px] text-gray-500 mb-1">Grupo</label>
+                                        <select id="filtro-grupo" class="w-full px-3 py-2.5 border border-gray-300 rounded text-[13px] text-gray-700 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                                            <option value="">Todos os grupos</option>
+                                            @foreach($grupos as $grupo)
+                                                <option value="{{ $grupo->id }}">{{ $grupo->nome }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="flex items-center gap-1 text-[11px] text-gray-500 mb-1">
+                                            Relação fiscal
+                                            <span class="filtro-help" data-help="Se o CNPJ te vendeu (fornecedor), comprou (cliente) ou ambos, segundo suas notas EFD.">?</span>
+                                        </label>
+                                        <select id="filtro-relacao" class="w-full px-3 py-2.5 border border-gray-300 rounded text-[13px] text-gray-700 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                                            <option value="">Todas as relações</option>
+                                            <option value="fornecedor">Fornecedor</option>
+                                            <option value="cliente">Cliente</option>
+                                            <option value="ambos">Fornecedor e cliente</option>
+                                            <option value="sem_movimentacao">Sem movimentação</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="flex items-center gap-1 text-[11px] text-gray-500 mb-1">
+                                            Regularidade (CND)
+                                            <span class="filtro-help" data-help="Resultado da última consulta: regular, irregular, indeterminada (código 611) ou nunca consultado.">?</span>
+                                        </label>
+                                        <select id="filtro-regularidade" class="w-full px-3 py-2.5 border border-gray-300 rounded text-[13px] text-gray-700 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                                            <option value="">Qualquer regularidade</option>
+                                            <option value="regular">Regular</option>
+                                            <option value="irregular">Irregular</option>
+                                            <option value="indeterminada">Indeterminada</option>
+                                            <option value="nao_consultado">Não consultado</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="flex items-center gap-1 text-[11px] text-gray-500 mb-1">
+                                            Monitoramento
+                                            <span class="filtro-help" data-help="Se o CNPJ tem monitoramento recorrente ativo.">?</span>
+                                        </label>
+                                        <select id="filtro-monitorado" class="w-full px-3 py-2.5 border border-gray-300 rounded text-[13px] text-gray-700 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                                            <option value="">Todos</option>
+                                            <option value="sim">Monitorado</option>
+                                            <option value="nao">Não monitorado</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[11px] text-gray-500 mb-1">Valor movimentado (R$)</label>
+                                        <div class="flex gap-2">
+                                            <select id="filtro-valor-op" class="w-24 px-2 py-2.5 border border-gray-300 rounded text-[13px] text-gray-700">
+                                                <option value="min">≥</option>
+                                                <option value="max">≤</option>
+                                            </select>
+                                            <input type="number" id="filtro-valor" min="0" step="0.01" inputmode="decimal" placeholder="0,00"
+                                                class="flex-1 min-w-0 px-3 py-2.5 border border-gray-300 rounded text-[13px] text-gray-700 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[11px] text-gray-500 mb-1">Quantidade de notas</label>
+                                        <div class="flex gap-2">
+                                            <select id="filtro-qtd-op" class="w-24 px-2 py-2.5 border border-gray-300 rounded text-[13px] text-gray-700">
+                                                <option value="min">≥</option>
+                                                <option value="max">≤</option>
+                                            </select>
+                                            <input type="number" id="filtro-qtd" min="0" step="1" inputmode="numeric" placeholder="0"
+                                                class="flex-1 min-w-0 px-3 py-2.5 border border-gray-300 rounded text-[13px] text-gray-700 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {{-- Chips ativos + contador --}}
+                                <div class="flex flex-wrap items-center gap-2 mt-3 min-h-[1.5rem]">
+                                    <div id="participantes-chips" class="flex flex-wrap items-center gap-2"></div>
+                                    <button type="button" id="btn-limpar-tudo" class="hidden text-[12px] text-gray-500 hover:text-gray-800 underline">Limpar tudo</button>
+                                    <span id="participantes-count" class="ml-auto text-[12px] text-gray-500"></span>
                                 </div>
 
                                 {{-- Acoes em massa --}}
@@ -495,8 +589,8 @@
                             </div>
 
                             {{-- Tabela de Participantes --}}
-                            <div class="overflow-x-auto">
-                                <table class="min-w-full">
+                            <div>
+                                <table class="w-full table-fixed">
                                     <thead class="hidden md:table-header-group">
                                         <tr>
                                             <th class="w-10 px-3 py-2.5 text-left bg-gray-50">
@@ -686,7 +780,7 @@
                                     @elseif($isLocked)
                                         <span class="flex-shrink-0 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: #9ca3af">Bloq.</span>
                                     @else
-                                        <span class="flex-shrink-0 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $badgeHex }}">{{ \App\Support\Dinheiro::brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) $pd['creditos'])) }}</span>
+                                        <span class="flex-shrink-0 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $badgeHex }}">{{ \App\Support\Dinheiro::brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((float) $pd['creditos'])) }}</span>
                                     @endif
                                     @if(!empty($pd['trial_aplicavel']))
                                         <span class="flex-shrink-0 px-2 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap"
@@ -734,7 +828,7 @@
                                 </div>
                                 <div class="flex justify-between items-center pt-2 border-t border-gray-100">
                                     <span class="text-gray-500">Seu saldo</span>
-                                    <span id="resumo-saldo" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: #047857">{{ \App\Support\Dinheiro::brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) $credits)) }}</span>
+                                    <span id="resumo-saldo" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: #047857">{{ \App\Support\Dinheiro::brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((float) $credits)) }}</span>
                                 </div>
                             </div>
 
@@ -922,9 +1016,9 @@
                                                     @elseif($pd['gratuito'])
                                                         <span class="flex-shrink-0 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: #047857">Grátis</span>
                                                     @elseif($pd['promo'])
-                                                        <span class="flex-shrink-0 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: #d97706">{{ \App\Support\Dinheiro::brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) $pd['creditos'])) }}</span>
+                                                        <span class="flex-shrink-0 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: #d97706">{{ \App\Support\Dinheiro::brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((float) $pd['creditos'])) }}</span>
                                                     @else
-                                                        <span class="flex-shrink-0 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $badgeHex }}">{{ \App\Support\Dinheiro::brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((int) $pd['creditos'])) }}</span>
+                                                        <span class="flex-shrink-0 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $badgeHex }}">{{ \App\Support\Dinheiro::brl(app(\App\Services\PricingCatalogService::class)->creditsToCurrency((float) $pd['creditos'])) }}</span>
                                                     @endif
                                                 </div>
                                                 <p class="text-sm text-gray-700">{{ $pd['descricao'] }}</p>
@@ -933,14 +1027,14 @@
                                                     <div class="mt-3 bg-white rounded border border-gray-300 border-l-4 p-3 text-sm text-gray-700" style="border-left-color: #9ca3af">
                                                         <div class="flex items-center justify-between gap-3">
                                                             <span>Disponível após a primeira recarga.</span>
-                                                            <a href="/app/creditos" data-link class="text-xs text-gray-600 hover:text-gray-900 hover:underline whitespace-nowrap">Comprar créditos</a>
+                                                            <a href="/app/creditos" data-link class="text-xs text-gray-600 hover:text-gray-900 hover:underline whitespace-nowrap">Adicionar saldo</a>
                                                         </div>
                                                     </div>
                                                 @endif
 
                                                 @if($pd['promo'])
                                                     <div class="mt-3 bg-white rounded border border-gray-300 border-l-4 p-3 text-sm text-gray-700" style="border-left-color: #d97706">
-                                                        Promoção: de {{ $pd['preco_original'] }} por {{ $pd['creditos'] }} créditos/CNPJ
+                                                        Promoção: de {{ $pd['preco_original'] }} por {{ \App\Support\Dinheiro::brl((float) $pd['creditos']) }}/CNPJ
                                                     </div>
                                                 @endif
                                             </div>
@@ -1025,6 +1119,19 @@
         background: #1f2937;
         width: 20px;
         border-radius: 4px;
+    }
+    .filtro-help {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 14px; height: 14px; border-radius: 9999px;
+        background-color: #e5e7eb; color: #374151;
+        font-size: 10px; font-weight: 700; cursor: help; position: relative;
+    }
+    .filtro-help:hover::after {
+        content: attr(data-help);
+        position: absolute; bottom: 130%; left: 50%; transform: translateX(-50%);
+        width: 220px; padding: 6px 8px; border-radius: 6px;
+        background-color: #111827; color: #fff; font-size: 11px; font-weight: 400;
+        line-height: 1.35; z-index: 50; white-space: normal; text-align: left;
     }
 </style>
 
