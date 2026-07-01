@@ -88,6 +88,15 @@ class ConsultaController extends Controller
             ->orderBy('uf')
             ->pluck('uf');
 
+        $participantesSituacoes = Participante::where('user_id', $user->id)
+            ->excludingEmpresaPropria()
+            ->whereNotNull('situacao_cadastral')
+            ->where('situacao_cadastral', '!=', '')
+            ->selectRaw('upper(situacao_cadastral) as situacao_cadastral')
+            ->distinct()
+            ->orderBy('situacao_cadastral')
+            ->pluck('situacao_cadastral');
+
         // Buscar grupos do usuário
         $grupos = ParticipanteGrupo::doUsuario($user->id)
             ->withCount('participantes')
@@ -112,6 +121,7 @@ class ConsultaController extends Controller
             'ultimosLotes' => $ultimosLotes,
             'participantesUfs' => $participantesUfs,
             'clientesUfs' => $clientesUfs,
+            'participantesSituacoes' => $participantesSituacoes,
             'credits' => $this->creditService->getBalance($user),
             'creditUnitPrice' => $this->pricingCatalogService->creditUnitPrice(),
             'complianceSources' => $this->pricingCatalogService->getComplianceSources(),
@@ -159,6 +169,10 @@ class ConsultaController extends Controller
             'valor' => 'nullable|numeric|min:0',
             'qtd_op' => 'nullable|string|in:min,max',
             'qtd' => 'nullable|integer|min:0',
+            'status_consulta' => 'nullable|string|in:nunca,desatualizada,recente',
+            'regularidade' => 'nullable|string|in:regular,irregular,indeterminada,nao_consultado',
+            'monitorado' => 'nullable|string|in:sim,nao',
+            'ordenar' => 'nullable|string|in:razao,ultima_consulta,valor,qtd',
             'page' => 'nullable|integer|min:1',
             'per_page' => 'nullable|integer|min:10|max:100',
         ]);
@@ -221,41 +235,81 @@ class ConsultaController extends Controller
             });
         }
 
-        // Filtro por relação fiscal (fornecedor/cliente/ambos/sem movimentação), derivada
-        // das notas EFD. Precisa ser aplicado ANTES da paginação. Semântica inclusiva:
-        // "fornecedor" abrange quem também é cliente ('ambos'); idem "cliente".
-        if (! empty($validated['relacao'])) {
-            $papeis = app(\App\Services\Consultas\ParticipanteFiscalResumoService::class)
-                ->papelPorParticipante($user->id);
+        // Filtro por status da consulta — baseado em participantes.ultima_consulta_em.
+        if (! empty($validated['status_consulta'])) {
+            $corte = Carbon::now()->subDays(30);
+            match ($validated['status_consulta']) {
+                'nunca' => $query->whereNull('ultima_consulta_em'),
+                'recente' => $query->where('ultima_consulta_em', '>=', $corte),
+                'desatualizada' => $query->where('ultima_consulta_em', '<', $corte),
+                default => null,
+            };
+        }
 
+        // Filtro por monitoramento — assinatura ativa/pausada.
+        if (! empty($validated['monitorado'])) {
+            $temAssinatura = fn ($q) => $q->whereIn('status', ['ativo', 'pausado']);
+            if ($validated['monitorado'] === 'sim') {
+                $query->whereHas('assinaturas', $temAssinatura);
+            } else {
+                $query->whereDoesntHave('assinaturas', $temAssinatura);
+            }
+        }
+
+        // Filtro por regularidade — última consulta classificada por CertidaoBadge.
+        if (! empty($validated['regularidade'])) {
+            $classes = app(\App\Services\Consultas\ParticipanteFiscalResumoService::class)
+                ->regularidadePorParticipante($user->id);
+
+            if ($validated['regularidade'] === 'nao_consultado') {
+                // whereNotIn [] vira "1=1" (todos) — correto: ninguém consultado.
+                $query->whereNotIn('id', array_keys($classes));
+            } else {
+                // whereIn [] vira "0=1" (nenhum) — correto quando não há match.
+                $query->whereIn('id', array_keys(array_filter(
+                    $classes,
+                    fn (string $c) => $c === $validated['regularidade']
+                )));
+            }
+        }
+
+        // Resumo de movimentação (papel/valor/qtd) — 1 query, serve relação, valor,
+        // qtd e ordenação por valor/qtd. Só busca quando algum deles é usado.
+        $ordenar = $validated['ordenar'] ?? 'razao';
+        $precisaResumo = ! empty($validated['relacao'])
+            || (! empty($validated['valor_op']) && ($validated['valor'] ?? null) !== null)
+            || (! empty($validated['qtd_op']) && ($validated['qtd'] ?? null) !== null)
+            || in_array($ordenar, ['valor', 'qtd'], true);
+
+        $resumo = $precisaResumo
+            ? app(\App\Services\Consultas\ParticipanteFiscalResumoService::class)->resumoMovimentacao($user->id)
+            : [];
+
+        // Filtro por relação fiscal. Semântica inclusiva: "fornecedor" abrange quem
+        // também é cliente ('ambos'); idem "cliente".
+        if (! empty($validated['relacao'])) {
             if ($validated['relacao'] === 'sem_movimentacao') {
-                // whereNotIn com [] vira "1=1" (todos) — correto: ninguém tem movimentação.
-                $query->whereNotIn('id', array_keys($papeis));
+                $query->whereNotIn('id', array_keys($resumo));
             } else {
                 $alvo = match ($validated['relacao']) {
                     'fornecedor' => ['fornecedor', 'ambos'],
                     'cliente' => ['cliente', 'ambos'],
                     default => ['ambos'],
                 };
-                // whereIn com [] vira "0=1" (nenhum) — correto quando não há match.
                 $query->whereIn('id', array_keys(array_filter(
-                    $papeis,
-                    fn (string $papel) => in_array($papel, $alvo, true)
+                    $resumo,
+                    fn (array $r) => in_array($r['papel'], $alvo, true)
                 )));
             }
         }
 
-        // Filtro por valor movimentado (R$) — soma de compras + vendas das notas
-        // fiscais. Só considera participantes COM movimentação; quem não tem nota
-        // fica fora do filtro (sem valor a comparar). whereIn [] vira "0=1" (nenhum).
+        // Filtro por valor movimentado (R$). Só participantes COM movimentação.
         if (! empty($validated['valor_op']) && ($validated['valor'] ?? null) !== null) {
             $valor = (float) $validated['valor'];
             $op = $validated['valor_op'];
-            $totais = app(\App\Services\Consultas\ParticipanteFiscalResumoService::class)
-                ->valorMovimentadoPorParticipante($user->id);
             $query->whereIn('id', array_keys(array_filter(
-                $totais,
-                fn (float $v) => $op === 'min' ? $v >= $valor : $v <= $valor
+                $resumo,
+                fn (array $r) => $op === 'min' ? $r['valor'] >= $valor : $r['valor'] <= $valor
             )));
         }
 
@@ -263,16 +317,35 @@ class ConsultaController extends Controller
         if (! empty($validated['qtd_op']) && ($validated['qtd'] ?? null) !== null) {
             $qtd = (int) $validated['qtd'];
             $op = $validated['qtd_op'];
-            $contagens = app(\App\Services\Consultas\ParticipanteFiscalResumoService::class)
-                ->qtdNotasPorParticipante($user->id);
             $query->whereIn('id', array_keys(array_filter(
-                $contagens,
-                fn (int $c) => $op === 'min' ? $c >= $qtd : $c <= $qtd
+                $resumo,
+                fn (array $r) => $op === 'min' ? $r['qtd'] >= $qtd : $r['qtd'] <= $qtd
             )));
         }
 
-        $participantes = $query->orderBy('razao_social')
-            ->paginate($perPage);
+        // Ordenação.
+        if ($ordenar === 'ultima_consulta') {
+            $query->orderByRaw('ultima_consulta_em ASC NULLS FIRST')->orderBy('razao_social');
+        } elseif (in_array($ordenar, ['valor', 'qtd'], true)) {
+            // Ordena pela ordem dos ids do resumo (desc). Ids vêm só do banco
+            // (chaves do resumo), sem input do usuário — sem risco de injeção.
+            $ordenados = collect($resumo)
+                ->sortByDesc(fn (array $r) => $r[$ordenar])
+                ->keys()
+                ->values();
+            if ($ordenados->isNotEmpty()) {
+                $idsCsv = $ordenados->implode(',');
+                $query->orderByRaw("CASE WHEN id IN ({$idsCsv}) THEN 0 ELSE 1 END")
+                    ->orderByRaw("array_position(ARRAY[{$idsCsv}]::bigint[], id)")
+                    ->orderBy('razao_social');
+            } else {
+                $query->orderBy('razao_social');
+            }
+        } else {
+            $query->orderBy('razao_social');
+        }
+
+        $participantes = $query->paginate($perPage);
         $agora = Carbon::now();
         $participanteIds = $participantes->getCollection()->pluck('id')->all();
         $ultimosResultados = ConsultaResultado::query()
@@ -1652,26 +1725,20 @@ class ConsultaController extends Controller
     }
 
     /**
-     * Cobra (50% off) e re-despacha a reconsulta das fontes selecionadas. Valida elegibilidade,
-     * ownership, saldo e protege contra duplo-clique (lock por user+lote).
+     * Cobra (plano × 50% off) por CNPJ afetado e re-despacha a reconsulta SÓ das fontes que
+     * falharam de cada CNPJ. Backend-autoritativo: não recebe seleção do front (o usuário apenas
+     * confirma). Valida ownership, saldo e protege contra duplo-clique (lock por user+lote).
      */
     public function retryExecutar(Request $request, int $id): JsonResponse
     {
         $user = Auth::user();
         $lote = ConsultaLote::where('id', $id)->where('user_id', $user->id)->firstOrFail();
 
-        $validated = $request->validate([
-            'selecao' => 'required|array|min:1',
-            'selecao.*.alvo_tipo' => 'required|in:participante,cliente',
-            'selecao.*.alvo_id' => 'required|integer',
-            'selecao.*.fonte' => 'required|string',
-        ]);
-
         $lock = Cache::lock("consulta_retry_lock:{$user->id}:{$lote->id}", 10);
         abort_unless($lock->get(), 409, 'Reconsulta já em andamento.');
 
         try {
-            $r = app(\App\Services\Consultas\RetryConsultaService::class)->executar($lote, $validated['selecao']);
+            $r = app(\App\Services\Consultas\RetryConsultaService::class)->executar($lote);
         } finally {
             $lock->release();
         }
@@ -1808,6 +1875,7 @@ class ConsultaController extends Controller
                     'mensagem_exibivel' => $r->getMensagemExibivel(),
                     'situacao_cadastral' => $r->getDado('situacao_cadastral'),
                     'regime_tributario' => $r->getRegimeTributarioLabel(),
+                    'regime_tributario_nota' => $r->getDado('regime_tributario_nota'),
                     'simples_nacional' => $r->getDado('simples_nacional'),
                     'mei' => $r->getDado('mei'),
                     'cnd_federal' => $this->cndFederalComAnalise($r->getDado('cnd_federal')),
@@ -1923,6 +1991,8 @@ class ConsultaController extends Controller
                     ->montar($lote->user_id, $participante, $fiscalResumo, $resultado->resultado_dados ?? []);
             }
 
+            $score = $participante?->score;
+
             return [
                 'participante_id' => $participante?->id,
                 'cliente_id' => $cliente?->id,
@@ -1938,6 +2008,7 @@ class ConsultaController extends Controller
                 'consultado_em_label' => $resultado->consultado_em?->format('d/m/Y H:i') ?: '—',
                 'situacao_cadastral' => $situacaoCadastral !== '' ? $situacaoCadastral : '—',
                 'regime_tributario' => $regimeTributario ?: '—',
+                'regime_tributario_nota' => $resultado->getDado('regime_tributario_nota'),
                 'cnd_federal_badge' => $cndFederal,
                 'fgts_badge' => $fgts,
                 'cndt_badge' => $cndt,
@@ -1947,6 +2018,15 @@ class ConsultaController extends Controller
                 'detalhe_blocos' => $detalhePresenter->blocos($resultado, $esperadasCert),
                 'resumo_texto' => $resultado->isSucesso() ? $detalhePresenter->resumoTextual($resultado) : null,
                 'fiscal_resumo' => $fiscalResumo,
+                'score_total' => $score?->score_total,
+                'score_label' => $score?->classificacao_label,
+                'score_hex' => match ($score?->classificacao) {
+                    'baixo' => '#047857',
+                    'medio' => '#ca8a04',
+                    'alto' => '#ea580c',
+                    'critico' => '#dc2626',
+                    default => '#9ca3af',
+                },
             ];
         });
     }
