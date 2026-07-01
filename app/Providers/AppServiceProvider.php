@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\View\Composers\SidebarComposer;
+use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
@@ -48,5 +50,20 @@ class AppServiceProvider extends ServiceProvider
         View::composer('autenticado.partials.sidebar', SidebarComposer::class);
 
         Blade::directive('brl', fn ($e) => "<?php echo \App\Support\Dinheiro::brl($e); ?>");
+
+        ResetPassword::toMailUsing(function (object $notifiable, string $token) {
+            $url = route('password.reset', [
+                'token' => $token,
+                'email' => $notifiable->getEmailForPasswordReset(),
+            ]);
+
+            return (new MailMessage)
+                ->subject('Redefinir sua senha — FiscalDock')
+                ->greeting('Olá, '.$notifiable->name.'!')
+                ->line('Recebemos um pedido para redefinir a senha da sua conta FiscalDock.')
+                ->action('Redefinir senha', $url)
+                ->line('Este link expira em 60 minutos.')
+                ->line('Se você não pediu essa redefinição, ignore este e-mail — sua senha continua a mesma.');
+        });
     }
 }
