@@ -87,6 +87,7 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureNaoBloqueado::class, \App\
     Route::post('/app/dashboard/prefs', [DashboardController::class, 'salvarPrefs'])->name('app.dashboard.prefs');
     Route::get('/app/perfil', [DashboardController::class, 'perfil'])->name('app.perfil');
     Route::patch('/app/perfil', [DashboardController::class, 'atualizarPerfil'])->name('app.perfil.update');
+    Route::put('/app/perfil/senha', [DashboardController::class, 'atualizarSenha'])->name('app.perfil.senha.update');
 
     Route::get('/app/alertas', [DashboardController::class, 'alertas'])->name('app.alertas');
     Route::get('/app/alertas/dados', [DashboardController::class, 'alertasDados'])->name('app.alertas.dados');

@@ -52,3 +52,42 @@ it('exige autenticacao no PATCH perfil', function () {
     $this->patchJson('/app/perfil', ['name' => 'X'])
         ->assertStatus(401);
 });
+
+it('troca a senha com current_password correto', function () {
+    $user = User::factory()->create(['password' => bcrypt('senha-antiga-123')]);
+
+    $this->actingAs($user)
+        ->putJson('/app/perfil/senha', [
+            'current_password' => 'senha-antiga-123',
+            'password' => 'nova-senha-forte-456',
+            'password_confirmation' => 'nova-senha-forte-456',
+        ])
+        ->assertOk()
+        ->assertJsonPath('success', true);
+
+    expect(\Illuminate\Support\Facades\Hash::check('nova-senha-forte-456', $user->fresh()->password))->toBeTrue();
+});
+
+it('rejeita current_password errado', function () {
+    $user = User::factory()->create(['password' => bcrypt('senha-antiga-123')]);
+
+    $this->actingAs($user)
+        ->putJson('/app/perfil/senha', [
+            'current_password' => 'errada',
+            'password' => 'nova-senha-forte-456',
+            'password_confirmation' => 'nova-senha-forte-456',
+        ])
+        ->assertStatus(422);
+});
+
+it('rejeita confirmacao divergente', function () {
+    $user = User::factory()->create(['password' => bcrypt('senha-antiga-123')]);
+
+    $this->actingAs($user)
+        ->putJson('/app/perfil/senha', [
+            'current_password' => 'senha-antiga-123',
+            'password' => 'nova-senha-forte-456',
+            'password_confirmation' => 'diferente-789',
+        ])
+        ->assertStatus(422);
+});
