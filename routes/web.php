@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\CreditController;
 use App\Http\Controllers\Dashboard\BiController;
 use App\Http\Controllers\Dashboard\CatalogoController;
@@ -62,6 +63,10 @@ Route::post('/agendar', [AuthController::class, 'agendar'])->name('agendar.post'
 Route::get('/termos', [AuthController::class, 'showTerms'])->name('termos');
 Route::get('/privacidade', [AuthController::class, 'showPrivacy'])->name('privacidade');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+Route::get('/esqueci-senha', [PasswordResetController::class, 'mostrarFormularioEsqueciSenha'])->name('password.forgot');
+Route::post('/esqueci-senha', [PasswordResetController::class, 'enviarLinkReset'])->middleware('throttle:5,10')->name('password.forgot.post');
+Route::get('/redefinir-senha/{token}', [PasswordResetController::class, 'mostrarFormularioReset'])->name('password.reset');
+Route::post('/redefinir-senha', [PasswordResetController::class, 'resetar'])->middleware('throttle:5,10')->name('password.reset.post');
 
 Route::post('/lead/banner-contato', [LandingPageController::class, 'capturarLead'])
     ->name('landing.lead.banner');
