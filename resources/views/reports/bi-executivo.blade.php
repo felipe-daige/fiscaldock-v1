@@ -13,6 +13,10 @@
     <div>Período: {{ $p['inicio'] ?? 'Todos' }} a {{ $p['fim'] ?? 'Todos' }}</div>
 @endsection
 
+@push('estilos')
+    @include('reports.dossie._estilos')
+@endpush
+
 @section('conteudo')
     @php
         $k = $relatorio['kpis'];
@@ -164,4 +168,28 @@
             @endif
         @endif
     @endforeach
+
+    @if (! empty($dossies))
+        <div class="secao" style="page-break-before:always;">
+            <div class="secao-header">Dossiês</div>
+        </div>
+
+        @if (! empty($dossies['clientes']))
+            <div class="secao-header" style="background:#374151;letter-spacing:.06em;">Clientes</div>
+            @foreach ($dossies['clientes'] as $d)
+                <div style="{{ $loop->first ? '' : 'page-break-before:always;' }}">
+                    @include('reports.dossie._bloco', array_merge($d, ['participante' => $d['cliente']]))
+                </div>
+            @endforeach
+        @endif
+
+        @if (! empty($dossies['participantes']))
+            <div class="secao-header" style="background:#374151;letter-spacing:.06em;page-break-before:always;">Participantes</div>
+            @foreach ($dossies['participantes'] as $d)
+                <div style="{{ $loop->first ? '' : 'page-break-before:always;' }}">
+                    @include('reports.dossie._bloco', $d)
+                </div>
+            @endforeach
+        @endif
+    @endif
 @endsection
