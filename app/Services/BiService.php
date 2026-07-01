@@ -1125,7 +1125,7 @@ class BiService
      * (situacao_cadastral null) e quantos estão sem UF. Usado para sinalizar
      * "risco não avaliado" / "UF incompleta" no relatório em vez de vazio enganoso.
      *
-     * @return array{total:int, consultados:int, sem_consulta:int, sem_uf:int, sem_uf_cpf:int, sem_uf_cnpj:int}
+     * @return array{total:int, consultados:int, sem_consulta:int, sem_consulta_cpf:int, sem_consulta_cnpj:int, sem_uf:int, sem_uf_cpf:int, sem_uf_cnpj:int}
      */
     public function coberturaConsultaParticipantes(int $userId): array
     {
@@ -1133,6 +1133,9 @@ class BiService
             ->where('user_id', $userId)
             ->selectRaw('COUNT(*) as total')
             ->selectRaw('COUNT(*) FILTER (WHERE situacao_cadastral IS NULL) as sem_consulta')
+            // Quebra por tipo p/ o alerta: CPF (PF) muitas vezes nem é consultável como CNPJ.
+            ->selectRaw("COUNT(*) FILTER (WHERE situacao_cadastral IS NULL AND tipo_documento = 'PF') as sem_consulta_cpf")
+            ->selectRaw("COUNT(*) FILTER (WHERE situacao_cadastral IS NULL AND tipo_documento = 'PJ') as sem_consulta_cnpj")
             ->selectRaw('COUNT(*) FILTER (WHERE uf IS NULL) as sem_uf')
             // CPF (PF) não tem UF de estabelecimento — quebrar o "sem UF" por tipo p/ o
             // alerta distinguir o gap real (CNPJ sem UF) do esperado (CPF).
@@ -1147,6 +1150,8 @@ class BiService
             'total' => $total,
             'consultados' => $total - $semConsulta,
             'sem_consulta' => $semConsulta,
+            'sem_consulta_cpf' => (int) ($row->sem_consulta_cpf ?? 0),
+            'sem_consulta_cnpj' => (int) ($row->sem_consulta_cnpj ?? 0),
             'sem_uf' => (int) ($row->sem_uf ?? 0),
             'sem_uf_cpf' => (int) ($row->sem_uf_cpf ?? 0),
             'sem_uf_cnpj' => (int) ($row->sem_uf_cnpj ?? 0),

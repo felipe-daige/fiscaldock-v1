@@ -149,7 +149,7 @@
                     <div class="secao-body">
                         @if (in_array($chave, ['riscos-notas', 'riscos-fornecedores'], true) && empty($sec['linhas']) && ($cc['sem_consulta'] ?? 0) > 0)
                             <div style="background-color:#fffbeb;border:1px solid #fde68a;padding:6px;font-size:9px;color:#92400e;">
-                                &#9888; {{ $cc['sem_consulta'] }} de {{ $cc['total'] }} participantes nunca consultados — risco não avaliado (sem dado de certidão/cadastro).
+                                &#9888; {{ $cc['sem_consulta'] }} de {{ $cc['total'] }} participantes nunca consultados ({{ $cc['sem_consulta_cnpj'] ?? 0 }} CNPJ, {{ $cc['sem_consulta_cpf'] ?? 0 }} CPF) — risco não avaliado (sem dado de certidão/cadastro).
                             </div>
                         @endif
 
