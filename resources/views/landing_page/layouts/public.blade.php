@@ -59,6 +59,7 @@
     <script src="{{ asset('js/criar-conta.js') }}?v={{ filemtime(public_path('js/criar-conta.js')) }}"></script>
     <script src="{{ asset('js/agendar.js') }}?v={{ filemtime(public_path('js/agendar.js')) }}"></script>
     <script src="{{ asset('js/esqueci-senha.js') }}?v={{ filemtime(public_path('js/esqueci-senha.js')) }}"></script>
+    <script src="{{ asset('js/redefinir-senha.js') }}?v={{ filemtime(public_path('js/redefinir-senha.js')) }}"></script>
     <script src="{{ asset('js/toast.js') }}?v={{ filemtime(public_path('js/toast.js')) }}"></script>
 </head>
 <body class="{{ $themeClass ?? 'bg-surface text-slate-900 font-sans antialiased' }}">

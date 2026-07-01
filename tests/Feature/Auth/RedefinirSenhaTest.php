@@ -81,3 +81,12 @@ test('senha fraca é rejeitada mesmo com token válido', function () {
 
     $response->assertSessionHasErrors('password');
 });
+
+test('tela de redefinir senha tem o formulário e o token embutido', function () {
+    $response = $this->get('/redefinir-senha/abc123?email=usuario@example.com');
+
+    $response->assertOk();
+    $response->assertSee('redefinir-senha-form', false);
+    $response->assertSee('value="abc123"', false);
+    $response->assertSee('value="usuario@example.com"', false);
+});
