@@ -155,7 +155,7 @@
 
                         @if ($chave === 'uf' && $modo === 'portfolio' && ($cc['sem_uf'] ?? 0) > 0)
                             <div style="background-color:#fffbeb;border:1px solid #fde68a;padding:6px;font-size:9px;color:#92400e;margin-bottom:6px;">
-                                &#9888; {{ $cc['sem_uf'] }} participantes sem UF no cadastro — distribuição geográfica incompleta (consulte o CNPJ para enriquecer).
+                                &#9888; {{ $cc['sem_uf'] }} participantes sem UF ({{ $cc['sem_uf_cnpj'] ?? 0 }} CNPJ, {{ $cc['sem_uf_cpf'] ?? 0 }} CPF) — distribuição geográfica incompleta. CPF não tem UF de estabelecimento (esperado); consulte os {{ $cc['sem_uf_cnpj'] ?? 0 }} CNPJ para enriquecer.
                             </div>
                         @endif
 

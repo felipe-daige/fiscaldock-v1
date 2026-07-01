@@ -15,9 +15,11 @@ class RiskScoreService
      * Pesos por categoria. A soma NÃO precisa dar 1.0 — o total é renormalizado
      * dinamicamente sobre as categorias efetivamente avaliadas (ver calcularScoreTotal).
      *
-     * ESG (trabalho escravo / IBAMA) e Protestos foram removidos: ainda não há fonte de
-     * dado. Débito documentado em docs/score-fiscal/README.md — quando a fonte existir e
-     * passar a gravar o dado, basta reintroduzir o peso aqui (a renormalização cuida do resto).
+     * ESG (trabalho escravo / IBAMA), Protestos e Sanções/compliance (CGU/CNJ) foram
+     * removidos: as fontes saíram dos planos ativos, então o subscore vinha sempre "não
+     * avaliado" e só poluía o detalhamento. Débito documentado em docs/score-fiscal/README.md
+     * — quando a fonte voltar e passar a gravar o dado, basta reintroduzir o peso aqui (a
+     * renormalização cuida do resto).
      */
     private array $pesos = [
         'cadastral' => 0.15,
@@ -25,7 +27,6 @@ class RiskScoreService
         'cnd_estadual' => 0.15,
         'fgts' => 0.10,
         'trabalhista' => 0.10,
-        'compliance' => 0.15,
     ];
 
     /**
@@ -54,6 +55,9 @@ class RiskScoreService
             'cnd_estadual' => $this->subscoreCertidao($dados['cnd_estadual'] ?? null, $this->penalidadeIrregular['cnd_estadual']),
             'fgts' => $this->subscoreCertidao($dados['crf_fgts'] ?? $dados['fgts'] ?? null, $this->penalidadeIrregular['fgts']),
             'trabalhista' => $this->subscoreCertidao($dados['cndt'] ?? null, $this->penalidadeIrregular['trabalhista']),
+            // 'compliance' (Sanções CGU/CNJ) ainda é computado e persistido (coluna score_compliance),
+            // mas NÃO entra no display nem no total ponderado: removido de $pesos porque a fonte saiu
+            // dos planos ativos (vinha sempre "não avaliado"). Reintroduzir em $pesos p/ voltar a exibir.
             'compliance' => $this->scoreCompliance($dados),
         ];
     }

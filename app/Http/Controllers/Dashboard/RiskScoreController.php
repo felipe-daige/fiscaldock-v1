@@ -207,7 +207,7 @@ class RiskScoreController extends Controller
                 'cnd_estadual' => $scoreModel->score_cnd_estadual,
                 'fgts' => $scoreModel->score_fgts,
                 'trabalhista' => $scoreModel->score_trabalhista,
-                'compliance' => $scoreModel->score_compliance,
+                // 'compliance' (Sanções CGU/CNJ) removido do score — fonte fora dos planos ativos.
             ])
             : [];
 

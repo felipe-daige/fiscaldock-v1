@@ -15,6 +15,11 @@
     .card-b { padding:5px 6px; }
     .kv td { padding:1px 3px; font-size:8px; border:none; }
     .kv .k { color:#9ca3af; text-transform:uppercase; font-size:7px; width:40%; }
+    /* Ficha de identificação: rótulo em cima do valor (sem gap horizontal), formal. */
+    .ident { width:100%; border-collapse:separate; border-spacing:0; }
+    .ident td { width:50%; vertical-align:top; padding:3px 10px 5px 0; }
+    .ident-k { font-size:6.5px; color:#9ca3af; text-transform:uppercase; letter-spacing:.08em; margin-bottom:1px; }
+    .ident-v { font-size:10px; color:#111827; font-weight:600; }
     .score-bar { background:#f3f4f6; height:14px; width:100%; }
     .comprovante a { color:#1d4ed8; font-size:8px; }
     .secao-body { padding:8px; }

@@ -153,8 +153,8 @@ class ParticipanteScore extends Model
 
     /**
      * Categorias avaliáveis com seus subscores. `score = null` → não avaliado nesta consulta
-     * (fonte não consultada / INDETERMINADA). ESG e Protestos ficam de fora (sem fonte —
-     * exibidos como "em breve" na UI; ver docs/score-fiscal/README.md).
+     * (fonte não consultada / INDETERMINADA). ESG, Protestos e Sanções (CGU/CNJ) ficam de fora
+     * (fonte fora dos planos ativos; ver docs/score-fiscal/README.md e RiskScoreService::$pesos).
      */
     public function getScoresDetalhadosAttribute(): array
     {
@@ -186,11 +186,7 @@ class ParticipanteScore extends Model
                 'score' => $this->score_trabalhista,
                 'avaliado' => $this->score_trabalhista !== null,
             ],
-            'compliance' => [
-                'label' => $labels['compliance'],
-                'score' => $this->score_compliance,
-                'avaliado' => $this->score_compliance !== null,
-            ],
+            // 'compliance' (Sanções CGU/CNJ) removido do detalhamento — fonte fora dos planos ativos.
         ];
     }
 

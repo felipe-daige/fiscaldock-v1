@@ -3,14 +3,22 @@
     $fmt = fn ($v) => 'R$ '.number_format((float) $v, 2, ',', '.');
     $scoreHex = \App\Support\Reports\ReportTheme::riscoHex($score['classificacao'] ?? 'medio');
 @endphp
+@php
+    $docNum = preg_replace('/\D/', '', (string) $participante->documento);
+    $docLabel = strlen($docNum) === 11 ? 'CPF' : 'CNPJ';
+@endphp
 <div class="secao">
     <div class="secao-header">Identificação</div>
     <div class="secao-body">
-        <table class="kv">
-            <tr><td class="k">Razão Social</td><td>{{ $participante->razao_social ?: '—' }}</td>
-                <td class="k">Situação</td><td>{{ $participante->situacao_cadastral ?? '—' }}</td></tr>
-            <tr><td class="k">CNPJ</td><td class="mono">{{ $participante->documento }}</td>
-                <td class="k">UF</td><td>{{ $participante->uf ?: '—' }}</td></tr>
+        <table class="ident">
+            <tr>
+                <td><div class="ident-k">Razão Social</div><div class="ident-v">{{ $participante->razao_social ?: '—' }}</div></td>
+                <td><div class="ident-k">Situação Cadastral</div><div class="ident-v">{{ $participante->situacao_cadastral ?? '—' }}</div></td>
+            </tr>
+            <tr>
+                <td><div class="ident-k">{{ $docLabel }}</div><div class="ident-v mono">{{ $participante->documento }}</div></td>
+                <td><div class="ident-k">UF</div><div class="ident-v">{{ $participante->uf ?: '—' }}</div></td>
+            </tr>
         </table>
     </div>
 </div>
@@ -47,7 +55,7 @@
 
 <div class="secao">
     <div class="secao-header">Movimentações (resumo)</div>
-    @include('reports.partials._kpi-strip', ['itens' => [
+    @include('reports.partials._kpi-strip', ['compacto' => true, 'itens' => [
         ['label' => 'Total Notas', 'valor' => $k['total_notas']],
         ['label' => 'Valor Movimentado', 'valor' => $fmt($k['valor_movimentado'])],
         ['label' => 'Entradas', 'valor' => $k['entradas_qtd'].' · '.$fmt($k['entradas_valor'])],

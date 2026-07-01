@@ -30,7 +30,7 @@ function planoDossieCli(): MonitoramentoPlano
     ]);
 }
 
-it('monta payload sem consulta: cliente, consulta.tem=false, score default, detalhamento 6 nao avaliadas', function () {
+it('monta payload sem consulta: cliente, consulta.tem=false, score default, detalhamento 5 nao avaliadas', function () {
     $d = $this->builder->montar($this->c);
 
     expect($d['cliente']->id)->toBe($this->c->id)
@@ -38,7 +38,7 @@ it('monta payload sem consulta: cliente, consulta.tem=false, score default, deta
         ->and($d['movimentacao']['kpis']['total_notas'])->toBe(0)
         ->and($d['score'])->toHaveKeys(['score_total', 'classificacao', 'scores', 'detalhamento'])
         ->and($d)->toHaveKey('gerado_em');
-    expect($d['score']['detalhamento'])->toHaveCount(6);
+    expect($d['score']['detalhamento'])->toHaveCount(5);
 });
 
 it('com consulta de sucesso inclui blocos e detalhamento avaliado', function () {
