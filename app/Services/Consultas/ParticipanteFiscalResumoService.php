@@ -2,8 +2,10 @@
 
 namespace App\Services\Consultas;
 
+use App\Models\ConsultaResultado;
 use App\Services\Consultas\Fiscal\AgregacaoFiscalHelpers;
 use App\Services\Consultas\Fiscal\TopMovimentacaoQuery;
+use App\Support\CertidaoBadge;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -220,5 +222,42 @@ class ParticipanteFiscalResumoService
                 ],
             ])
             ->all();
+    }
+
+    /**
+     * Classificação de regularidade da ÚLTIMA consulta sucesso por participante,
+     * pra filtrar a lista. Base = CND Federal via CertidaoBadge (canônico:
+     * 611/indeterminado tem precedência). Participante sem consulta sucesso fica
+     * ausente do retorno (o caller trata como "não consultado").
+     *
+     * @return array<int, string> [participante_id => 'regular'|'irregular'|'indeterminada']
+     */
+    public function regularidadePorParticipante(int $userId): array
+    {
+        $ultimos = ConsultaResultado::query()
+            ->whereHas('participante', fn ($q) => $q->where('user_id', $userId))
+            ->where('status', ConsultaResultado::STATUS_SUCESSO)
+            ->orderBy('consultado_em', 'desc')
+            ->get()
+            ->unique('participante_id');
+
+        $out = [];
+        foreach ($ultimos as $resultado) {
+            $cnd = $resultado->getCndFederal();
+            if ($cnd === null) {
+                continue;
+            }
+            $classe = CertidaoBadge::classificar($cnd, true);
+            // Regular/Irregular explícitos; qualquer outro rótulo (Indeterminada,
+            // Indisponível, Não encontrada, 611) cai em "indeterminada" — bucket
+            // de triagem "precisa olhar".
+            $out[(int) $resultado->participante_id] = match ($classe['label']) {
+                'Regular' => 'regular',
+                'Irregular' => 'irregular',
+                default => 'indeterminada',
+            };
+        }
+
+        return $out;
     }
 }
