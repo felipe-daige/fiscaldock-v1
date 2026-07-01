@@ -66,8 +66,12 @@
                     <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Filtros</span>
                 </div>
                 <div class="p-4">
-                    {{-- Grupo 1: Identificação --}}
-                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Identificação</p>
+                    @php
+                        $avancadosCliKeys = ['tipo', 'uf', 'regime', 'status', 'importacao'];
+                        $avancadosCliAtivos = collect($avancadosCliKeys)->filter(fn ($k) => ! empty($filtros[$k] ?? null))->count();
+                    @endphp
+
+                    {{-- Filtros básicos (sempre visíveis) --}}
                     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                         <div>
                             <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Buscar</label>
@@ -79,38 +83,6 @@
                                 class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
                             >
                         </div>
-                        <div>
-                            <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Tipo de pessoa</label>
-                            <select name="tipo" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                                <option value="">Todos</option>
-                                <option value="PJ" {{ ($filtros['tipo'] ?? '') === 'PJ' ? 'selected' : '' }}>Pessoa Jurídica (CNPJ)</option>
-                                <option value="PF" {{ ($filtros['tipo'] ?? '') === 'PF' ? 'selected' : '' }}>Pessoa Física (CPF)</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">UF</label>
-                            <select name="uf" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                                <option value="">Todas</option>
-                                @foreach($ufs ?? [] as $uf)
-                                    <option value="{{ $uf }}" {{ ($filtros['uf'] ?? '') === $uf ? 'selected' : '' }}>{{ $uf }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div>
-                            <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Situação cadastral</label>
-                            <select name="situacao" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                                <option value="">Todas</option>
-                                <option value="ATIVA" {{ ($filtros['situacao'] ?? '') === 'ATIVA' ? 'selected' : '' }}>Ativa</option>
-                                <option value="BAIXADA" {{ ($filtros['situacao'] ?? '') === 'BAIXADA' ? 'selected' : '' }}>Baixada</option>
-                                <option value="SUSPENSA" {{ ($filtros['situacao'] ?? '') === 'SUSPENSA' ? 'selected' : '' }}>Suspensa</option>
-                                <option value="INAPTA" {{ ($filtros['situacao'] ?? '') === 'INAPTA' ? 'selected' : '' }}>Inapta</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    {{-- Grupo 2: Consulta & risco --}}
-                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2 mt-4 pt-4 border-t border-gray-200">Consulta &amp; risco</p>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Status da consulta</label>
                             <select name="status_consulta" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
@@ -130,11 +102,49 @@
                                 <option value="nao_consultado" {{ ($filtros['regularidade'] ?? '') === 'nao_consultado' ? 'selected' : '' }}>Não consultado</option>
                             </select>
                         </div>
+                        <div>
+                            <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Situação cadastral</label>
+                            <select name="situacao" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                                <option value="">Todas</option>
+                                <option value="ATIVA" {{ ($filtros['situacao'] ?? '') === 'ATIVA' ? 'selected' : '' }}>Ativa</option>
+                                <option value="BAIXADA" {{ ($filtros['situacao'] ?? '') === 'BAIXADA' ? 'selected' : '' }}>Baixada</option>
+                                <option value="SUSPENSA" {{ ($filtros['situacao'] ?? '') === 'SUSPENSA' ? 'selected' : '' }}>Suspensa</option>
+                                <option value="INAPTA" {{ ($filtros['situacao'] ?? '') === 'INAPTA' ? 'selected' : '' }}>Inapta</option>
+                            </select>
+                        </div>
                     </div>
 
-                    {{-- Grupo 3: Fiscal & origem --}}
-                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2 mt-4 pt-4 border-t border-gray-200">Fiscal &amp; origem</p>
-                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {{-- Toggle "Mais filtros" --}}
+                    <div class="mt-3">
+                        <button type="button" onclick="var a=document.getElementById('filtros-avancados-cli'); a.classList.toggle('hidden'); this.querySelector('svg').classList.toggle('rotate-180');"
+                            class="inline-flex items-center gap-1.5 text-[13px] text-gray-600 hover:text-gray-900 font-medium">
+                            <svg class="w-3.5 h-3.5 transition-transform {{ $avancadosCliAtivos > 0 ? 'rotate-180' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            Mais filtros
+                            @if($avancadosCliAtivos > 0)
+                                <span class="text-[10px] text-white rounded-full px-1.5 py-0.5" style="background-color:#374151;">{{ $avancadosCliAtivos }}</span>
+                            @endif
+                        </button>
+                    </div>
+
+                    {{-- Filtros avançados (colapsável) --}}
+                    <div id="filtros-avancados-cli" class="{{ $avancadosCliAtivos > 0 ? '' : 'hidden' }} grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mt-3 pt-4 border-t border-gray-200">
+                        <div>
+                            <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Tipo de pessoa</label>
+                            <select name="tipo" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                                <option value="">Todos</option>
+                                <option value="PJ" {{ ($filtros['tipo'] ?? '') === 'PJ' ? 'selected' : '' }}>Pessoa Jurídica (CNPJ)</option>
+                                <option value="PF" {{ ($filtros['tipo'] ?? '') === 'PF' ? 'selected' : '' }}>Pessoa Física (CPF)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">UF</label>
+                            <select name="uf" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                                <option value="">Todas</option>
+                                @foreach($ufs ?? [] as $uf)
+                                    <option value="{{ $uf }}" {{ ($filtros['uf'] ?? '') === $uf ? 'selected' : '' }}>{{ $uf }}</option>
+                                @endforeach
+                            </select>
+                        </div>
                         <div>
                             <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Regime</label>
                             <select name="regime" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
