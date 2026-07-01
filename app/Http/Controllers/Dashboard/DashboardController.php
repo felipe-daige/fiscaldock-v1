@@ -21,6 +21,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password;
 
 class DashboardController extends Controller
 {
@@ -604,14 +605,81 @@ class DashboardController extends Controller
 
         $user = Auth::user();
 
+        $saldoReais = $this->pricingCatalogService->creditsToCurrency((float) ($user->credits ?? 0));
+
+        $dadosPerfil = [
+            'user' => $user,
+            'saldoReais' => $saldoReais,
+            'trialAtivo' => $user->hasActiveTrial(),
+            'trialExpiraEm' => $user->trial_expires_at,
+            'trialCreditosRestantes' => $user->trial_credits_remaining,
+        ];
+
         if ($this->isAjaxRequest($request)) {
-            return view($perfilView, ['user' => $user]);
+            return view($perfilView, $dadosPerfil);
         }
 
-        return view(self::AUTH_LAYOUT_VIEW, [
+        return view(self::AUTH_LAYOUT_VIEW, array_merge([
             'initialView' => $perfilView,
-            'user' => $user,
+        ], $dadosPerfil));
+    }
+
+    public function atualizarPerfil(Request $request)
+    {
+        if (! Auth::check()) {
+            return response()->json(['success' => false, 'redirect' => '/login'], 401);
+        }
+
+        $dados = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'sobrenome' => ['nullable', 'string', 'max:255'],
+            'telefone' => ['nullable', 'string', 'max:20'],
         ]);
+
+        $user = Auth::user();
+        $user->name = $dados['name'];
+        if ($request->has('sobrenome')) {
+            $user->sobrenome = $dados['sobrenome'];
+        }
+        if ($request->has('telefone')) {
+            $user->telefone = $dados['telefone'];
+        }
+        $user->save();
+
+        if ($this->isAjaxRequest($request)) {
+            return response()->json([
+                'success' => true,
+                'user' => [
+                    'name' => $user->name,
+                    'sobrenome' => $user->sobrenome,
+                    'telefone' => $user->telefone,
+                ],
+            ]);
+        }
+
+        return redirect('/app/perfil')->with('status', 'Perfil atualizado.');
+    }
+
+    public function atualizarSenha(Request $request)
+    {
+        if (! Auth::check()) {
+            return response()->json(['success' => false, 'redirect' => '/login'], 401);
+        }
+
+        $request->validate([
+            'current_password' => ['required', 'current_password'],
+            'password' => ['required', 'confirmed', Password::defaults()],
+        ]);
+
+        $user = Auth::user();
+        $user->password = $request->input('password');
+        $user->save();
+
+        if ($this->isAjaxRequest($request)) {
+            return response()->json(['success' => true]);
+        }
+
+        return redirect('/app/perfil')->with('status', 'Senha alterada.');
     }
 
     /**
