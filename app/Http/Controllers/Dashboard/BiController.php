@@ -341,13 +341,14 @@ class BiController extends Controller
         }
 
         [$ini, $fim] = $this->resolverPeriodo($request);
-        $clienteId = $request->get('cliente_id');
+        $clienteIdRaw = $request->get('cliente_id');
+        $clienteId = ($clienteIdRaw !== null && $clienteIdRaw !== '') ? (int) $clienteIdRaw : null;
         $rel = $this->biExport->relatorioCompleto(Auth::id(), $ini, $fim, $clienteId);
 
         $viewData = ['relatorio' => $rel];
         $dossies = app(\App\Services\Bi\BiDossieAnexoService::class)->montar(
             (int) Auth::id(),
-            ($clienteId !== null && $clienteId !== '') ? (int) $clienteId : null,
+            $clienteId,
             (string) $request->get('dossies', ''),
         );
         if ($dossies !== null) {
