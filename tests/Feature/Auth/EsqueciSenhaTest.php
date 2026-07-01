@@ -1,7 +1,7 @@
 <?php
 
 use App\Models\User;
-use Illuminate\Auth\Notifications\ResetPassword;
+use App\Notifications\ResetPasswordQueued;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 
@@ -19,7 +19,7 @@ test('solicitar redefinição envia notificação quando o e-mail existe', funct
     $response = $this->post('/esqueci-senha', ['email' => 'existe@example.com']);
 
     $response->assertRedirect();
-    Notification::assertSentTo($user, ResetPassword::class);
+    Notification::assertSentTo($user, ResetPasswordQueued::class);
 });
 
 test('mensagem de resposta é idêntica exista ou não o e-mail (anti-enumeração)', function () {

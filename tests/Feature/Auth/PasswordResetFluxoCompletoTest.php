@@ -1,7 +1,7 @@
 <?php
 
 use App\Models\User;
-use Illuminate\Auth\Notifications\ResetPassword;
+use App\Notifications\ResetPasswordQueued;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Notification;
@@ -22,7 +22,7 @@ test('fluxo completo: solicitar link, extrair token real do e-mail, redefinir e 
 
     // 2. Captura o token real gerado pela notification (equivalente a "clicar no e-mail").
     $tokenCapturado = null;
-    Notification::assertSentTo($user, ResetPassword::class, function (ResetPassword $notification) use (&$tokenCapturado) {
+    Notification::assertSentTo($user, ResetPasswordQueued::class, function (ResetPasswordQueued $notification) use (&$tokenCapturado) {
         $tokenCapturado = $notification->token;
 
         return true;
