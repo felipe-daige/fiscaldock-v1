@@ -44,3 +44,11 @@ test('solicitar redefinição aplica rate limit por IP', function () {
 
     $response->assertStatus(429);
 });
+
+test('tela de esqueci senha tem o formulário esperado', function () {
+    $response = $this->get('/esqueci-senha');
+
+    $response->assertOk();
+    $response->assertSee('esqueci-senha-form', false);
+    $response->assertSee('name="email"', false);
+});

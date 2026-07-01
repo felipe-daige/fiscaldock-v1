@@ -53,7 +53,9 @@
                         <div>
                             <div class="flex items-center justify-between gap-3 mb-1">
                                 <label for="password" class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Senha</label>
-                                <span class="text-[10px] text-gray-500 uppercase tracking-wide">Mínimo de 8 caracteres</span>
+                                <a href="/esqueci-senha" data-link class="text-[10px] text-gray-500 hover:text-gray-800 hover:underline">
+                                    Esqueceu sua senha?
+                                </a>
                             </div>
                             <div class="relative">
                                 <input
