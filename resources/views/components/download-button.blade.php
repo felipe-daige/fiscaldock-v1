@@ -58,4 +58,4 @@
         . "})()";
 @endphp
 
-<button type="button" onclick="{!! $js !!}" {{ $attributes }}>{{ $slot }}</button>
+<button type="button" onclick="{{ $js }}" {{ $attributes }}>{{ $slot }}</button>
