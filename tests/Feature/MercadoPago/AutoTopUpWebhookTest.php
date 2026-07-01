@@ -80,5 +80,5 @@ it('webhook payment rejected de auto_topup marca inadimplente e notifica', funct
     expect($user->fresh()->credits)->toBe(0);
     expect($recarga->fresh()->status)->toBe('inadimplente');
     expect($recarga->fresh()->cobranca_em_andamento)->toBeFalse();
-    Mail::assertSent(RecargaAutomaticaPausada::class);
+    Mail::assertQueued(RecargaAutomaticaPausada::class);
 });

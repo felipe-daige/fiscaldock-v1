@@ -63,6 +63,6 @@ it('teto diário atingido pausa, notifica e não cobra', function () {
     }
     (new ProcessarAutoTopUpJob($user->id))->handle();
     expect($r->fresh()->status)->toBe('inadimplente');
-    Mail::assertSent(RecargaAutomaticaPausada::class);
+    Mail::assertQueued(RecargaAutomaticaPausada::class);
     Http::assertNothingSent();
 });

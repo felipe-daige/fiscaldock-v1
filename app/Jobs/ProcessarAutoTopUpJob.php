@@ -33,7 +33,9 @@ class ProcessarAutoTopUpJob implements ShouldQueue
 
     public function handle(CobrarAutoTopUp $cobrar = new CobrarAutoTopUp): void
     {
-        $recarga = DB::transaction(function () {
+        $emailPausado = null;
+
+        $recarga = DB::transaction(function () use (&$emailPausado) {
             $r = RecargaAutomatica::where('user_id', $this->userId)
                 ->where('gatilho', RecargaAutomatica::GATILHO_SALDO)
                 ->where('status', RecargaAutomatica::STATUS_ATIVA)
@@ -62,7 +64,7 @@ class ProcessarAutoTopUpJob implements ShouldQueue
                 ->count();
             if ($hoje >= $max) {
                 $r->update(['status' => RecargaAutomatica::STATUS_INADIMPLENTE]);
-                Mail::to($user->email)->send(new RecargaAutomaticaPausada($user, 'limite diário de recargas atingido'));
+                $emailPausado = $user;
 
                 return null;
             }
@@ -71,6 +73,10 @@ class ProcessarAutoTopUpJob implements ShouldQueue
 
             return $r;
         });
+
+        if ($emailPausado !== null) {
+            Mail::to($emailPausado->email)->queue(new RecargaAutomaticaPausada($emailPausado, 'limite diário de recargas atingido'));
+        }
 
         if ($recarga !== null) {
             $cobrar->execute($recarga);

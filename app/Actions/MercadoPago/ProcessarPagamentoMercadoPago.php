@@ -31,7 +31,9 @@ class ProcessarPagamentoMercadoPago
         $status = $dadosMp['status'] ?? null;
         $externalReference = $dadosMp['external_reference'] ?? null;
 
-        return DB::transaction(function () use ($mpPaymentId, $dadosMp, $status, $externalReference) {
+        $emailPausado = null;
+
+        $payment = DB::transaction(function () use ($mpPaymentId, $dadosMp, $status, $externalReference, &$emailPausado) {
             // Localiza nossa linha pelo id do MP ou pela external_reference (nosso id).
             $query = MercadoPagoPayment::query()->lockForUpdate();
 
@@ -82,9 +84,7 @@ class ProcessarPagamentoMercadoPago
                             'status' => RecargaAutomatica::STATUS_INADIMPLENTE,
                             'cobranca_em_andamento' => false,
                         ]);
-                        Mail::to($payment->user->email)->send(
-                            new RecargaAutomaticaPausada($payment->user, 'cartão recusado'),
-                        );
+                        $emailPausado = $payment->user;
                     }
                 }
             }
@@ -93,5 +93,11 @@ class ProcessarPagamentoMercadoPago
 
             return $payment;
         });
+
+        if ($emailPausado !== null) {
+            Mail::to($emailPausado->email)->queue(new RecargaAutomaticaPausada($emailPausado, 'cartão recusado'));
+        }
+
+        return $payment;
     }
 }
