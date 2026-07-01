@@ -153,7 +153,17 @@
                 </div>
 
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-200">
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mt-4 pt-4 border-t border-gray-200">
+                <div>
+                <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Relação fiscal</label>
+                <select name="relacao" id="filtro-relacao" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                    <option value="">Relação: Todas</option>
+                    <option value="fornecedor" {{ ($filtros['relacao'] ?? '') == 'fornecedor' ? 'selected' : '' }}>Fornecedor</option>
+                    <option value="cliente" {{ ($filtros['relacao'] ?? '') == 'cliente' ? 'selected' : '' }}>Cliente</option>
+                    <option value="ambos" {{ ($filtros['relacao'] ?? '') == 'ambos' ? 'selected' : '' }}>Fornecedor e cliente</option>
+                    <option value="sem_movimentacao" {{ ($filtros['relacao'] ?? '') == 'sem_movimentacao' ? 'selected' : '' }}>Sem movimentação</option>
+                </select>
+                </div>
                 <div>
                 <label class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Regime</label>
                 <select name="regime" class="w-full border border-gray-300 rounded text-[13px] py-2.5 px-3 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
@@ -313,6 +323,11 @@
                                         </div>
                                         <div class="text-[11px] font-mono text-gray-500 mt-1">{{ $part->cnpj_formatado }}</div>
                                         <div class="mt-1 flex items-center gap-2 flex-wrap">
+                                            @if($part->papel_badge_label)
+                                                <span class="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $part->papel_badge_hex }}" title="Relação fiscal segundo suas notas EFD">
+                                                    {{ $part->papel_badge_label }}
+                                                </span>
+                                            @endif
                                             <span class="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $part->consulta_status_hex }}">
                                                 {{ $part->consulta_status_label }}
                                             </span>
@@ -338,7 +353,7 @@
                                     @endif
                                 </td>
                                 <td class="hidden lg:table-cell px-3 py-3 text-center text-sm text-gray-700">
-                                    <div class="truncate" title="{{ $part->regime_tributario }}">{{ $part->regime_tributario ?: '—' }}</div>
+                                    <div class="truncate" title="{{ $part->regime_tributario }}"><x-regime-tributario :valor="$part->regime_tributario" :nota="$part->regime_tributario_nota" /></div>
                                 </td>
                                 <td class="px-3 py-3 text-center">
                                     <div class="flex flex-col items-center gap-1" title="{{ $part->situacao_cadastral ?? '' }}">
@@ -477,6 +492,11 @@
                                 <div class="text-[11px] text-gray-500 mt-1">Cadastro bloqueado para seleção em lote</div>
                             @endif
                             <div class="mt-2 flex items-center gap-2 flex-wrap">
+                                @if($part->papel_badge_label)
+                                    <span class="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $part->papel_badge_hex }}" title="Relação fiscal segundo suas notas EFD">
+                                        {{ $part->papel_badge_label }}
+                                    </span>
+                                @endif
                                 <span class="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $part->consulta_status_hex }}">
                                     {{ $part->consulta_status_label }}
                                 </span>
@@ -505,7 +525,7 @@
                     <div class="border-t border-gray-100 pt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <div class="min-w-0">
                             <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Regime</p>
-                            <p class="text-[11px] text-gray-700 mt-1 leading-tight truncate" title="{{ $part->regime_tributario }}">{{ $part->regime_tributario ?: '—' }}</p>
+                            <p class="text-[11px] text-gray-700 mt-1 leading-tight truncate" title="{{ $part->regime_tributario }}"><x-regime-tributario :valor="$part->regime_tributario" :nota="$part->regime_tributario_nota" /></p>
                         </div>
                         <div class="min-w-0">
                             <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Consulta</p>
@@ -828,6 +848,7 @@
                     var filtroRegime = formFiltros ? formFiltros.querySelector('select[name="regime"]') : null;
                     var filtroSituacao = formFiltros ? formFiltros.querySelector('select[name="situacao"]') : null;
                     var filtroUf = formFiltros ? formFiltros.querySelector('select[name="uf"]') : null;
+                    var filtroRelacao = formFiltros ? formFiltros.querySelector('select[name="relacao"]') : null;
 
                     if (filtroImportacao && filtroImportacao.value) params.set('importacao', filtroImportacao.value);
                     if (filtroCliente && filtroCliente.value) params.set('cliente', filtroCliente.value);
@@ -837,6 +858,7 @@
                     if (filtroRegime && filtroRegime.value) params.set('regime', filtroRegime.value);
                     if (filtroSituacao && filtroSituacao.value) params.set('situacao', filtroSituacao.value);
                     if (filtroUf && filtroUf.value) params.set('uf', filtroUf.value);
+                    if (filtroRelacao && filtroRelacao.value) params.set('relacao', filtroRelacao.value);
 
                     var url = '/app/participantes/todos-ids' + (params.toString() ? '?' + params.toString() : '');
                     var res = await fetch(url, {
@@ -995,6 +1017,16 @@
         if (formFiltros) {
             formFiltros.addEventListener('submit', function(e) {
                 // Deixar o form submeter normalmente se SPA router nao estiver ativo
+            });
+            // Auto-aplica ao mudar qualquer select (sensação "ao vivo" sem AJAX).
+            formFiltros.querySelectorAll('select').forEach(function (sel) {
+                sel.addEventListener('change', function () {
+                    if (typeof formFiltros.requestSubmit === 'function') {
+                        formFiltros.requestSubmit();
+                    } else {
+                        formFiltros.submit();
+                    }
+                });
             });
         }
 

@@ -373,6 +373,16 @@ class ParticipanteController extends Controller
         $uf = $request->get('uf');
         $tipoDocumento = strtoupper((string) $request->get('tipo_documento', ''));
 
+        // Relação fiscal (fornecedor/cliente/ambos/sem_movimentacao) — derivada das
+        // notas EFD. Whitelist: valor fora do conjunto é ignorado (form-submit, sem 422).
+        $relacaoValida = ['fornecedor', 'cliente', 'ambos', 'sem_movimentacao'];
+        $relacao = in_array($request->get('relacao'), $relacaoValida, true) ? $request->get('relacao') : null;
+
+        // Papel de cada participante com movimentação (1 query) — serve o filtro de
+        // relação E o badge por linha.
+        $papeis = app(\App\Services\Consultas\ParticipanteFiscalResumoService::class)
+            ->papelPorParticipante($userId);
+
         // Query de participantes com filtros
         $participantesQuery = Participante::where('user_id', $userId)
             ->excludingEmpresaPropria()
@@ -398,6 +408,23 @@ class ParticipanteController extends Controller
             ->when($uf, fn ($q) => $q->where('uf', $uf))
             ->when($tipoDocumento === 'CPF', fn ($q) => $q->somenteCpf())
             ->when($tipoDocumento === 'CNPJ', fn ($q) => $q->somenteCnpj())
+            ->when($relacao, function ($q) use ($relacao, $papeis) {
+                if ($relacao === 'sem_movimentacao') {
+                    // whereNotIn [] vira "1=1" (todos) — correto: ninguém tem movimentação.
+                    $q->whereNotIn('id', array_keys($papeis));
+                } else {
+                    $alvo = match ($relacao) {
+                        'fornecedor' => ['fornecedor', 'ambos'],
+                        'cliente' => ['cliente', 'ambos'],
+                        default => ['ambos'],
+                    };
+                    // whereIn [] vira "0=1" (nenhum) — correto quando não há match.
+                    $q->whereIn('id', array_keys(array_filter(
+                        $papeis,
+                        fn (string $papel) => in_array($papel, $alvo, true)
+                    )));
+                }
+            })
             ->orderBy('created_at', 'desc');
 
         $participantes = $participantesQuery->paginate(20)->withQueryString();
@@ -411,7 +438,17 @@ class ParticipanteController extends Controller
             ->unique('participante_id')
             ->keyBy('participante_id');
 
-        $participantes->getCollection()->transform(function (Participante $participante) use ($agora, $ultimosResultados) {
+        $participantes->getCollection()->transform(function (Participante $participante) use ($agora, $ultimosResultados, $papeis) {
+            $papel = $papeis[$participante->id] ?? null;
+            $papelBadge = match ($papel) {
+                'fornecedor' => ['label' => 'Fornecedor', 'hex' => '#2563eb'],
+                'cliente' => ['label' => 'Cliente', 'hex' => '#7c3aed'],
+                'ambos' => ['label' => 'Fornecedor e cliente', 'hex' => '#0f766e'],
+                default => null,
+            };
+            $participante->setAttribute('papel_badge_label', $papelBadge['label'] ?? null);
+            $participante->setAttribute('papel_badge_hex', $papelBadge['hex'] ?? null);
+
             $assinatura = $participante->assinaturas->first();
             $ultimaConsulta = $participante->ultima_consulta_em;
             $ultimoResultado = $ultimosResultados->get($participante->id);
@@ -552,6 +589,7 @@ class ParticipanteController extends Controller
                 'situacao' => $situacaoCadastral,
                 'uf' => $uf,
                 'tipo_documento' => $tipoDocumento,
+                'relacao' => $relacao,
             ],
             'credits' => $this->creditService->getBalance($user),
         ];
@@ -590,6 +628,23 @@ class ParticipanteController extends Controller
             ->when($request->uf, fn ($q, $v) => $q->where('uf', $v))
             ->when(strtoupper((string) $request->tipo_documento) === 'CPF', fn ($q) => $q->somenteCpf())
             ->when(strtoupper((string) $request->tipo_documento) === 'CNPJ', fn ($q) => $q->somenteCnpj())
+            ->when(in_array($request->relacao, ['fornecedor', 'cliente', 'ambos', 'sem_movimentacao'], true), function ($q) use ($request, $userId) {
+                $papeis = app(\App\Services\Consultas\ParticipanteFiscalResumoService::class)
+                    ->papelPorParticipante($userId);
+                if ($request->relacao === 'sem_movimentacao') {
+                    $q->whereNotIn('id', array_keys($papeis));
+                } else {
+                    $alvo = match ($request->relacao) {
+                        'fornecedor' => ['fornecedor', 'ambos'],
+                        'cliente' => ['cliente', 'ambos'],
+                        default => ['ambos'],
+                    };
+                    $q->whereIn('id', array_keys(array_filter(
+                        $papeis,
+                        fn (string $papel) => in_array($papel, $alvo, true)
+                    )));
+                }
+            })
             ->pluck('id');
 
         return response()->json(['success' => true, 'ids' => $ids, 'total' => $ids->count()]);
@@ -660,11 +715,20 @@ class ParticipanteController extends Controller
             ->whereHas('lote', fn ($q) => $q->where('user_id', $userId))
             ->whereIn('status', ['erro', 'timeout'])->count();
 
+        // Crédito gasto no sistema novo (lotes). Cada lote cobra por N participantes, então
+        // atribui a fração deste participante (creditos_cobrados / total_participantes).
+        // Pós-cutover (2026-06-07) toda consulta de CNPJ roda em lote; sem isto o "Valor gasto"
+        // ficava preso só no MonitoramentoConsulta legado (vazio) e nunca atualizava.
+        $loteCreditos = ConsultaLote::whereHas('participantes', fn ($q) => $q->where('participantes.id', $participante->id))
+            ->where('user_id', $userId)
+            ->get(['creditos_cobrados', 'total_participantes'])
+            ->sum(fn ($l) => ((int) $l->creditos_cobrados) / max(1, (int) $l->total_participantes));
+
         $estatisticas = [
             'total_consultas' => $monitoramentoTotal + $consultaLoteTotal,
             'consultas_sucesso' => $monitoramentoSucesso + $consultaLoteSucesso,
             'consultas_erro' => $monitoramentoErro + $consultaLoteErro,
-            'creditos_utilizados' => $monitoramentoCreditos,
+            'creditos_utilizados' => $monitoramentoCreditos + $loteCreditos,
         ];
 
         // Buscar última consulta com sucesso para o participante (sistema de consultas em lote)
@@ -766,6 +830,11 @@ class ParticipanteController extends Controller
         $topMov = app(\App\Services\Consultas\Fiscal\TopMovimentacaoQuery::class);
         $data['top_produtos'] = $topMov->produtos($participante->user_id, 'participante_id', [$participante->id], 10)[$participante->id] ?? [];
         $data['top_cfops'] = $topMov->cfops($participante->user_id, 'participante_id', [$participante->id], 10)[$participante->id] ?? [];
+
+        $resumoFiscal = app(\App\Services\Consultas\ParticipanteFiscalResumoService::class)
+            ->paraParticipantes($participante->user_id, [$participante->id], comCfops: true);
+        $data['negociantes'] = $resumoFiscal[$participante->id]['relacionamentos'] ?? [];
+        $data['negociantesModo'] = 'participante';
 
         $scoreCalc = $ultimaConsulta?->calcularScore();
         $data['score'] = $scoreCalc;
