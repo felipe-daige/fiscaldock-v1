@@ -4,23 +4,6 @@
 @endphp
 <div class="bg-gray-100 min-h-screen" id="monitoramento-participantes-importados-container">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
-        <style>
-            .view-toggle-btn.active-view {
-                background-color: #1f2937;
-                color: #ffffff;
-            }
-
-            @media (max-width: 767px) {
-                #participantes-list-view {
-                    display: none !important;
-                }
-
-                #participantes-cards {
-                    display: grid !important;
-                }
-            }
-        </style>
-
         {{-- Page Header --}}
         <div class="mb-4 sm:mb-8">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -244,23 +227,6 @@
                     <a href="/app/participantes" class="bg-white border border-gray-300 text-gray-600 hover:bg-gray-50 rounded text-sm font-medium px-4 py-2" data-link>
                         Limpar
                     </a>
-                </div>
-                <div class="hidden items-center gap-1 self-start md:flex sm:self-auto">
-                    <button id="btn-view-list"
-                        class="p-2 rounded border border-gray-300 text-gray-500 hover:bg-gray-50 transition-colors view-toggle-btn active-view"
-                        title="Visualização em lista" type="button">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
-                        </svg>
-                    </button>
-                    <button id="btn-view-cards"
-                        class="p-2 rounded border border-gray-300 text-gray-500 hover:bg-gray-50 transition-colors view-toggle-btn"
-                        title="Visualização em cards" type="button">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-                            <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
-                        </svg>
-                    </button>
                 </div>
             </div>
             </div>
@@ -495,124 +461,6 @@
             @endif
         </div>
 
-        {{-- Cards View --}}
-        <div id="participantes-cards" class="hidden grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            @forelse($participantes ?? [] as $part)
-                @php
-                    $isCpf = $part->is_cpf;
-                    $participanteUrl = '/app/participante/'.$part->id.'?return_to='.urlencode($currentListUrl);
-                    $cardOrigemLabel = match($part->origem_tipo) {
-                        'SPED_EFD_FISCAL'  => ['label' => 'EFD Fiscal', 'color' => '#4338ca'],
-                        'SPED_EFD_CONTRIB' => ['label' => 'EFD Contrib', 'color' => '#7c3aed'],
-                        'NFE'              => ['label' => 'NF-e', 'color' => '#0f766e'],
-                        'NFSE'             => ['label' => 'NFS-e', 'color' => '#0891b2'],
-                        'MANUAL'           => ['label' => 'Manual', 'color' => '#6b7280'],
-                        default            => ['label' => $part->origem_tipo ?? 'Manual', 'color' => '#6b7280'],
-                    };
-                @endphp
-                <div class="participante-card bg-white border border-gray-300 rounded p-3 hover:bg-gray-50/50 transition-colors cursor-pointer flex flex-col gap-3 sm:p-4"
-                     data-participante-id="{{ $part->id }}"
-                     data-href="{{ $participanteUrl }}">
-                    <div class="flex items-start gap-3">
-                        <input
-                            type="checkbox"
-                            class="checkbox-participante mt-1 h-4 w-4 flex-shrink-0 rounded border-gray-300 text-gray-700 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100"
-                            value="{{ $part->id }}"
-                            data-bloqueado="{{ $isCpf ? '1' : '0' }}"
-                            aria-label="Selecionar {{ $part->razao_social ?? $part->cnpj_formatado }}"
-                            {{ $isCpf ? 'disabled' : '' }}
-                        >
-                        <div class="flex-1 min-w-0">
-                            <div class="flex items-center gap-2 min-w-0">
-                                <div class="text-sm font-semibold text-gray-900 truncate min-w-0">{{ $part->razao_social ?? '-' }}</div>
-                                @if($isCpf)
-                                    <span class="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white flex-shrink-0" style="background-color: #9ca3af">CPF</span>
-                                @endif
-                            </div>
-                            <div class="text-[11px] font-mono text-gray-500 mt-1">{{ $part->cnpj_formatado }}</div>
-                            @if($isCpf)
-                                <div class="text-[11px] text-gray-500 mt-1">Cadastro bloqueado para seleção em lote</div>
-                            @endif
-                            <div class="mt-2 flex items-center gap-2 flex-wrap">
-                                @if($part->papel_badge_label)
-                                    <span class="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $part->papel_badge_hex }}" title="Relação fiscal segundo suas notas EFD">
-                                        {{ $part->papel_badge_label }}
-                                    </span>
-                                @endif
-                                <span class="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $part->consulta_status_hex }}">
-                                    {{ $part->consulta_status_label }}
-                                </span>
-                                @if($part->assinatura_label)
-                                    <span class="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $part->assinatura_hex }}">
-                                        {{ $part->assinatura_label }}
-                                    </span>
-                                @endif
-                            </div>
-                            <div class="text-[11px] text-gray-500 mt-1 truncate">
-                                @if($part->cliente)
-                                    Cliente: {{ $part->cliente->razao_social ?? '-' }}
-                                @else
-                                    Sem vínculo com cliente
-                                @endif
-                            </div>
-                        </div>
-                        <div class="flex-shrink-0 -mr-1 -mt-1">
-                            <x-acoes-menu trigger="kebab">
-                                <x-acoes-item href="/app/participante/{{ $part->id }}?return_to={{ urlencode(request()->fullUrl()) }}" data-link>Ver detalhes</x-acoes-item>
-                                <x-acoes-item href="/app/participante/{{ $part->id }}/editar" data-link>Editar</x-acoes-item>
-                                <x-acoes-item variant="danger" data-excluir-participante="{{ $part->id }}" data-cnpj="{{ $part->cnpj_formatado }}" data-nome="{{ $part->razao_social }}">Excluir</x-acoes-item>
-                            </x-acoes-menu>
-                        </div>
-                    </div>
-                    <div class="border-t border-gray-100 pt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                        <div class="min-w-0">
-                            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Regime</p>
-                            <p class="text-[11px] text-gray-700 mt-1 leading-tight truncate" title="{{ $part->regime_tributario }}"><x-regime-tributario :valor="$part->regime_tributario" :nota="$part->regime_tributario_nota" /></p>
-                        </div>
-                        <div class="min-w-0">
-                            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Consulta</p>
-                            <p class="text-[11px] text-gray-500 mt-1 leading-tight">{{ $part->consulta_status_meta }}</p>
-                        </div>
-                        <div class="min-w-0">
-                            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Situação / CND</p>
-                            <div class="mt-1 flex flex-col items-start gap-1">
-                                @if($part->situacao_cadastral)
-                                    <div class="flex items-center gap-2 flex-wrap">
-                                        @if($part->situacao_cadastral === 'ATIVA')
-                                            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: #047857">Ativa</span>
-                                        @else
-                                            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: #d97706">{{ $part->situacao_cadastral }}</span>
-                                        @endif
-                                        <span class="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $part->cnd_federal_status_hex }}">
-                                            {{ $part->cnd_federal_status_label }}
-                                        </span>
-                                    </div>
-                                @else
-                                    <div class="flex items-center gap-2 flex-wrap">
-                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: #9ca3af">Sem Mov.</span>
-                                        <span class="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $part->cnd_federal_status_hex }}">
-                                            {{ $part->cnd_federal_status_label }}
-                                        </span>
-                                    </div>
-                                @endif
-                                <p class="text-[11px] text-gray-500 leading-tight">{{ $part->cnd_federal_meta }}</p>
-                            </div>
-                        </div>
-                        <div class="min-w-0">
-                            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Origem</p>
-                            <div class="mt-1 flex flex-col items-start">
-                                <span class="inline-flex max-w-full items-center justify-center whitespace-nowrap px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $cardOrigemLabel['color'] }}">
-                                    {{ $cardOrigemLabel['label'] }}
-                                </span>
-                                <p class="text-[11px] text-gray-500 mt-1">Base: {{ $part->created_at?->format('d/m/Y') ?? '-' }}</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            @empty
-                <div class="col-span-full py-12 text-center text-gray-400 text-sm">Nenhum participante encontrado.</div>
-            @endforelse
-        </div>
 
     </div>
 
@@ -716,7 +564,6 @@
         var btnLimparSelecaoGeral = document.getElementById('btn-limpar-selecao-geral');
         var infoSelecaoPersistente = document.getElementById('selecao-persistente-info');
         var totalSelecionadosPersistente = document.getElementById('total-selecionados-persistente');
-        var desktopMedia = window.matchMedia ? window.matchMedia('(min-width: 768px)') : null;
 
         // === Persistencia via sessionStorage ===
         function carregarSelecao() {
@@ -1131,15 +978,6 @@
         if (!window._cleanupFunctions) window._cleanupFunctions = {};
         window._cleanupFunctions.participantesImportados = function () {
             document.removeEventListener('click', _piOnExcluirClick);
-            if (desktopMedia) {
-                if (desktopMedia.removeEventListener) {
-                    desktopMedia.removeEventListener('change', _piOnResizeView);
-                } else if (desktopMedia.removeListener) {
-                    desktopMedia.removeListener(_piOnResizeView);
-                }
-            } else {
-                window.removeEventListener('resize', _piOnResizeView);
-            }
         };
 
         if (btnCancelar) btnCancelar.addEventListener('click', fecharModalExclusao);
@@ -1190,76 +1028,6 @@
                 }
             });
         }
-
-        // === Toggle lista/cards ===
-        var VIEW_KEY = 'participantes_view_mode';
-        var tableWrapper = document.getElementById('participantes-list-view');
-        var cardsGrid = document.getElementById('participantes-cards');
-        var btnViewList = document.getElementById('btn-view-list');
-        var btnViewCards = document.getElementById('btn-view-cards');
-
-        function isDesktopView() {
-            return desktopMedia ? desktopMedia.matches : window.innerWidth >= 768;
-        }
-
-        function setView(mode, persist) {
-            var resolvedMode = isDesktopView() ? mode : 'cards';
-
-            if (persist && isDesktopView()) {
-                localStorage.setItem(VIEW_KEY, resolvedMode);
-            }
-
-            if (resolvedMode === 'cards') {
-                if (tableWrapper) tableWrapper.classList.add('hidden');
-                if (cardsGrid) cardsGrid.classList.remove('hidden');
-                if (btnViewList) btnViewList.classList.remove('active-view');
-                if (btnViewCards) btnViewCards.classList.add('active-view');
-            } else {
-                if (tableWrapper) tableWrapper.classList.remove('hidden');
-                if (cardsGrid) cardsGrid.classList.add('hidden');
-                if (btnViewCards) btnViewCards.classList.remove('active-view');
-                if (btnViewList) btnViewList.classList.add('active-view');
-            }
-        }
-
-        function restaurarViewPreferida() {
-            setView(localStorage.getItem(VIEW_KEY) || 'list', false);
-        }
-
-        if (btnViewList) btnViewList.addEventListener('click', function() { setView('list', true); });
-        if (btnViewCards) btnViewCards.addEventListener('click', function() { setView('cards', true); });
-
-        if (cardsGrid) {
-            cardsGrid.addEventListener('click', function(e) {
-                if (e.target.closest('input[type="checkbox"], button, a')) return;
-
-                var card = e.target.closest('.participante-card');
-                if (!card || !card.dataset.href) return;
-                var href = card.dataset.href;
-                if (window.navigateTo) {
-                    window.navigateTo(href);
-                } else {
-                    window.location.href = href;
-                }
-            });
-        }
-
-        function _piOnResizeView() {
-            restaurarViewPreferida();
-        }
-
-        if (desktopMedia) {
-            if (desktopMedia.addEventListener) {
-                desktopMedia.addEventListener('change', _piOnResizeView);
-            } else if (desktopMedia.addListener) {
-                desktopMedia.addListener(_piOnResizeView);
-            }
-        } else {
-            window.addEventListener('resize', _piOnResizeView);
-        }
-
-        // Restaurar preferencia: mobile força cards; desktop usa lista por padrão.
-        restaurarViewPreferida();
 
         console.log('[Monitoramento Participantes Importados] Inicializacao concluida');
     }

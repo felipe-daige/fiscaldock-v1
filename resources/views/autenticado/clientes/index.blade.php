@@ -1,22 +1,6 @@
 {{-- Clientes - Autenticado --}}
-<div class="bg-gray-100 min-h-screen" id="clientes-container" data-view="list">
+<div class="bg-gray-100 min-h-screen" id="clientes-container">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
-        <style>
-            .view-toggle-btn.active-view {
-                background-color: #1f2937;
-                color: #ffffff;
-            }
-            /* Responsivo no padrão /app/notas: no mobile sempre cards (a tabela some);
-               no desktop (md+) o toggle lista/cards decide. */
-            #clientes-list-view.clientes-table-view { display: none; }
-            #clientes-cards-view { display: grid; }
-            @media (min-width: 768px) {
-                #clientes-container[data-view="list"] #clientes-list-view.clientes-table-view { display: block; }
-                #clientes-container[data-view="list"] #clientes-cards-view { display: none; }
-                #clientes-container[data-view="cards"] #clientes-list-view.clientes-table-view { display: none; }
-                #clientes-container[data-view="cards"] #clientes-cards-view { display: grid; }
-            }
-        </style>
         <div class="space-y-6">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
@@ -178,23 +162,6 @@
                             <button type="submit" class="bg-gray-800 text-white hover:bg-gray-700 rounded text-sm font-medium px-4 py-2">Filtrar</button>
                             <a href="/app/clientes" data-link class="bg-white border border-gray-300 text-gray-600 hover:bg-gray-50 rounded text-sm font-medium px-4 py-2">Limpar</a>
                         </div>
-                        <div class="hidden md:flex items-center gap-1 self-start sm:self-auto">
-                            <button id="btn-view-list-clientes"
-                                class="p-2 rounded border border-gray-300 text-gray-500 hover:bg-gray-50 transition-colors view-toggle-btn active-view"
-                                title="Visualização em lista" type="button">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
-                                </svg>
-                            </button>
-                            <button id="btn-view-cards-clientes"
-                                class="p-2 rounded border border-gray-300 text-gray-500 hover:bg-gray-50 transition-colors view-toggle-btn"
-                                title="Visualização em cards" type="button">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-                                    <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
-                                </svg>
-                            </button>
-                        </div>
                     </div>
                 </div>
             </form>
@@ -226,7 +193,7 @@
                 </div>
             </div>
 
-            <div id="clientes-list-view" class="bg-white rounded border border-gray-300 overflow-hidden @if(isset($clientes) && $clientes->count() > 0) clientes-table-view @endif">
+            <div id="clientes-list-view" class="bg-white rounded border border-gray-300 overflow-hidden">
                 @if(isset($clientes) && $clientes->count() > 0)
                     <div class="overflow-x-auto">
                         <table class="w-full table-fixed">
@@ -363,116 +330,6 @@
             </div>
 
             @if(isset($clientes) && $clientes->count() > 0)
-                <div id="clientes-cards-view" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                    @foreach($clientes as $cliente)
-                        <div class="cliente-card bg-white rounded border border-gray-300 overflow-hidden" data-cliente-id="{{ $cliente->id }}">
-                            <div class="px-4 py-3 border-b border-gray-200 bg-gray-50/60">
-                                <div class="flex items-start justify-between gap-3">
-                                    <div class="flex items-start gap-3 min-w-0">
-                                        @unless($cliente->is_empresa_propria)
-                                            <input type="checkbox" class="cliente-checkbox mt-0.5 w-4 h-4 rounded border-gray-300 text-gray-700 focus:ring-gray-400" data-id="{{ $cliente->id }}">
-                                        @endunless
-                                        <div class="min-w-0">
-                                            <div class="flex items-center gap-2 flex-wrap">
-                                                <a href="/app/cliente/{{ $cliente->id }}" data-link class="text-sm text-gray-900 hover:text-gray-600 hover:underline truncate">
-                                                    {{ $cliente->razao_social ?? $cliente->nome ?? '-' }}
-                                                </a>
-                                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $cliente->tipo_pessoa === 'PJ' ? '#374151' : '#9ca3af' }}">
-                                                    {{ $cliente->tipo_pessoa }}
-                                                </span>
-                                                @if($cliente->is_empresa_propria)
-                                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: #047857">Empresa Própria</span>
-                                                @endif
-                                            </div>
-                                            @if($cliente->nome_fantasia)
-                                                <div class="text-[11px] text-gray-500 mt-1">
-                                                    <a href="/app/cliente/{{ $cliente->id }}" data-link class="text-gray-600 hover:text-gray-900 hover:underline">
-                                                        {{ $cliente->nome_fantasia }}
-                                                    </a>
-                                                </div>
-                                            @elseif($cliente->tipo_pessoa === 'PJ' && $cliente->nome)
-                                                <div class="text-[11px] text-gray-500 mt-1">
-                                                    <a href="/app/cliente/{{ $cliente->id }}" data-link class="text-gray-600 hover:text-gray-900 hover:underline">
-                                                        {{ $cliente->nome }}
-                                                    </a>
-                                                </div>
-                                            @endif
-                                            <div class="mt-2 flex items-center gap-2 flex-wrap">
-                                                <span class="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white" style="background-color: {{ $cliente->consulta_status_hex }}">
-                                                    {{ $cliente->consulta_status_label }}
-                                                </span>
-                                            </div>
-                                            <div class="text-[11px] text-gray-500 mt-1">
-                                                {{ $cliente->consulta_status_meta }}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="flex-shrink-0">
-                                        <x-acoes-menu trigger="kebab">
-                                            <x-acoes-item href="/app/cliente/{{ $cliente->id }}/editar" data-link>Editar</x-acoes-item>
-                                            @unless($cliente->is_empresa_propria)
-                                                <x-acoes-item variant="danger"
-                                                    data-excluir-cliente="{{ $cliente->id }}"
-                                                    data-nome="{{ $cliente->razao_social ?? $cliente->nome ?? '' }}"
-                                                    data-documento="{{ $cliente->documento_formatado }}">Excluir</x-acoes-item>
-                                            @endunless
-                                        </x-acoes-menu>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="divide-y divide-gray-100">
-                                <div class="px-4 py-3 grid grid-cols-2 gap-3">
-                                    <div>
-                                        <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Documento</p>
-                                        <p class="text-sm font-mono text-gray-700 mt-1">{{ $cliente->documento_formatado }}</p>
-                                    </div>
-                                    <div>
-                                        <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Regime</p>
-                                        <p class="text-sm text-gray-700 mt-1"><x-regime-tributario :valor="$cliente->regime_tributario" :nota="$cliente->regime_tributario_nota" /></p>
-                                    </div>
-                                </div>
-                                <div class="px-4 py-3">
-                                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Contato</p>
-                                    <p class="text-sm text-gray-700 mt-1">{{ $cliente->email ?: '-' }}</p>
-                                    <p class="text-[11px] text-gray-500 mt-1">
-                                        {{ $cliente->telefone ?: 'Sem telefone' }}
-                                        @if($cliente->uf)
-                                            <span class="mx-1">·</span>{{ $cliente->uf }}
-                                        @endif
-                                    </p>
-                                </div>
-                                <div class="px-4 py-3 grid grid-cols-2 gap-3">
-                                    <div>
-                                        <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Participantes</p>
-                                        <p class="text-sm text-gray-700 mt-1">{{ number_format($cliente->participantes_count ?? 0, 0, ',', '.') }}</p>
-                                    </div>
-                                    <div>
-                                        <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Situação</p>
-                                        <div class="mt-1 flex items-center gap-1.5 flex-wrap">
-                                            @if(($cliente->situacao_cadastral ?? '') === 'ATIVA')
-                                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: #047857">Ativa</span>
-                                            @elseif($cliente->situacao_cadastral)
-                                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: #d97706">{{ $cliente->situacao_cadastral }}</span>
-                                            @else
-                                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: #9ca3af">{{ $cliente->ativo ? 'Ativo' : 'Inativo' }}</span>
-                                            @endif
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="px-4 py-3">
-                                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Certidões</p>
-                                    <div class="mt-1 flex items-center gap-1.5 flex-wrap">
-                                        @forelse($cliente->certidoes_badges ?? [] as $b)
-                                            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap" style="background-color: {{ $b['hex'] }}" title="{{ $b['titulo'] }}: {{ $b['label'] }}">{{ $b['curto'] }}</span>
-                                        @empty
-                                            <span class="text-[11px] text-gray-500">Sem certidões consultadas</span>
-                                        @endforelse
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
 
                 @if($clientes->hasPages())
                     <div class="bg-white rounded border border-gray-300 px-4 py-3">
@@ -568,8 +425,6 @@
 
         var clientesSelecionados = carregarSelecao();
         var selectAll = document.getElementById('select-all-clientes');
-        var btnViewList = document.getElementById('btn-view-list-clientes');
-        var btnViewCards = document.getElementById('btn-view-cards-clientes');
         var btnSelecionarTodos = document.getElementById('btn-selecionar-todos-clientes');
         var btnLimparSelecaoGlobal = document.getElementById('btn-limpar-selecao-clientes');
 
@@ -591,27 +446,6 @@
             try {
                 sessionStorage.removeItem(STORAGE_KEY);
             } catch (e) {}
-        }
-
-        function ativarModoVisualizacao(mode) {
-            // No mobile o CSS força cards; este toggle só vale no desktop (md+).
-            // A visibilidade real é controlada por CSS via [data-view] no container.
-            var isCards = mode === 'cards';
-            container.dataset.view = isCards ? 'cards' : 'list';
-            if (btnViewList) btnViewList.classList.toggle('active-view', !isCards);
-            if (btnViewCards) btnViewCards.classList.toggle('active-view', isCards);
-        }
-
-        if (btnViewList) {
-            btnViewList.addEventListener('click', function() {
-                ativarModoVisualizacao('list');
-            });
-        }
-
-        if (btnViewCards) {
-            btnViewCards.addEventListener('click', function() {
-                ativarModoVisualizacao('cards');
-            });
         }
 
         function atualizarBarraAcoes() {
@@ -642,8 +476,6 @@
             salvarSelecao(clientesSelecionados);
         }
 
-        ativarModoVisualizacao('list');
-
         function sincronizarCheckboxesCliente(id, checked) {
             container.querySelectorAll('.cliente-checkbox[data-id="' + id + '"]').forEach(function(cb) {
                 cb.checked = checked;
@@ -660,10 +492,6 @@
         function removerClienteDaTela(id) {
             container.querySelectorAll('tr[data-cliente-id="' + id + '"]').forEach(function(row) {
                 row.remove();
-            });
-
-            container.querySelectorAll('.cliente-card[data-cliente-id="' + id + '"]').forEach(function(card) {
-                card.remove();
             });
         }
 
