@@ -246,13 +246,20 @@
     // avaliado) e sem UF (distribuição geográfica incompleta). Honestidade — evita
     // o falso "tudo certo" quando o cadastro não foi enriquecido por consulta CNPJ.
     function renderCoberturaConsulta(cc) {
-        cc = cc || { total: 0, sem_consulta: 0, sem_uf: 0 };
+        cc = cc || { total: 0, sem_consulta: 0, sem_consulta_cpf: 0, sem_consulta_cnpj: 0, sem_uf: 0, sem_uf_cpf: 0, sem_uf_cnpj: 0 };
         const banner = document.getElementById('bi-cobertura-consulta-banner');
         const texto = document.getElementById('bi-cobertura-consulta-texto');
         if (!banner || !texto) return;
         const partes = [];
-        if ((cc.sem_consulta || 0) > 0) partes.push(`⚠ ${cc.sem_consulta} de ${cc.total} participantes nunca consultados — risco não avaliado`);
-        if ((cc.sem_uf || 0) > 0) partes.push(`${cc.sem_uf} sem UF — distribuição geográfica incompleta`);
+        if ((cc.sem_consulta || 0) > 0) {
+            const cnpj = cc.sem_consulta_cnpj || 0, cpf = cc.sem_consulta_cpf || 0;
+            partes.push(`${cc.sem_consulta} de ${cc.total} participantes nunca consultados (${cnpj} CNPJ, ${cpf} CPF) — risco não avaliado`);
+        }
+        if ((cc.sem_uf || 0) > 0) {
+            // CPF (pessoa física) não tem UF de estabelecimento — distinguir do gap real (CNPJ).
+            const cnpj = cc.sem_uf_cnpj || 0, cpf = cc.sem_uf_cpf || 0;
+            partes.push(`${cc.sem_uf} sem UF (${cnpj} CNPJ, ${cpf} CPF) — CPF não tem UF de estabelecimento (esperado); consulte os ${cnpj} CNPJ para enriquecer`);
+        }
         if (partes.length) {
             texto.textContent = partes.join(' · ');
             banner.classList.remove('hidden');

@@ -100,8 +100,9 @@
         {{-- Faixa de cobertura de CONSULTA (avisa participantes nunca consultados / sem UF).
              Sempre começa hidden; renderCoberturaConsulta() (boot via updateResumoKpis) revela
              só com texto. --}}
-        <div id="bi-cobertura-consulta-banner" class="hidden mb-3" style="background-color:#fffbeb;border:1px solid #fde68a;padding:8px;border-radius:6px;">
-            <span id="bi-cobertura-consulta-texto" style="color:#92400e;font-size:12px;"></span>
+        <div id="bi-cobertura-consulta-banner" class="hidden rounded border mb-3 px-4 py-2 flex items-start gap-2" style="background-color:#fffbeb;border-color:#fde68a;">
+            <span style="color:#b45309;" class="text-sm font-bold leading-5">&#9888;</span>
+            <p id="bi-cobertura-consulta-texto" class="text-[12px] leading-5" style="color:#92400e;"></p>
         </div>
 
         {{-- KPIs Consolidados --}}
@@ -733,4 +734,4 @@
 
 {{-- ApexCharts (local) --}}
 <script src="/js/apexcharts.min.js"></script>
-<script src="/js/bi.js"></script>
+<script src="{{ asset('js/bi.js') }}?v={{ filemtime(public_path('js/bi.js')) }}"></script>
